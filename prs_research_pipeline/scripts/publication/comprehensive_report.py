@@ -1,0 +1,1974 @@
+#!/usr/bin/env python3
+"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║   COMPREHENSIVE HTML REPORT GENERATOR                                        ║
+║   scripts/comprehensive_report.py                                            ║
+║                                                                            ║
+║   Generates a single, rich, interactive HTML report from all pipeline       ║
+║   outputs. Collapsible sections, embedded data tables, visual risk bars,    ║
+║   and full bilingual support.                                               ║
+║                                                                            ║
+║   Inputs:  All JSON outputs from the PRS pipeline                           ║
+║   Output:  reports/comprehensive_report_en.html                             ║
+║            reports/comprehensive_report_es.html                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+"""
+
+import sys, os, json, logging
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+from dataclasses import dataclass
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BILINGUAL UI STRINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+UI = {
+    "en": {
+        "title": "BlueGen Report",
+        "subtitle": "Comprehensive Polygenic Risk Score Analysis",
+        "sections": {
+            "summary": "Executive Summary",
+            "ancestry": "Ancestry Deep-Dive",
+            "prs": "PRS Results — Population-Calibrated",
+            "uncertainty": "Uncertainty — Variance Decomposition",
+            "variants": "Variant-Level Detail",
+            "calibration": "Population Calibration Methodology",
+            "pgs_calibration": "PGS Catalog — External Validation (30 scores, calibrated)",
+            "portability": "Population Portability Analysis",
+            "validation": "Scientific Validation (8 Dimensions)",
+            "gwas_consortium": "GWAS Consortium Validation",
+            "benchmark": "External Benchmarking — Quality Delta",
+            "adversarial": "Adversarial Stress Testing",
+            "failure_map": "Failure Mode Coverage",
+            "leakage": "Leakage Prevention — Detailed Audit",
+            "consistency": "GWAS-Ancestry Consistency Check",
+            "integrity": "Scientific Integrity Score",
+            "reproducibility": "Reproducibility — Environment & Seeds",
+            "methodology": "Pipeline Methodology",
+            "clinvar": "ClinVar — Pathogenic Variants",
+            "limitations": "Limitations & Disclaimers",
+        },
+        "risk_high": "HIGHER RISK", "risk_medium": "AVERAGE RISK", "risk_low": "LOWER RISK",
+        "passed": "PASSED", "failed": "FAILED", "warning": "WARNING",
+        "yes": "Yes", "no": "No",
+        "disclaimer": (
+            "⚠️  RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS\n\n"
+            "This PRS report is generated for RESEARCH PURPOSES ONLY. "
+            "It does NOT constitute a clinical diagnosis, medical advice, "
+            "or a definitive prediction of disease risk.\n\n"
+            "Key limitations:\n"
+            "• PRS is probabilistic, not deterministic\n"
+            "• Effect sizes depend on GWAS discovery populations\n"
+            "• Ancestry bias is reduced but not eliminated by population calibration\n"
+            "• Gene-environment interactions are not captured by genotype alone\n"
+            "• Consult a healthcare professional before making dietary or lifestyle changes"
+        ),
+    },
+    "es": {
+        "title": "Informe de Investigación PRS",
+        "subtitle": "Análisis Completo de Puntaje de Riesgo Poligénico",
+        "sections": {
+            "summary": "Resumen Ejecutivo",
+            "ancestry": "Ascendencia en Detalle",
+            "prs": "Resultados PRS — Calibrados por Población",
+            "uncertainty": "Incertidumbre — Descomposición de Varianza",
+            "variants": "Detalle por Variante",
+            "calibration": "Metodología de Calibración Poblacional",
+            "pgs_calibration": "Catálogo PGS — Validación Externa (30 scores, calibrados)",
+            "portability": "Análisis de Portabilidad Poblacional",
+            "validation": "Validación Científica (8 Dimensiones)",
+            "gwas_consortium": "Validación de Consorcios GWAS",
+            "benchmark": "Referencia Externa — Delta de Calidad",
+            "adversarial": "Pruebas de Estrés Adversarial",
+            "failure_map": "Cobertura de Modos de Falla",
+            "leakage": "Prevención de Fuga — Auditoría Detallada",
+            "consistency": "Verificación de Consistencia GWAS-Ascendencia",
+            "integrity": "Índice de Integridad Científica",
+            "reproducibility": "Reproducibilidad — Entorno y Semillas",
+            "methodology": "Metodología del Pipeline",
+            "clinvar": "ClinVar — Variantes Patogénicas",
+            "limitations": "Limitaciones y Avisos",
+        },
+        "risk_high": "RIESGO ELEVADO", "risk_medium": "RIESGO PROMEDIO", "risk_low": "RIESGO BAJO",
+        "passed": "APROBADO", "failed": "FALLIDO", "warning": "ADVERTENCIA",
+        "yes": "Sí", "no": "No",
+        "disclaimer": (
+            "⚠️  SOLO PARA USO EN INVESTIGACIÓN — NO PARA DIAGNÓSTICO CLÍNICO\n\n"
+            "Este informe PRS se genera SOLO PARA FINES DE INVESTIGACIÓN. "
+            "NO constituye un diagnóstico clínico, consejo médico, "
+            "ni una predicción definitiva del riesgo de enfermedad.\n\n"
+            "Limitaciones clave:\n"
+            "• PRS es probabilístico, no determinista\n"
+            "• Los tamaños del efecto dependen de las poblaciones de descubrimiento GWAS\n"
+            "• El sesgo de ascendencia se reduce pero no se elimina\n"
+            "• Las interacciones gen-ambiente no se capturan solo con el genotipo\n"
+            "• Consulte a un profesional de la salud antes de hacer cambios"
+        ),
+    },
+}
+
+POP_NAMES = {
+    "en": {"EUR": "European", "AFR": "African", "EAS": "East Asian",
+           "SAS": "South Asian", "AMR": "Admixed American"},
+    "es": {"EUR": "Europea", "AFR": "Africana", "EAS": "Asia Oriental",
+           "SAS": "Sur de Asia", "AMR": "Americana Mixta"},
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA LOADING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def load_json(path: str, default=None):
+    p = Path(path)
+    if p.exists():
+        with open(p) as fh:
+            return json.load(fh)
+    return default or {}
+
+def safe_float(v, default=0.0):
+    try: return float(v)
+    except: return default
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTML GENERATORS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def risk_color(z_score):
+    """Return CSS color based on z-score magnitude."""
+    az = abs(z_score)
+    if az >= 2.0: return "#e74c3c"
+    if az >= 1.0: return "#f39c12"
+    return "#27ae60"
+
+def risk_badge(risk, ui):
+    labels = {"high": ui["risk_high"], "medium": ui["risk_medium"], "low": ui["risk_low"]}
+    colors = {"high": ("#fadbd8", "#c0392b"), "medium": ("#fdebd0", "#b7950b"), "low": ("#d5f5e3", "#1e8449")}
+    bg, fg = colors.get(risk, colors["medium"])
+    return f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{labels.get(risk, risk)}</span>'
+
+def risk_bar(pct, z_score):
+    """Render a horizontal risk bar."""
+    color = risk_color(z_score)
+    return (
+        f'<div style="display:flex;align-items:center;gap:6px;margin:4px 0">'
+        f'<span style="font-size:0.65rem;color:#27ae60">Low</span>'
+        f'<div style="flex:1;height:8px;background:#e9ecef;border-radius:4px;overflow:hidden">'
+        f'<div style="width:{pct}%;height:100%;background:{color};border-radius:4px"></div>'
+        f'</div>'
+        f'<span style="font-size:0.65rem;color:#e74c3c">High</span>'
+        f'</div>'
+    )
+
+def collapsible_section(section_id, title, content, open_by_default=False):
+    """Generate a collapsible HTML section."""
+    display = "block" if open_by_default else "none"
+    arrow = "▼" if open_by_default else "▶"
+    return f"""
+    <div class="collapsible-section">
+        <div class="section-header" onclick="toggleSection('{section_id}', this)">
+            <span class="section-arrow" id="{section_id}_arrow">{arrow}</span>
+            <h2>{title}</h2>
+        </div>
+        <div class="section-body" id="{section_id}" style="display:{display}">
+            {content}
+        </div>
+    </div>
+    """
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION BUILDERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def build_summary_cards(prs_result, ancestry, integrity, validation, ui):
+    """Executive summary cards."""
+    entries = prs_result.get("prs_entries", [])
+    n_high = sum(1 for e in entries if e.get("risk_category") == "high")
+    n_medium = sum(1 for e in entries if e.get("risk_category") == "medium")
+    n_low = sum(1 for e in entries if e.get("risk_category") == "low")
+
+    pop = ancestry.get("assigned_population", "EUR")
+    pop_name = POP_NAMES["en"].get(pop, pop)
+    confidence = ancestry.get("confidence", "UNKNOWN")
+    integrity_score = integrity.get("scientific_integrity_score", 0)
+    integrity_cat = integrity.get("category", "Unknown")
+    val_score = validation.get("overall_score", 0)
+    val_status = validation.get("overall_status", "Unknown")
+
+    # Find top risk trait
+    top_trait = max(entries, key=lambda e: abs(safe_float(e.get("raw_score", 0)))) if entries else None
+
+    return f"""
+    <div class="summary-grid">
+        <div class="summary-card" style="border-left-color:#e74c3c">
+            <div class="card-number">{n_high}</div>
+            <div class="card-label">{ui['risk_high']}</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#f39c12">
+            <div class="card-number">{n_medium}</div>
+            <div class="card-label">{ui['risk_medium']}</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#27ae60">
+            <div class="card-number">{n_low}</div>
+            <div class="card-label">{ui['risk_low']}</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#3498db">
+            <div class="card-number" style="font-size:1.2rem">{pop_name}</div>
+            <div class="card-label">Ancestry ({confidence})</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#9b59b6">
+            <div class="card-number">{integrity_score:.0f}</div>
+            <div class="card-label">Integrity / 100</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#1abc9c">
+            <div class="card-number">{val_status.replace('_', ' ').title()}</div>
+            <div class="card-label">Validation ({val_score:.0f}/100)</div>
+        </div>
+    </div>
+    {f'<div class="highlight-box"><strong>Top Risk:</strong> {top_trait["trait"]} — raw score {safe_float(top_trait.get("raw_score", 0)):.2f}, {top_trait.get("n_snps_used", 0)}/{top_trait.get("n_snps_total", 0)} SNPs used</div>' if top_trait else ''}
+    <div class="highlight-box"><strong>Integrity:</strong> {integrity_cat} — {integrity.get("category_description", "")}</div>
+    """
+
+
+def build_ancestry_section(ancestry, pca_data, ui):
+    """Ancestry deep-dive section."""
+    pop = ancestry.get("assigned_population", "UNKNOWN")
+    confidence = ancestry.get("confidence", "UNKNOWN")
+    probs = ancestry.get("posterior_probabilities", {})
+    n_ref = ancestry.get("n_reference_samples", 2504)
+    n_pcs = ancestry.get("n_pcs", 20)
+
+    pop_names = POP_NAMES["en"]
+    prob_rows = ""
+    for p in ["EUR", "AFR", "EAS", "SAS", "AMR"]:
+        prob = probs.get(p, 0) * 100 if isinstance(probs.get(p, 0), (int, float)) else 0
+        bar_w = max(prob, 1)
+        prob_rows += f"""
+        <tr>
+            <td>{pop_names.get(p, p)} ({p})</td>
+            <td>{prob:.1f}%</td>
+            <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden">
+                        <div style="width:{bar_w}%;height:100%;background:{'#3498db' if p==pop else '#bdc3c7'};border-radius:3px"></div>
+                    </div>
+                </div>
+            </td>
+        </tr>"""
+
+    # Try to load PCA eigenvalues
+    pca_eigenval = load_json("pca/pca_results.eigenval") if False else {}
+    pca_var_explained = ""
+    if False:  # eigenval file format differs
+        pass
+
+    # Load 1000G PCA coordinates if available
+    pca_table = ""
+    try:
+        eigenvec = "pca/pca_results.eigenvec"
+        if os.path.exists(eigenvec):
+            pcs = pd.read_csv(eigenvec, sep="\t", nrows=1)
+            pc_cols = [c for c in pcs.columns if c.startswith("PC")]
+            target_pcs = "pca/target_pcs.eigenvec"
+            if os.path.exists(target_pcs):
+                tpcs = pd.read_csv(target_pcs, sep="\t")
+                pca_table = "<h4>Sample PCA Coordinates (Top 5 PCs)</h4><table><thead><tr><th>PC</th><th>Value</th></tr></thead><tbody>"
+                for i, col in enumerate(pc_cols[:5]):
+                    val = tpcs[col].values[0] if col in tpcs.columns else 0
+                    pca_table += f"<tr><td>{col}</td><td>{val:.6f}</td></tr>"
+                pca_table += "</tbody></table>"
+    except Exception:
+        pass
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card">
+            <h4>Assigned Population</h4>
+            <div class="big-stat">{pop_names.get(pop, pop)}</div>
+            <div class="stat-sub">Confidence: {confidence}</div>
+        </div>
+        <div class="info-card">
+            <h4>Reference Panel</h4>
+            <div class="big-stat">{n_ref}</div>
+            <div class="stat-sub">1000 Genomes Phase 3 samples</div>
+        </div>
+        <div class="info-card">
+            <h4>PCA Dimensions</h4>
+            <div class="big-stat">{n_pcs}</div>
+            <div class="stat-sub">Principal components</div>
+        </div>
+        <div class="info-card">
+            <h4>Populations</h4>
+            <div class="big-stat">5</div>
+            <div class="stat-sub">EUR · AFR · EAS · SAS · AMR</div>
+        </div>
+    </div>
+    <h4>Population Probability Distribution</h4>
+    <table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead>
+    <tbody>{prob_rows}</tbody></table>
+    {pca_table}
+    """
+
+
+def build_prs_table(entries, ui):
+    """Full PRS results table with risk bars."""
+    rows = ""
+    for e in entries:
+        trait = e.get("trait", "")
+        z = safe_float(e.get("population_zscore", e.get("raw_score", 0)))
+        pctl = safe_float(e.get("population_percentile", 50))
+        risk = e.get("risk_category", "medium")
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+        ci_low = safe_float(e.get("ci_95_lower", 0))
+        ci_high = safe_float(e.get("ci_95_upper", 0))
+        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+
+        bar_pct = max(5, min(95, pctl))
+        color = risk_color(z)
+
+        rows += f"""
+        <tr>
+            <td><strong>{trait}</strong></td>
+            <td style="color:{color};font-weight:700">{z:+.2f}</td>
+            <td>{pctl:.1f}%</td>
+            <td>{risk_badge(risk, ui)}</td>
+            <td>{n_used}/{n_total}</td>
+            <td>[{ci_low:.2f}, {ci_high:.2f}]</td>
+            <td>{uncertainty:.2f}</td>
+            <td style="min-width:140px">{risk_bar(bar_pct, z)}</td>
+        </tr>"""
+
+    return f"""
+    <table>
+        <thead><tr>
+            <th>Trait</th><th>Z-Score</th><th>Percentile</th><th>Risk</th>
+            <th>SNPs Used</th><th>95% CI</th><th>Uncert.</th><th>Risk Bar</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    <p style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:0.75rem;line-height:1.5">
+    ⚠️ <strong>Limitations:</strong> PRS estimates <em>relative</em> genetic predisposition — it does <strong>not</strong> predict absolute disease risk.
+    Effect sizes are derived primarily from European-ancestry GWAS and may have reduced accuracy in other populations.
+    Gene-environment interactions, rare variants, and structural variants are not captured.
+    <strong>Research use only — not clinical diagnosis.</strong>
+    </p>
+    """
+
+
+def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv"):
+    """Per-trait variant-level detail tables."""
+    # Try to load the SNP database
+    snp_db = None
+    if os.path.exists(snp_db_path):
+        try: snp_db = pd.read_csv(snp_db_path, dtype=str)
+        except: pass
+
+    sections = ""
+    for e in entries:
+        trait = e.get("trait", "")
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+
+        # Detect trait column name (snake_case variants)
+        trait_col = None
+        if snp_db is not None:
+            for col in ["trait_category", "trait", "Trait", "trait_name"]:
+                if col in snp_db.columns:
+                    trait_col = col
+                    break
+
+        if trait_col:
+            trait_snps = snp_db[snp_db[trait_col].str.lower() == trait.lower()]
+            if len(trait_snps) == 0:
+                trait_snps = snp_db.head(0)  # empty match
+        else:
+            trait_snps = None
+
+        variant_rows = ""
+        if trait_snps is not None and len(trait_snps) > 0:
+            for _, row in trait_snps.iterrows():
+                rsid = row.get("rsid", "—")
+                gene = row.get("gene", "—")
+                effect_allele = row.get("effect_allele", "—")
+                weight = row.get("weight", row.get("beta", "—"))
+                evidence = row.get("evidence_level", row.get("evidence", "—")).strip().upper()
+                ev_colors = {"A": ("#27ae60", "#d5f5e3"), "B": ("#2e86c1", "#d6eaf8"), "C": ("#f39c12", "#fdebd0"), "D": ("#95a5a6", "#eaecee")}
+                fg, bg = ev_colors.get(evidence, ("#7f8c8d", "#e9ecef"))
+                ev_badge = f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700">{evidence}</span>'
+                variant_rows += f"<tr><td>{rsid}</td><td>{gene}</td><td>{effect_allele}</td><td>{weight}</td><td>{ev_badge}</td></tr>"
+        else:
+            variant_rows = f"<tr><td colspan='5' style='color:#7f8c8d'>SNP database not available. Run with --snp-db to populate.</td></tr>"
+
+        sections += f"""
+        <h4>{trait} <span style="font-weight:400;color:#7f8c8d">({n_used}/{n_total} SNPs used)</span></h4>
+        <table>
+            <thead><tr><th>rsID</th><th>Gene</th><th>Effect Allele</th><th>Weight (β)</th><th>Evidence</th></tr></thead>
+            <tbody>{variant_rows}</tbody>
+        </table>
+        """
+
+    # Add evidence level legend
+    legend = """
+    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:0.8rem 1.2rem;margin-top:0.5rem">
+        <p style="font-size:0.8rem;margin:0">
+        <strong>📖 Evidence Levels:</strong>
+        <span style="background:#d5f5e3;color:#27ae60;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">A</span> = Strong GWAS evidence (p &lt; 5×10⁻⁸), replicated in multiple populations.<br>
+        <span style="background:#d6eaf8;color:#2e86c1;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">B</span> = Moderate evidence (p &lt; 10⁻⁵), supported by functional studies.<br>
+        <span style="background:#fdebd0;color:#f39c12;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">C</span> = Candidate gene study or suggestive GWAS (p &lt; 10⁻³).<br>
+        <span style="background:#eaecee;color:#95a5a6;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">D</span> = Preliminary evidence or literature-based association.<br>
+        <span style="font-size:0.72rem;color:var(--color-text-secondary)">Weights are normalized effect sizes (β coefficients). Higher |β| = stronger SNP contribution to the PRS.</span>
+        </p>
+    </div>
+    """
+    return sections + legend
+
+
+def build_uncertainty_section(entries):
+    """Uncertainty analysis with visual indicators."""
+    rows = ""
+    for e in entries:
+        trait = e.get("trait", "")
+        raw = safe_float(e.get("raw_score", 0))
+        ci_low = safe_float(e.get("ci_95_lower", 0))
+        ci_high = safe_float(e.get("ci_95_upper", 0))
+        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+        se = (ci_high - ci_low) / 3.92  # approximate SE from CI
+
+        # Uncertainty color
+        if uncertainty < 0.5: u_color = "#27ae60"
+        elif uncertainty < 0.8: u_color = "#f39c12"
+        else: u_color = "#e74c3c"
+
+        # CI bar: map CI range within [-3, +3]
+        left_norm = max(0, (ci_low + 3) / 6 * 100)
+        right_norm = min(100, (ci_high + 3) / 6 * 100)
+
+        rows += f"""
+        <tr>
+            <td><strong>{trait}</strong></td>
+            <td>{raw:.3f} ± {se:.3f}</td>
+            <td>[{ci_low:.3f}, {ci_high:.3f}]</td>
+            <td>
+                <div style="position:relative;height:20px;background:#e9ecef;border-radius:3px;margin:2px 0">
+                    <div style="position:absolute;left:{left_norm:.1f}%;width:{right_norm-left_norm:.1f}%;height:100%;background:{'#3498db44' if ci_low*ci_high > 0 else '#e74c3c44'};border:1px solid {'#3498db' if ci_low*ci_high > 0 else '#e74c3c'};border-radius:3px"></div>
+                    <div style="position:absolute;left:50%;top:0;width:2px;height:100%;background:#2c3e50"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:#7f8c8d">
+                    <span>-3σ</span><span>0</span><span>+3σ</span>
+                </div>
+            </td>
+            <td style="color:{u_color};font-weight:700">{uncertainty:.2f}</td>
+        </tr>"""
+
+    return f"""
+    <p>Uncertainty scores below 0.5 indicate high-confidence estimates. Scores above 0.8 indicate substantial uncertainty — treat results with caution.</p>
+    <table>
+        <thead><tr><th>Trait</th><th>PRS ± SE</th><th>95% CI</th><th>CI Visualization</th><th>Uncert.</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_validation_section(validation, ui):
+    """Validation checks table."""
+    checks = validation.get("checks", [])
+    rows = ""
+    for c in checks:
+        passed = c.get("passed", False)
+        sev = c.get("severity", "INFO")
+        sev_colors = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
+        icon = "✅" if passed else "❌"
+        rows += f"""
+        <tr>
+            <td><strong>{c.get("check_id", "")}</strong></td>
+            <td>{c.get("category", "")}</td>
+            <td>{c.get("description", "")}</td>
+            <td style="color:{sev_colors.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
+            <td>{icon}</td>
+            <td style="font-size:0.8rem;color:#7f8c8d">{c.get("detail", "")}</td>
+        </tr>"""
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card">
+            <h4>Overall Score</h4>
+            <div class="big-stat">{validation.get('overall_score', 0):.0f}</div>
+            <div class="stat-sub">/ 100 — {validation.get('overall_status', '').replace('_', ' ').title()}</div>
+        </div>
+        <div class="info-card">
+            <h4>Passed</h4>
+            <div class="big-stat" style="color:#27ae60">{validation.get('passed', 0)}</div>
+            <div class="stat-sub">of {validation.get('total_checks', 0)} checks</div>
+        </div>
+        <div class="info-card">
+            <h4>Warnings</h4>
+            <div class="big-stat" style="color:#f39c12">{validation.get('warnings', 0)}</div>
+            <div class="stat-sub">non-critical issues</div>
+        </div>
+        <div class="info-card">
+            <h4>Errors</h4>
+            <div class="big-stat" style="color:#e74c3c">{validation.get('errors', 0)}</div>
+            <div class="stat-sub">critical issues</div>
+        </div>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Category</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_benchmark_section(benchmark, quality_delta, ui):
+    """GWAS & external benchmarking."""
+    entries = benchmark.get("entries", [])
+    bench_rows = ""
+    for e in entries:
+        status = e.get("status", "VALID")
+        vtype = e.get("validation_type", "unknown")
+        is_circ = e.get("is_circular", False)
+        circ_badge = '<span style="background:#fdebd0;color:#b7950b;padding:1px 5px;border-radius:3px;font-size:0.65rem">CIRCULAR</span>' if is_circ else '<span style="background:#d5f5e3;color:#1e8449;padding:1px 5px;border-radius:3px;font-size:0.65rem">INDEPENDENT</span>'
+        bench_rows += f"""
+        <tr>
+            <td><strong>{e.get('validation_id', '')}</strong></td>
+            <td>{e.get('description', '')}</td>
+            <td>{vtype}</td>
+            <td>{circ_badge}</td>
+            <td>{status}</td>
+        </tr>"""
+
+    # Quality delta
+    qd = quality_delta
+    components = qd.get("components", [])
+    delta_rows = ""
+    for c in components:
+        delta = c.get("delta", 0)
+        direction = c.get("direction", "at_par")
+        d_color = "#27ae60" if direction == "overperform" else ("#e74c3c" if direction == "underperform" else "#f39c12")
+        delta_rows += f"""
+        <tr>
+            <td>{c.get('dimension', '')}</td>
+            <td>{safe_float(c.get('internal_score', 0)):.0f}</td>
+            <td>{safe_float(c.get('external_benchmark', 0)):.0f}</td>
+            <td style="color:{d_color};font-weight:700">{delta:+.0f}</td>
+            <td>{direction.replace('_', ' ').title()}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('explanation', '')[:150]}</td>
+        </tr>"""
+
+    return f"""
+    <h4>Validation Classification</h4>
+    <div class="info-grid">
+        <div class="info-card"><h4>Total</h4><div class="big-stat">{benchmark.get('validation_summary', {}).get('total_validations', 0)}</div></div>
+        <div class="info-card"><h4>Internal</h4><div class="big-stat">{benchmark.get('validation_summary', {}).get('internal', 0)}</div></div>
+        <div class="info-card"><h4>External</h4><div class="big-stat" style="color:#3498db">{benchmark.get('validation_summary', {}).get('external', 0)}</div></div>
+        <div class="info-card"><h4>Circular</h4><div class="big-stat" style="color:#e74c3c">{benchmark.get('validation_summary', {}).get('circular', 0)}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Description</th><th>Type</th><th>Classification</th><th>Status</th></tr></thead>
+        <tbody>{bench_rows}</tbody>
+    </table>
+
+    <h4 style="margin-top:2rem">Quality Delta — Internal vs External Benchmarks</h4>
+    <div class="info-grid">
+        <div class="info-card"><h4>Mean Delta</h4><div class="big-stat" style="color:{'#27ae60' if qd.get('mean_delta', 0) >= 0 else '#e74c3c'}">{qd.get('mean_delta', 0):+.1f}</div></div>
+        <div class="info-card"><h4>Overperform</h4><div class="big-stat" style="color:#27ae60">{qd.get('overperform', 0)}</div></div>
+        <div class="info-card"><h4>At Par</h4><div class="big-stat">{qd.get('at_par', 0)}</div></div>
+        <div class="info-card"><h4>Underperform</h4><div class="big-stat" style="color:#e74c3c">{qd.get('underperform', 0)}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>Dimension</th><th>Internal</th><th>External</th><th>Δ</th><th>Direction</th><th>Explanation</th></tr></thead>
+        <tbody>{delta_rows}</tbody>
+    </table>
+    """
+
+
+def build_adversarial_section(adversarial, ui):
+    """Adversarial stress testing results."""
+    results = adversarial.get("results", [])
+    rows = ""
+    for r in results:
+        robust = r.get("is_robust", False)
+        if isinstance(robust, str):
+            robust = robust.lower() == "true"
+        sev = r.get("severity", "MODERATE")
+        sev_color = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
+        icon = "✅" if robust else "❌"
+        change = safe_float(r.get("relative_change", 0))
+        rows += f"""
+        <tr>
+            <td><strong>{r.get('test_id', '')}</strong></td>
+            <td>{r.get('description', '')}</td>
+            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
+            <td>{icon} {'Robust' if robust else 'Vulnerable'}</td>
+            <td>{change:+.2f}</td>
+            <td style="font-size:0.8rem">{r.get('detail', '')}</td>
+        </tr>"""
+
+    critical_findings = adversarial.get("critical_findings", [])
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Robustness Score</h4><div class="big-stat">{adversarial.get('overall_robustness_score', 0):.0f}/100</div></div>
+        <div class="info-card"><h4>Tests Run</h4><div class="big-stat">{adversarial.get('n_tests', 0)}</div></div>
+        <div class="info-card"><h4>Robust</h4><div class="big-stat" style="color:#27ae60">{adversarial.get('n_robust', 0)}</div></div>
+        <div class="info-card"><h4>Vulnerable</h4><div class="big-stat" style="color:#e74c3c">{adversarial.get('n_vulnerable', 0)}</div></div>
+    </div>
+    {f'<div class="highlight-box" style="background:#fadbd8"><strong>Critical Findings:</strong> {", ".join(critical_findings)}</div>' if critical_findings else ''}
+    <table>
+        <thead><tr><th>Test ID</th><th>Description</th><th>Severity</th><th>Result</th><th>Change</th><th>Detail</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_failure_map_section(failure_map, ui):
+    """Failure mode coverage."""
+    failures = failure_map.get("failures", [])
+    rows = ""
+    for f in failures:
+        sev = f.get("severity", "MODERATE")
+        sev_color = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
+        validated = f.get("adversarial_validated", False)
+        v_icon = "✅" if validated else "⬚"
+        rows += f"""
+        <tr>
+            <td><strong>{f.get('id', '')}</strong></td>
+            <td>{f.get('component', '')}</td>
+            <td>{f.get('failure', '')}</td>
+            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
+            <td>{v_icon}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{f.get('effect', '')[:120]}</td>
+        </tr>"""
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Total Failures</h4><div class="big-stat">{failure_map.get('n_failures', 0)}</div></div>
+        <div class="info-card"><h4>Critical</h4><div class="big-stat" style="color:#e74c3c">{failure_map.get('n_critical', 0)}</div></div>
+        <div class="info-card"><h4>High</h4><div class="big-stat" style="color:#e67e22">{failure_map.get('n_high', 0)}</div></div>
+        <div class="info-card"><h4>Vulnerable Component</h4><div class="big-stat" style="font-size:1rem">{failure_map.get('most_vulnerable_component', 'N/A')}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Component</th><th>Failure Mode</th><th>Severity</th><th>Validated</th><th>Effect</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_leakage_section(leakage, ui):
+    """Leakage prevention gates."""
+    checks = leakage.get("checks", [])
+    rows = ""
+    for c in checks:
+        passed = c.get("passed", False)
+        sev = c.get("severity", "INFO")
+        icon = "✅" if passed else "❌"
+        sev_color = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
+        rows += f"""
+        <tr>
+            <td><strong>{c.get('gate', '')}</strong></td>
+            <td>{c.get('description', '')}</td>
+            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
+            <td>{icon}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('detail', '')}</td>
+        </tr>"""
+
+    can_proceed = leakage.get("pipeline_can_proceed", False)
+    all_passed = leakage.get("all_passed", False)
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Pipeline Safe</h4><div class="big-stat" style="color:{'#27ae60' if can_proceed else '#e74c3c'}">{'YES' if can_proceed else 'NO'}</div></div>
+        <div class="info-card"><h4>All Passed</h4><div class="big-stat" style="color:{'#27ae60' if all_passed else '#f39c12'}">{'YES' if all_passed else 'NO'}</div></div>
+        <div class="info-card"><h4>Gates</h4><div class="big-stat">{leakage.get('n_checks', 0)}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>Gate</th><th>Description</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_integrity_section(integrity, ui):
+    """Scientific integrity score breakdown."""
+    components = integrity.get("components", [])
+    rows = ""
+    for c in components:
+        score = safe_float(c.get("score", 0))
+        score_color = "#27ae60" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c")
+        rows += f"""
+        <tr>
+            <td><strong>{c.get('name', '')}</strong></td>
+            <td style="color:{score_color};font-weight:700">{score:.1f}</td>
+            <td>{safe_float(c.get('weight', 0))*100:.0f}%</td>
+            <td>{safe_float(c.get('contribution', 0)):.1f}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('source', '')}</td>
+        </tr>"""
+
+    total = integrity.get("scientific_integrity_score", 0)
+    cat = integrity.get("category", "Unknown")
+    cat_color = {"PUBLICATION_READY": "#27ae60", "RESEARCH_GRADE": "#3498db",
+                 "NEEDS_REVISION": "#f39c12", "SIGNIFICANT_ISSUES": "#e67e22",
+                 "NOT_PUBLISHABLE": "#e74c3c"}.get(cat, "#7f8c8d")
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Integrity Score</h4><div class="big-stat" style="color:{cat_color}">{total:.1f}</div><div class="stat-sub">/ 100</div></div>
+        <div class="info-card"><h4>Category</h4><div class="big-stat" style="font-size:1rem;color:{cat_color}">{cat.replace('_', ' ').title()}</div></div>
+        <div class="info-card"><h4>Formula</h4><div class="stat-sub" style="font-size:0.7rem">{integrity.get('formula', '')}</div></div>
+        <div class="info-card"><h4>Weights Locked</h4><div class="big-stat">{'✅' if integrity.get('weights_locked', False) else '❌'}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>Component</th><th>Score</th><th>Weight</th><th>Contribution</th><th>Source</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_uncertainty_decomposition(uncertainty_report):
+    """Per-trait variance decomposition: genotype vs ancestry vs effect."""
+    results = uncertainty_report.get("results", [])
+    if not results:
+        return "<p style='color:#7f8c8d'>Uncertainty report not available.</p>"
+
+    rows = ""
+    for r in results:
+        trait = r.get("trait", "")
+        decomp = r.get("decomposition", {})
+        gen_frac = safe_float(decomp.get("genotype_fraction", 0)) * 100
+        anc_frac = safe_float(decomp.get("ancestry_fraction", 0)) * 100
+        eff_frac = safe_float(decomp.get("effect_fraction", 0)) * 100
+        total_var = safe_float(decomp.get("total_variance", 0))
+        prs = safe_float(r.get("prs_point_estimate", 0))
+        se = safe_float(r.get("prs_std_error", 0))
+
+        rows += f"""
+        <tr>
+            <td><strong>{trait}</strong></td>
+            <td>{prs:.3f} ± {se:.3f}</td>
+            <td>{total_var:.4f}</td>
+            <td>
+                <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;background:#e9ecef">
+                    <div style="width:{gen_frac:.0f}%;background:#3498db" title="Genotype: {gen_frac:.1f}%"></div>
+                    <div style="width:{anc_frac:.0f}%;background:#e74c3c" title="Ancestry: {anc_frac:.1f}%"></div>
+                    <div style="width:{eff_frac:.0f}%;background:#f39c12" title="Effect SE: {eff_frac:.1f}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:#7f8c8d;margin-top:2px">
+                    <span>Gen: {gen_frac:.0f}%</span><span>Anc: {anc_frac:.0f}%</span><span>Eff: {eff_frac:.0f}%</span>
+                </div>
+            </td>
+            <td>{r.get('n_snps_with_genotype', 0)}/{r.get('n_snps_with_effect_se', 0)}</td>
+        </tr>"""
+
+    return f"""
+    <p>Three-layer variance propagation decomposes PRS uncertainty into genotype quality,
+    ancestry ambiguity, and effect size standard error. Blue=genotype, Red=ancestry, Yellow=effect.</p>
+    <table>
+        <thead><tr><th>Trait</th><th>PRS ± SE</th><th>Total Var</th><th>Variance Decomposition</th><th>SNPs (genotype/effect)</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_gwas_consortium_section(gwas_consortium):
+    """GWAS consortium validation — consortia info + trait-level checks."""
+    consortia = gwas_consortium.get("consortia", {})
+    validations = gwas_consortium.get("validations", [])
+
+    # Consortium summary cards
+    cons_cards = ""
+    for name, c in consortia.items():
+        cons_cards += f"""
+        <div class="info-card">
+            <h4>{name}</h4>
+            <div class="big-stat" style="font-size:1rem">{c.get('primary_ancestry', 'EUR')}</div>
+            <div class="stat-sub">n={c.get('n_discovery', 0):,} | PMID:{c.get('pmid', '')}</div>
+            <div class="stat-sub">{', '.join(c.get('traits', [])[:3])}</div>
+        </div>"""
+
+    # Validation results
+    val_rows = ""
+    for v in validations:
+        passed = v.get("overall_status") == "PASS"
+        icon = "✅" if passed else "❌"
+        match = safe_float(v.get("effect_direction_match", 0)) * 100
+        val_rows += f"""
+        <tr>
+            <td>{v.get('consortium', '')}</td>
+            <td>{v.get('trait', '')}</td>
+            <td>{match:.0f}%</td>
+            <td>{v.get('snp_overlap_count', 0)} ({safe_float(v.get('snp_overlap_pct', 0))*100:.1f}%)</td>
+            <td>{icon} {v.get('overall_status', '')}</td>
+        </tr>"""
+
+    passed_count = gwas_consortium.get("passed", 0)
+    total_count = gwas_consortium.get("total_checks", 0)
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Consortia</h4><div class="big-stat">{len(consortia)}</div><div class="stat-sub">GIANT · GLGC · MAGIC · DIAGRAM</div></div>
+        <div class="info-card"><h4>Validations</h4><div class="big-stat">{total_count}</div><div class="stat-sub">total checks</div></div>
+        <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{passed_count}</div><div class="stat-sub">of {total_count}</div></div>
+        <div class="info-card"><h4>Failed</h4><div class="big-stat" style="color:#e74c3c">{gwas_consortium.get('failed', 0)}</div><div class="stat-sub">no SNP overlap traits</div></div>
+    </div>
+
+    <h4>Consortium Profiles</h4>
+    <div class="info-grid">{cons_cards}</div>
+
+    <h4>Trait-Level Validation</h4>
+    <p style="font-size:0.8rem;color:#7f8c8d">13 of 17 failures are traits with zero SNP overlap between curated panel and consortium GWAS (e.g. BMI, HDL, fasting glucose). The 4 passes are the curated trait categories that DO overlap.</p>
+    <table>
+        <thead><tr><th>Consortium</th><th>Trait</th><th>Effect Direction Match</th><th>SNP Overlap</th><th>Status</th></tr></thead>
+        <tbody>{val_rows}</tbody>
+    </table>
+    """
+
+
+def build_portability_section(portability):
+    """Population portability — PRS shift across populations."""
+    pops = portability.get("populations", [])
+    rows = ""
+    for p in pops:
+        pop = p.get("population", "")
+        status = p.get("status", "")
+        status_color = {"GOOD_PORTABILITY": "#27ae60", "MODERATE_PORTABILITY": "#f39c12", "LIMITED_PORTABILITY": "#e74c3c"}
+        color = status_color.get(status, "#7f8c8d")
+        rows += f"""
+        <tr>
+            <td><strong>{pop}</strong></td>
+            <td>{p.get('n_reference_samples', 0)}</td>
+            <td>{safe_float(p.get('mean_prs_shift', 0)):.2f}</td>
+            <td>{safe_float(p.get('calibration_drift', 0)):.2f}</td>
+            <td>{safe_float(p.get('rank_instability', 0)):.2f}</td>
+            <td>{safe_float(p.get('ancestry_bias_index', 0)):.3f}</td>
+            <td style="color:{color};font-weight:700">{status.replace('_', ' ').title()}</td>
+        </tr>"""
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Global Bias Index</h4><div class="big-stat">{safe_float(portability.get('global_bias_index', 0)):.3f}</div></div>
+        <div class="info-card"><h4>Most Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#e74c3c">{portability.get('most_biased', 'N/A')}</div></div>
+        <div class="info-card"><h4>Least Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#27ae60">{portability.get('least_biased', 'N/A')}</div></div>
+    </div>
+    <p style="font-size:0.8rem;color:#7f8c8d">EUR-centric GWAS inherently limit cross-population portability. Lower indices = better portability. AFR shows highest bias (0.300) due to differing LD structure and allele frequencies.</p>
+    <table>
+        <thead><tr><th>Population</th><th>Ref Samples</th><th>PRS Shift</th><th>Calib. Drift</th><th>Rank Instability</th><th>Bias Index</th><th>Status</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_reproducibility_section(repro):
+    """Reproducibility: environment, seeds, versions."""
+    env = repro.get("environment", {})
+    seeds = repro.get("seeds", {})
+
+    # System info
+    sys_rows = f"""
+    <tr><td>OS</td><td>{env.get('os_name', '')} {env.get('os_version', '')} ({env.get('architecture', '')})</td></tr>
+    <tr><td>Python</td><td>{env.get('python_version', '')} ({env.get('python_implementation', '')})</td></tr>
+    <tr><td>Kernel</td><td style="font-size:0.7rem;word-break:break-all">{env.get('kernel', '')[:120]}</td></tr>"""
+
+    # Tool versions
+    tools = env.get("system_tools", {})
+    tool_rows = ""
+    for tool, version in tools.items():
+        tool_rows += f"<tr><td>{tool}</td><td style='font-size:0.78rem'>{version}</td></tr>"
+
+    # Package versions (top 10)
+    pkgs = env.get("pip_packages", {})
+    pkg_rows = ""
+    for pkg, ver in sorted(pkgs.items())[:20]:
+        pkg_rows += f"<tr><td>{pkg}</td><td>{ver}</td></tr>"
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Run ID</h4><div class="big-stat" style="font-size:0.8rem;word-break:break-all">{repro.get('run_id', 'N/A')[:16]}</div></div>
+        <div class="info-card"><h4>Reproducibility Score</h4><div class="big-stat" style="color:#27ae60">{repro.get('reproducibility_score', 0):.0f}/100</div></div>
+        <div class="info-card"><h4>Pipeline Version</h4><div class="big-stat">v{repro.get('pipeline_version', 'N/A')}</div></div>
+        <div class="info-card"><h4>Global Seed</h4><div class="big-stat">{seeds.get('global_seed', 'N/A')}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1rem">
+        <div>
+            <h4>System Environment</h4>
+            <table><tbody>{sys_rows}</tbody></table>
+        </div>
+        <div>
+            <h4>Bioinformatics Tools</h4>
+            <table><thead><tr><th>Tool</th><th>Version</th></tr></thead><tbody>{tool_rows}</tbody></table>
+        </div>
+    </div>
+
+    <h4 style="margin-top:1.5rem">Python Packages (selected)</h4>
+    <table><thead><tr><th>Package</th><th>Version</th></tr></thead><tbody>{pkg_rows}</tbody></table>
+
+    <h4 style="margin-top:1.5rem">Seeds Registry</h4>
+    <table><thead><tr><th>Module</th><th>Seed</th></tr></thead><tbody>
+    <tr><td>Global</td><td>{seeds.get('global_seed', '')}</td></tr>
+    <tr><td>NumPy</td><td>{seeds.get('numpy_seed', '')}</td></tr>
+    <tr><td>Python hash</td><td>{seeds.get('python_hash_seed', '')}</td></tr>
+    <tr><td>Scikit-learn</td><td>{seeds.get('sklearn_seed', '')}</td></tr>
+    <tr><td>PLINK</td><td>{seeds.get('plink_seed', '')}</td></tr>
+    <tr><td>Bootstrap 0</td><td>{seeds.get('bootstrap_seeds', [0])[0]}</td></tr>
+    </tbody></table>
+    """
+
+
+def build_consistency_section(consistency):
+    """GWAS-Ancestry consistency check per trait."""
+    detailed = consistency.get("detailed_report", {})
+    trait_checks = detailed.get("trait_checks", [])
+    rows = ""
+    for t in trait_checks:
+        gwas_pop = t.get("gwas_population", "")
+        gwas_type = t.get("gwas_type", "")
+        match = t.get("is_match", False)
+        icon = "✅" if match else "❌"
+        rows += f"""
+        <tr>
+            <td>{t.get('trait', '')}</td>
+            <td>{gwas_pop}</td>
+            <td>{gwas_type.replace('_', ' ').title()}</td>
+            <td>{t.get('target_population', '')}</td>
+            <td>{icon}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{t.get('note', '')}</td>
+        </tr>"""
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>GWAS-Ancestry Match</h4><div class="big-stat" style="color:{'#27ae60' if consistency.get('gwas_ancestry_match') else '#e74c3c'}">{'✅ PASS' if consistency.get('gwas_ancestry_match') else '❌ FAIL'}</div></div>
+        <div class="info-card"><h4>LD-Ancestry Match</h4><div class="big-stat" style="color:{'#27ae60' if consistency.get('ld_ancestry_match') else '#f39c12'}">{'✅ PASS' if consistency.get('ld_ancestry_match') else '⚠️ WARN'}</div></div>
+        <div class="info-card"><h4>Confidence Downgrade</h4><div class="big-stat">{safe_float(consistency.get('confidence_downgrade', 0)):.2f}</div></div>
+        <div class="info-card"><h4>Recommended GWAS</h4><div class="big-stat" style="font-size:0.75rem">{consistency.get('recommended_gwas_source', 'N/A')}</div></div>
+    </div>
+    <p style="font-size:0.8rem;color:#7f8c8d">All 10 traits use EUR GWAS sources matching the EUR target ancestry. GWAS types: meta_analysis (4), candidate_gene (3), discovery (2), multi_population (1).</p>
+    <table>
+        <thead><tr><th>Trait</th><th>GWAS Population</th><th>GWAS Type</th><th>Target Pop</th><th>Match</th><th>Note</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_leakage_detail_section(leakage_audit):
+    """Detailed leakage audit — 7 checks."""
+    checks = leakage_audit.get("checks", [])
+    rows = ""
+    for c in checks:
+        passed = c.get("passed", False)
+        sev = c.get("severity", "INFO")
+        sev_color = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
+        icon = "✅" if passed else "❌"
+        rows += f"""
+        <tr>
+            <td><strong>{c.get('check_id', '')}</strong></td>
+            <td>{c.get('description', '')}</td>
+            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
+            <td>{icon}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('detail', '')}</td>
+        </tr>"""
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Pipeline Safe</h4><div class="big-stat" style="color:{'#27ae60' if leakage_audit.get('pipeline_safe') else '#e74c3c'}">{'YES' if leakage_audit.get('pipeline_safe') else 'NO'}</div></div>
+        <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{leakage_audit.get('passed', 0)}/{leakage_audit.get('total_checks', 0)}</div></div>
+        <div class="info-card"><h4>Warnings</h4><div class="big-stat" style="color:#f39c12">{leakage_audit.get('warnings', 0)}</div></div>
+        <div class="info-card"><h4>Errors</h4><div class="big-stat" style="color:#e74c3c">{leakage_audit.get('errors', 0)}</div></div>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    """
+
+
+def build_methodology_section(prs_result, ancestry):
+    """Pipeline methodology summary."""
+    meta = prs_result.get("metadata", {})
+    n_variants = meta.get("n_variants", prs_result.get("prs_core", {}).get("n_variants", 109))
+    n_traits = meta.get("n_traits", 10)
+    formula = meta.get("prs_formula", "PRS = Σ(βⱼ × Gᵢⱼ)")
+    method = meta.get("computation_method", "PLINK --score (dosage-weighted)")
+    pipeline_ver = meta.get("pipeline_version", "9.0.0")
+    n_ref = ancestry.get("n_reference_samples", 2504)
+    n_pcs = ancestry.get("n_pcs", 20)
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Pipeline</h4><div class="big-stat">v{pipeline_ver}</div><div class="stat-sub">BlueGen</div></div>
+        <div class="info-card"><h4>PRS Formula</h4><div class="big-stat" style="font-size:0.9rem">{formula}</div><div class="stat-sub">{method}</div></div>
+        <div class="info-card"><h4>Variants</h4><div class="big-stat">{n_variants}</div><div class="stat-sub">across {n_traits} traits</div></div>
+        <div class="info-card"><h4>Reference</h4><div class="big-stat">{n_ref}</div><div class="stat-sub">1000G Phase 3, {n_pcs} PCs</div></div>
+    </div>
+    <h4>Pipeline Stages</h4>
+    <table>
+        <thead><tr><th>Stage</th><th>Process</th><th>Method</th><th>Output</th></tr></thead>
+        <tbody>
+            <tr><td>A</td><td>VCF → PLINK</td><td>PLINK 1.9, GQ≥20, DP≥10</td><td>.bed/.bim/.fam</td></tr>
+            <tr><td>B</td><td>Quality Control</td><td>geno 0.05, maf 0.01, HWE 1e-6</td><td>Filtered genotypes</td></tr>
+            <tr><td>C</td><td>LD Pruning</td><td>Per-population (EUR/AFR/EAS/SAS/AMR), conservative intersection</td><td>Ancestry-matched independent SNPs</td></tr>
+            <tr><td>D</td><td>PCA + Projection</td><td>1000G-trained PCA, target sample projection</td><td>20 PCs, ancestry inference</td></tr>
+            <tr><td>F</td><td>PRS Computation</td><td>PLINK --score (dosage-weighted)</td><td>Raw PRS per trait</td></tr>
+            <tr><td>G</td><td>PCA Adjustment</td><td>PRS_adj = PRS_raw − Σ(βₖ × PCₖ)</td><td>Ancestry-adjusted PRS</td></tr>
+            <tr><td>H</td><td>Population Calibration</td><td>Empirical 1000G population distributions</td><td>Z-scores + percentiles</td></tr>
+            <tr><td>7-10</td><td>Validation & Lock</td><td>8-dimension validation, adversarial stress, publication lock</td><td>Scientific integrity score</td></tr>
+        </tbody>
+    </table>
+    """
+
+
+def build_pgs_calibration_section(pgs_data):
+    """PGS Catalog population-calibrated results with clinical interpretation."""
+    summary = pgs_data.get("summary", {})
+    high_risk = pgs_data.get("high_risk_traits", [])
+    elevated = pgs_data.get("elevated_risk_traits", [])
+    low_risk = pgs_data.get("low_risk_traits", [])
+    methodology = pgs_data.get("methodology", {})
+
+    # Clinical context for each trait
+    CLINICAL = {
+        "Type 2 Diabetes": "Higher z-score = greater genetic predisposition to insulin resistance and β-cell dysfunction. Does NOT diagnose diabetes — lifestyle (diet, exercise, weight) strongly modulates genetic risk.",
+        "HbA1c": "Higher z-score = genetically higher glycated hemoglobin. HbA1c reflects average blood glucose over ~3 months. Used clinically to diagnose diabetes (≥6.5%).",
+        "Fasting Glucose": "Higher z-score = genetic tendency toward higher fasting blood sugar. Normal: <100 mg/dL. Prediabetes: 100-125 mg/dL. Diabetes: ≥126 mg/dL.",
+        "Fasting Insulin": "Higher z-score = genetic predisposition to higher insulin levels, which may indicate insulin resistance when combined with high glucose.",
+        "BMI": "Higher z-score = genetic predisposition to higher body mass index. BMI is a screening tool, not a diagnostic. Muscle mass, bone density, and fat distribution matter more clinically.",
+        "Obesity": "Higher z-score = genetic risk for excess adiposity. Strongly modulated by environment — diet, physical activity, sleep, stress all influence expression of obesity-related genes.",
+        "Overweight": "Higher z-score = genetic tendency toward BMI 25-30. Similar to obesity but milder genetic burden.",
+        "Vitamin D": "Higher z-score = genetic predisposition to higher vitamin D levels. Deficiency defined as <20 ng/mL. Sun exposure, diet, and supplementation override genetic predisposition.",
+        "Hypercholesterolemia": "Higher z-score = genetic tendency toward elevated LDL/Total cholesterol. Clinical cutoffs: Total <200 desirable, LDL <100 optimal. Statins dramatically reduce risk regardless of genetics.",
+        "Non-HDL Cholesterol": "Higher z-score = genetic risk for elevated atherogenic lipoproteins. Non-HDL = Total - HDL. Target <130 mg/dL. Preferred over LDL when triglycerides >200.",
+        "Coffee Consumption": "Higher z-score = genetic predisposition to higher coffee intake. CYP1A2 determines metabolism speed — 'fast' vs 'slow' metabolizers respond differently.",
+        "Anemia / B12": "Higher z-score = genetic risk for lower hemoglobin/B12. Clinical diagnosis requires blood test (CBC, ferritin, B12, folate).",
+        "Liver Cirrhosis": "HIGHER RISK REQUIRES CLINICAL CONTEXT. Genetic predisposition interacts strongly with alcohol consumption, viral hepatitis, and metabolic factors. Liver function tests and imaging are definitive.",
+        "Gallstones": "Higher z-score = genetic risk for cholesterol gallstone formation. Risk factors include obesity, rapid weight loss, female sex, age >40. Ultrasound is diagnostic.",
+        "PUFA (Omega-3/6)": "Higher z-score = genetic profile associated with higher polyunsaturated fatty acid levels. Reflects FADS1/FADS2 desaturase activity — ability to convert plant-based ALA to EPA/DHA.",
+        "Omega-3": "Higher z-score = genetic predisposition to lower omega-3 levels. Dietary intake of fatty fish or supplementation can fully override genetic risk. No clinical cutoff exists.",
+    }
+
+    def interpret(e):
+        trait = e.get("trait", "")
+        z = e.get("z_score", 0)
+        pctl = round(e.get("percentile", 50), 1)
+        ctx = ""
+        for key, desc in CLINICAL.items():
+            if key.lower() in trait.lower():
+                ctx = desc
+                break
+        if not ctx:
+            ctx = f"Genetic predisposition score. Z={z:+.1f} means this individual is at the {pctl:.0f}th percentile of the EUR population for this trait."
+        return ctx
+
+    def row(e):
+        r = "🔴" if e.get("z_score",0)>2 else ("🟠" if e.get("z_score",0)>1 else ("🟢" if e.get("z_score",0)<-1 else "🟡"))
+        pctl = round(e.get("percentile",50), 1)
+        z = e.get("z_score", 0)
+        significance = "High risk" if z>2 else ("Elevated" if z>1 else ("Low/Protective" if z<-1 else "Population average"))
+        return f"""<tr>
+            <td>{r}</td><td><strong>{e['trait']}</strong></td><td>{e['pgs_id']}</td>
+            <td style="font-weight:700;color:{'#e74c3c' if z>2 else ('#f39c12' if z>1 else ('#27ae60' if z<-1 else '#2c3e50'))}">{z:+.1f}</td>
+            <td>{pctl}%</td><td>{significance}</td><td>{e.get('n_snps',0):,}</td>
+        </tr>"""
+
+    high_rows = "".join(row(e) for e in high_risk) or "<tr><td colspan='7' style='color:#7f8c8d'>None — no traits at elevated risk</td></tr>"
+    elev_rows = "".join(row(e) for e in elevated) or "<tr><td colspan='7' style='color:#7f8c8d'>None</td></tr>"
+    low_rows = "".join(row(e) for e in low_risk) or "<tr><td colspan='7' style='color:#7f8c8d'>None</td></tr>"
+
+    # Build detailed interpretations
+    detail_parts = []
+    for e in high_risk + elevated:
+        detail_parts.append(f"""
+        <div class="trait-section" style="margin-bottom:1rem">
+            <div class="trait-header" style="background:{'#fadbd8' if e.get('z_score',0)>2 else '#fdebd0'}">
+                <span><strong>{e['trait']}</strong> ({e['pgs_id']})</span>
+                <span class="risk-category-badge {'high' if e.get('z_score',0)>2 else 'medium'}">{'HIGHER RISK' if e.get('z_score',0)>2 else 'ELEVATED RISK'}</span>
+            </div>
+            <div class="trait-body">
+                <div class="trait-stats">
+                    <div class="trait-stat"><div class="stat-value" style="color:{'#e74c3c' if e.get('z_score',0)>2 else '#f39c12'}">{e.get('z_score',0):+.1f}σ</div><div class="stat-label">Z-Score vs EUR</div></div>
+                    <div class="trait-stat"><div class="stat-value">{round(e.get('percentile',50),1)}%</div><div class="stat-label">Percentile</div></div>
+                    <div class="trait-stat"><div class="stat-value">{e.get('n_snps',0):,}</div><div class="stat-label">Variants</div></div>
+                </div>
+                <div class="interpretation-box"><strong>Clinical Context:</strong><p style="margin-top:.5rem;white-space:pre-line">{interpret(e)}</p></div>
+            </div>
+        </div>""")
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Total Scores</h4><div class="big-stat">{summary.get('total_scores', 0)}</div><div class="stat-sub">from PGS Catalog</div></div>
+        <div class="info-card"><h4>Reliable</h4><div class="big-stat">{summary.get('reliable_scores', 0)}</div><div class="stat-sub">&lt;500K SNPs</div></div>
+        <div class="info-card"><h4>Reference</h4><div class="big-stat">{methodology.get('reference_panel', '1000G')[:20]}</div><div class="stat-sub">{', '.join(methodology.get('populations', []))}</div></div>
+        <div class="info-card"><h4>Method</h4><div class="big-stat" style="font-size:0.7rem">z-score norm</div><div class="stat-sub">Population-stratified</div></div>
+    </div>
+    <p style="margin:1rem 0;line-height:1.6;font-size:0.9rem;background:var(--color-surface);padding:1rem;border-radius:8px;box-shadow:var(--shadow)">
+    <strong>How to interpret these scores:</strong><br>
+    • <strong>Z-score</strong>: How many standard deviations your genetic profile deviates from the EUR population mean.<br>
+    • <strong>Percentile</strong>: Your rank. 95% = you're in the top 5% of genetic risk for that trait.<br>
+    • <strong>Clinical significance</strong>: Z > 2 = notable deviation. Z > 3 = clinically relevant. But <em>genetics is NOT destiny</em> — lifestyle, environment, and medical care often override genetic predisposition.
+    </p>
+    <h4>🔴 Elevated Risk ({len(high_risk)})</h4>
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{high_rows}</tbody></table>
+    <h4>🟠 Moderate Risk ({len(elevated)})</h4>
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{elev_rows}</tbody></table>
+    <h4>🟢 Protective / Low Risk ({len(low_risk)})</h4>
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{low_rows}</tbody></table>
+
+    {"<h4 style='margin-top:1.5rem'>📋 Detailed Clinical Interpretation</h4>" + ''.join(detail_parts) if detail_parts else ""}
+
+    <p style="font-size:0.75rem;color:#7f8c8d;margin-top:1rem">
+    ⚠️ <strong>Limitations:</strong> Calibrated against 1000 Genomes Phase 3 (2,504 samples, 5 super-populations).
+    PGS scores are from published studies with varying population compositions — cross-population portability may be limited.
+    Scores with >500K SNPs excluded due to distribution artifacts.
+    <strong>All scores are for RESEARCH USE ONLY — not clinical diagnosis.</strong>
+    </p>
+    """
+
+
+def build_calibration_detail_section(calibration_report):
+    """Population calibration methodology and risk breakdown."""
+    methodology = calibration_report.get("methodology", {})
+    thresholds = methodology.get("risk_thresholds", {})
+    high_traits = calibration_report.get("high_risk_traits", [])
+    medium_traits = calibration_report.get("medium_risk_traits", [])
+    low_traits = calibration_report.get("low_risk_traits", [])
+    populations = methodology.get("population_strata", [])
+
+    high_rows = "".join(f"<tr><td>{t}</td></tr>" for t in high_traits) or "<tr><td style='color:#7f8c8d'>None</td></tr>"
+    low_rows = "".join(f"<tr><td>{t}</td></tr>" for t in low_traits) or "<tr><td style='color:#7f8c8d'>None</td></tr>"
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card">
+            <h4>Reference Panel</h4>
+            <div class="big-stat" style="font-size:1rem">{methodology.get('reference_panel', 'N/A')}</div>
+        </div>
+        <div class="info-card">
+            <h4>Normalization</h4>
+            <div class="big-stat" style="font-size:0.9rem">{methodology.get('normalization', 'N/A').replace('_', ' ').title()}</div>
+        </div>
+        <div class="info-card">
+            <h4>Populations</h4>
+            <div class="big-stat">{len(populations)}</div>
+            <div class="stat-sub">{', '.join(populations)}</div>
+        </div>
+        <div class="info-card">
+            <h4>Traits Analyzed</h4>
+            <div class="big-stat">{calibration_report.get('traits_analyzed', 0)}</div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+        <div>
+            <h4>Risk Thresholds</h4>
+            <table>
+                <thead><tr><th>Category</th><th>Percentile Range</th></tr></thead>
+                <tbody>
+                    <tr><td style="color:#e74c3c;font-weight:700">High Risk</td><td>{thresholds.get('high', '>75th')}</td></tr>
+                    <tr><td style="color:#f39c12;font-weight:700">Medium Risk</td><td>{thresholds.get('medium', '25-75th')}</td></tr>
+                    <tr><td style="color:#27ae60;font-weight:700">Low Risk</td><td>{thresholds.get('low', '<25th')}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h4>Assigned Population: {calibration_report.get('assigned_population', 'EUR')}</h4>
+            <p style="font-size:0.8rem;color:#7f8c8d">{calibration_report.get('calibration_note', '')[:300]}</p>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+        <div>
+            <h4>Elevated Risk Traits ({len(high_traits)})</h4>
+            <table><thead><tr><th>Trait</th></tr></thead><tbody>{high_rows}</tbody></table>
+        </div>
+        <div>
+            <h4>Lower Risk Traits ({len(low_traits)})</h4>
+            <table><thead><tr><th>Trait</th></tr></thead><tbody>{low_rows}</tbody></table>
+        </div>
+    </div>
+    """
+    """Pipeline methodology summary."""
+    meta = prs_result.get("metadata", {})
+    n_variants = meta.get("n_variants", prs_result.get("prs_core", {}).get("n_variants", 109))
+    n_traits = meta.get("n_traits", 10)
+    formula = meta.get("prs_formula", "PRS = Σ(βⱼ × Gᵢⱼ)")
+    method = meta.get("computation_method", "PLINK --score (dosage-weighted)")
+    pipeline_ver = meta.get("pipeline_version", "9.0.0")
+    n_ref = ancestry.get("n_reference_samples", 2504)
+    n_pcs = ancestry.get("n_pcs", 20)
+
+    return f"""
+    <div class="info-grid">
+        <div class="info-card"><h4>Pipeline</h4><div class="big-stat">v{pipeline_ver}</div><div class="stat-sub">BlueGen</div></div>
+        <div class="info-card"><h4>PRS Formula</h4><div class="big-stat" style="font-size:0.9rem">{formula}</div><div class="stat-sub">{method}</div></div>
+        <div class="info-card"><h4>Variants</h4><div class="big-stat">{n_variants}</div><div class="stat-sub">across {n_traits} traits</div></div>
+        <div class="info-card"><h4>Reference</h4><div class="big-stat">{n_ref}</div><div class="stat-sub">1000G Phase 3, {n_pcs} PCs</div></div>
+    </div>
+    <h4>Pipeline Stages</h4>
+    <table>
+        <thead><tr><th>Stage</th><th>Process</th><th>Method</th><th>Output</th></tr></thead>
+        <tbody>
+            <tr><td>A</td><td>VCF → PLINK</td><td>PLINK 1.9, GQ≥20, DP≥10</td><td>.bed/.bim/.fam</td></tr>
+            <tr><td>B</td><td>Quality Control</td><td>geno 0.05, maf 0.01, HWE 1e-6</td><td>Filtered genotypes</td></tr>
+            <tr><td>C</td><td>LD Pruning</td><td>Per-population (EUR/AFR/EAS/SAS/AMR), conservative intersection</td><td>Ancestry-matched independent SNPs</td></tr>
+            <tr><td>D</td><td>PCA + Projection</td><td>1000G-trained PCA, target sample projection</td><td>20 PCs, ancestry inference</td></tr>
+            <tr><td>F</td><td>PRS Computation</td><td>PLINK --score (dosage-weighted)</td><td>Raw PRS per trait</td></tr>
+            <tr><td>G</td><td>PCA Adjustment</td><td>PRS_adj = PRS_raw − Σ(βₖ × PCₖ)</td><td>Ancestry-adjusted PRS</td></tr>
+            <tr><td>H</td><td>Population Calibration</td><td>Empirical 1000G population distributions</td><td>Z-scores + percentiles</td></tr>
+            <tr><td>7-10</td><td>Validation & Lock</td><td>8-dimension validation, adversarial stress, publication lock</td><td>Scientific integrity score</td></tr>
+        </tbody>
+    </table>
+    """
+
+
+def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
+    """ClinVar pathogenic variant annotation — confidence-tiered, bilingual."""
+    lang = ui.get("_lang", "en")
+
+    if not clinvar_data or not clinvar_data.get("pathogenic_variants"):
+        msg = {"en": "No ClinVar pathogenic variants found.", "es": "No se encontraron variantes patogénicas de ClinVar."}
+        hint = {"en": 'Run with <code>--clinvar</code> to generate.', "es": 'Ejecuta con <code>--clinvar</code> para generar.'}
+        return f"""<div class="info-card" style="text-align:center;padding:1.5rem">
+            <p style="color:var(--color-text-secondary)">{msg.get(lang, msg['en'])}</p>
+            <p style="color:var(--color-text-secondary);font-size:0.8rem">{hint.get(lang, hint['en'])}</p>
+        </div>"""
+
+    meta = clinvar_data.get("metadata", {})
+    summary = clinvar_data.get("pathogenic_variant_summary", {})
+    variants = clinvar_data.get("pathogenic_variants", [])
+    tier_counts = summary.get("by_confidence_tier", {})
+    n_high_conf = summary.get("high_confidence_count", 0)
+    clinvar_date = meta.get("clinvar_release_date", "")[:10]
+
+    n_pathogenic = summary.get("total_pathogenic", 0)
+    n_likely = summary.get("total_likely_pathogenic", 0)
+    n_risk = summary.get("total_risk_alleles", 0)
+    total = len(variants)
+
+    # ═══ BILINGUAL LABELS ═══
+    T = {
+        "en": {
+            "veracity_alert": "⚠️ Veracity Note",
+            "veracity_text": f"Of {total} variants found, only <strong>{n_high_conf}</strong> have strong evidence "
+                            f"(expert panel or multiple-lab consensus). <strong>{tier_counts.get('very_low', 0)} variants</strong> "
+                            f"lack explicit evidence criteria — these are the least reliable findings and should not be "
+                            f"interpreted without clinical confirmation.",
+            "high_conf_title": "High & Moderate Confidence",
+            "high_conf_desc": "Reviewed by expert panel or multiple labs agree. These are the most reliable findings.",
+            "low_conf_title": "Lower Confidence & Risk Alleles",
+            "low_conf_desc": "Single submitter or no evidence criteria stated. Includes risk alleles (increase susceptibility, do NOT cause disease).",
+            "reliable_count": f"{n_high_conf} reliable",
+            "uncertain_count": f"{total - n_high_conf} uncertain / risk",
+            "confidence_tier_high": "🏅 Expert",
+            "confidence_tier_moderate": "✓ Multi-Lab",
+            "confidence_tier_low": "⚠️ Single Lab",
+            "confidence_tier_very_low": "❓ No Criteria",
+            "clinvar_version": "ClinVar Release",
+            "source_note": f"Source: NCBI ClinVar (GRCh37, {clinvar_date}). Variant classifications are submitted by independent laboratories and may change over time.",
+            "limitations_title": "⚠️ Limitations of ClinVar Analysis",
+            "limitations_text": "• Many variants lack evidence criteria (see confidence tiers above). "
+                               "• Pathogenic ≠ you will get the disease. Penetrance varies widely. "
+                               "• Some conditions are treatable or preventable; others are not. "
+                               "• These results are RESEARCH USE ONLY — confirm with a clinical lab.",
+            "legend_title": "Confidence Tiers — How Reliable Is Each Finding?",
+            "tier_high": "Expert Panel or Clinical Guideline — highest confidence, endorsed by domain authorities",
+            "tier_moderate": "Multiple Labs Agree — independent laboratories concur on this classification",
+            "tier_low": "Single Lab — one laboratory's classification; confirmation recommended",
+            "tier_very_low": "No Evidence Criteria — classification without stated methodology; treat as preliminary",
+        },
+        "es": {
+            "veracity_alert": "⚠️ Nota de Veracidad",
+            "veracity_text": f"De {total} variantes encontradas, solo <strong>{n_high_conf}</strong> tienen evidencia sólida "
+                            f"(panel experto o consenso multi-laboratorio). <strong>{tier_counts.get('very_low', 0)} variantes</strong> "
+                            f"carecen de criterios de evidencia explícitos — estos son los hallazgos menos fiables y no deben "
+                            f"interpretarse sin confirmación clínica.",
+            "high_conf_title": "Confianza Alta y Moderada",
+            "high_conf_desc": "Revisadas por panel experto o múltiples labs coinciden. Son los hallazgos más fiables.",
+            "low_conf_title": "Menor Confianza y Alelos de Riesgo",
+            "low_conf_desc": "Un solo laboratorio o sin criterios de evidencia. Incluye alelos de riesgo (aumentan susceptibilidad, NO causan enfermedad).",
+            "reliable_count": f"{n_high_conf} fiables",
+            "uncertain_count": f"{total - n_high_conf} inciertas / riesgo",
+            "confidence_tier_high": "🏅 Experto",
+            "confidence_tier_moderate": "✓ Multi-Lab",
+            "confidence_tier_low": "⚠️ Un Lab",
+            "confidence_tier_very_low": "❓ Sin Criterios",
+            "clinvar_version": "Versión de ClinVar",
+            "source_note": f"Fuente: NCBI ClinVar (GRCh37, {clinvar_date}). Las clasificaciones son enviadas por laboratorios independientes y pueden cambiar.",
+            "limitations_title": "⚠️ Limitaciones del Análisis ClinVar",
+            "limitations_text": "• Muchas variantes carecen de criterios de evidencia (ver tiers de confianza arriba). "
+                               "• Patogénica ≠ desarrollarás la enfermedad. La penetrancia varía mucho. "
+                               "• Algunas condiciones son tratables o prevenibles; otras no. "
+                               "• SOLO PARA INVESTIGACIÓN — confirma con un laboratorio clínico.",
+            "legend_title": "Tiers de Confianza — ¿Qué Tan Fiable Es Cada Hallazgo?",
+            "tier_high": "Panel Experto o Guía Clínica — máxima confianza, respaldado por autoridades",
+            "tier_moderate": "Múltiples Labs Coinciden — laboratorios independientes confirman esta clasificación",
+            "tier_low": "Un Solo Lab — clasificación de un laboratorio; se recomienda confirmación",
+            "tier_very_low": "Sin Criterios de Evidencia — clasificación sin metodología explícita; considerar preliminar",
+        },
+    }
+    t = T.get(lang, T["en"])
+
+    # ═══ BADGES ═══
+    sig_colors = {
+        "Pathogenic": ("#c0392b", "#fadbd8"),
+        "Likely_pathogenic": ("#d35400", "#fdebd0"),
+        "Pathogenic/Likely_pathogenic": ("#e67e22", "#fef5e7"),
+        "Risk_allele": ("#f39c12", "#fef9e7"),
+    }
+
+    def sig_badge(sig):
+        fg, bg = sig_colors.get(sig, ("#7f8c8d", "#e9ecef"))
+        return f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700">{sig}</span>'
+
+    tier_badges = {
+        "high": ("#27ae60", "#d5f5e3", t["confidence_tier_high"]),
+        "moderate": ("#2e86c1", "#d6eaf8", t["confidence_tier_moderate"]),
+        "low": ("#f39c12", "#fdebd0", t["confidence_tier_low"]),
+        "very_low": ("#95a5a6", "#eaecee", t["confidence_tier_very_low"]),
+    }
+
+    def tier_badge(tier):
+        fg, bg, label = tier_badges.get(tier, ("#95a5a6", "#eaecee", tier))
+        return f'<span style="background:{bg};color:{fg};padding:1px 6px;border-radius:3px;font-size:0.65rem;font-weight:700" title="{label}">{label}</span>'
+
+    def humanize_disease(d):
+        if not d or d in (".", "not_provided"): return "—"
+        return " | ".join(d.replace("_", " ").split("|")[:3])
+
+    def format_af(af):
+        if not af or af == "—": return "—"
+        try:
+            v = float(af)
+            return f"{v:.4f}" if v >= 0.0001 else f"{v:.2e}"
+        except: return af
+
+    def fmt_review(r):
+        if not r: return "—"
+        return (r.replace("_", " ")
+                .replace("practice guideline", "⭐ guideline")
+                .replace("reviewed by expert panel", "🏅 expert panel")
+                .replace("criteria provided multiple submitters no conflicts", "✓ multi-lab")
+                .replace("criteria provided single submitter", "single lab")
+                .replace("no assertion criteria provided", "no criteria")
+                .replace("no assertion provided", "no assertion"))
+
+    def build_row(v):
+        desc = v.get("disease_description", "")
+        desc_html = ""
+        if desc:
+            desc_html = (
+                f'<tr style="background:#fafafa">'
+                f'<td colspan="8" style="font-size:0.75rem;color:var(--color-text-secondary);padding:2px 12px 6px 32px;border-bottom:1px solid #eee">'
+                f'<em>{desc[:250]}</em>'
+                f'</td>'
+                f'</tr>'
+            )
+        return (
+            f'<tr>'
+            f'<td><code>{v.get("rsid","") or "—"}</code></td>'
+            f'<td style="white-space:nowrap">{v.get("chrom","?")}:{v.get("pos","?")}</td>'
+            f'<td style="font-weight:600">{", ".join(v.get("genes",[])) or v.get("gene_info","—")}</td>'
+            f'<td style="font-size:0.82rem">{humanize_disease(v.get("disease_name","—"))[:90]}</td>'
+            f'<td>{sig_badge(v.get("clinical_significance","—"))}</td>'
+            f'<td>{tier_badge(v.get("confidence_tier","very_low"))}</td>'
+            f'<td style="font-size:0.72rem;color:var(--color-text-secondary)">{fmt_review(v.get("review_status",""))}</td>'
+            f'<td style="font-size:0.75rem;color:var(--color-text-secondary)">{format_af(v.get("af_exac","") or v.get("af_1000g",""))}</td>'
+            f'</tr>'
+            f'{desc_html}'
+        )
+
+    # Split variants by confidence
+    high_mod = [v for v in variants if v.get("confidence_tier") in ("high", "moderate")]
+    low_variants = [v for v in variants if v.get("confidence_tier") in ("low", "very_low")]
+
+    match_rate = meta.get("match_rate", 0)
+    n_overlap = meta.get("positional_overlaps", 0)
+    n_exact = meta.get("exact_matches", 0)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    return f"""
+    <!-- ═══ VERACITY ALERT ═══ -->
+    <div class="highlight-box" style="background:#fdedec;border:2px solid #e74c3c;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1.5rem">
+        <h4 style="margin-top:0;color:#c0392b">{t['veracity_alert']}</h4>
+        <p style="font-size:0.9rem;margin:0">{t['veracity_text']}</p>
+    </div>
+
+    <!-- ═══ CONFIDENCE TIER LEGEND ═══ -->
+    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem">
+        <h4 style="margin-top:0">📖 {t['legend_title']}</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem 1.5rem;font-size:0.82rem">
+            <div>{tier_badge('high')} — {t['tier_high']}</div>
+            <div>{tier_badge('moderate')} — {t['tier_moderate']}</div>
+            <div>{tier_badge('low')} — {t['tier_low']}</div>
+            <div>{tier_badge('very_low')} — {t['tier_very_low']}</div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--color-text-secondary);margin:0.5rem 0 0">{t['source_note']}</p>
+    </div>
+
+    <!-- ═══ SUMMARY CARDS ═══ -->
+    <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #27ae60">
+            <h4>{t['high_conf_title']}</h4>
+            <div class="big-stat" style="color:#27ae60">{n_high_conf}</div>
+            <div class="stat-sub">{t['high_conf_desc']}</div>
+        </div>
+        <div class="info-card" style="border-left:3px solid #95a5a6">
+            <h4>{t['low_conf_title']}</h4>
+            <div class="big-stat" style="color:#95a5a6">{total - n_high_conf}</div>
+            <div class="stat-sub">{t['low_conf_desc']}</div>
+        </div>
+        <div class="info-card">
+            <h4>{t['clinvar_version']}</h4>
+            <div class="big-stat" style="font-size:1rem">{clinvar_date or 'N/A'}</div>
+            <div class="stat-sub">NCBI ClinVar GRCh37 · {meta.get('user_vcf_total_variants', 0):,} variants analyzed</div>
+        </div>
+        <div class="info-card" style="border-left:3px solid #f39c12">
+            <h4>Alelos de Riesgo</h4>
+            <div class="big-stat" style="color:#f39c12">{n_risk}</div>
+            <div class="stat-sub">Susceptibilidad — NO causan enfermedad</div>
+        </div>
+    </div>
+
+    <!-- ═══ HIGH CONFIDENCE TABLE ═══ -->
+    <h4 style="margin-top:1.5rem;color:#27ae60">🏅 {t['high_conf_title']} — {len(high_mod)} {t['reliable_count']}</h4>
+    <div style="overflow-x:auto">
+    <table>
+        <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
+        <tbody>{''.join(build_row(v) for v in high_mod[:200]) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">✅ No high-confidence pathogenic variants found. This is normal.</td></tr>'}</tbody>
+    </table>
+    </div>
+
+    <!-- ═══ LOWER CONFIDENCE TABLE ═══ -->
+    <h4 style="margin-top:1.5rem;color:#95a5a6">❓ {t['low_conf_title']} — {len(low_variants)} {t['uncertain_count']}</h4>
+    <div style="overflow-x:auto">
+    <table>
+        <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
+        <tbody>{''.join(build_row(v) for v in low_variants[:300]) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">No lower-confidence variants.</td></tr>'}</tbody>
+    </table>
+    </div>
+    {f'<p style="color:var(--color-text-secondary);font-size:0.8rem;margin-top:0.5rem">{len(low_variants) - 300} more not shown. See clinvar/clinvar_pathogenic_variants.json for complete list.</p>' if len(low_variants) > 300 else ''}
+
+    <!-- ═══ LIMITATIONS ═══ -->
+    <div class="highlight-box" style="background:#fef9e7;border:1px solid #f9e79f;border-radius:8px;padding:1rem 1.5rem;margin-top:1.5rem">
+        <h4 style="margin-top:0">{t['limitations_title']}</h4>
+        <p style="font-size:0.82rem;margin:0;white-space:pre-line;color:var(--color-text-secondary)">{t['limitations_text']}</p>
+    </div>
+
+    <!-- ═══ FULL DISCLAIMER ═══ -->
+    <div class="disclaimer-box" style="margin-top:1rem">
+        <p style="white-space:pre-line;font-size:0.82rem;margin:0">⚠️ RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS. NO PARA DIAGNÓSTICO CLÍNICO.</p>
+    </div>
+    """
+
+
+def build_pharmgkb_section(pharmgkb_data: dict, ui: dict) -> str:
+    """Pharmacogenomic drug response section."""
+    lang = ui.get("_lang", "en")
+    findings = pharmgkb_data.get("pharmacogenomic_findings", [])
+    summary = pharmgkb_data.get("summary", {})
+
+    if not findings:
+        msg = {"en": "No pharmacogenomic variants found.", "es": "No se encontraron variantes farmacogenómicas."}
+        return f"""<div class="info-card" style="text-align:center;padding:1.5rem">
+            <p style="color:var(--color-text-secondary)">{msg.get(lang, msg['en'])}</p>
+        </div>"""
+
+    action_colors = {
+        "critical": ("#c0392b", "#fadbd8", "🔴"),
+        "important": ("#d35400", "#fdebd0", "🟠"),
+        "informative": ("#2980b9", "#d6eaf8", "🟡"),
+        "normal": ("#27ae60", "#d5f5e3", "🟢"),
+    }
+
+    def action_badge(a):
+        fg, bg, icon = action_colors.get(a, ("#7f8c8d", "#e9ecef", "⚪"))
+        return f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700">{icon} {a}</span>'
+
+    n_critical = summary.get("by_actionability", {}).get("critical", 0)
+    n_important = summary.get("by_actionability", {}).get("important", 0)
+    n_info = summary.get("by_actionability", {}).get("informative", 0)
+
+    T = {
+        "en": {
+            "title": "Pharmacogenomics — Drug Response",
+            "explain": "These variants affect how your body processes specific medications. They do <strong>not</strong> diagnose any condition — they inform drug selection and dosing <strong>if</strong> you ever need these medications.",
+            "critical": "Critical — contraindicated or major dose adjustment needed",
+            "important": "Important — dose adjustment recommended",
+            "informative": "Informative — may affect response, standard monitoring advised",
+            "gene": "Gene",
+            "variant": "Variant",
+            "drug": "Drug",
+            "phenotype": "Your Phenotype",
+            "recommendation": "Clinical Recommendation",
+            "cpic_source": "CPIC Guideline",
+            "disclaimer": "⚠️ Do NOT change any medication without consulting your doctor. These are pharmacogenomic predictions for research use.",
+        },
+        "es": {
+            "title": "Farmacogenómica — Respuesta a Fármacos",
+            "explain": "Estas variantes afectan cómo tu cuerpo procesa medicamentos específicos. <strong>No</strong> diagnostican ninguna condición — informan la selección y dosificación de fármacos <strong>si</strong> alguna vez necesitas estos medicamentos.",
+            "critical": "Crítico — contraindicado o ajuste de dosis mayor necesario",
+            "important": "Importante — ajuste de dosis recomendado",
+            "recommendation": "Recomendación Clínica",
+            "informative": "Informativo — puede afectar respuesta, monitorización estándar",
+            "gene": "Gen",
+            "variant": "Variante",
+            "drug": "Fármaco",
+            "phenotype": "Tu Fenotipo",
+            "cpic_source": "Guía CPIC",
+            "disclaimer": "⚠️ NO cambies ningún medicamento sin consultar a tu médico. Estas son predicciones farmacogenómicas para uso en investigación.",
+        },
+    }
+    t = T.get(lang, T["en"])
+
+    rows = ""
+    for f in findings:
+        rec = f.get(f"recommendation_{lang}", f.get("recommendation_en", ""))
+        if len(rec) > 150:
+            rec = rec[:147] + "..."
+        rows += (
+            f'<tr>'
+            f'<td style="font-weight:600">{f["gene"]}</td>'
+            f'<td><code>{f["rsid"]}</code> {f.get("star_allele","")}</td>'
+            f'<td style="font-weight:600">{f["drug"]} ({f.get("drug_class","")})</td>'
+            f'<td style="font-size:0.85rem">{f["phenotype"]} ({f["copies"]} copia{"s" if f["copies"]>1 else ""})</td>'
+            f'<td style="font-size:0.82rem">{rec}</td>'
+            f'<td style="font-size:0.72rem;color:var(--color-text-secondary)">{f["cpic_level"]}</td>'
+            f'</tr>'
+        )
+
+    return f"""
+    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1.5rem">
+        <p style="font-size:0.9rem;margin:0">{t['explain']}</p>
+    </div>
+
+    <div class="info-grid" style="grid-template-columns:repeat(3,1fr)">
+        {f'<div class="info-card" style="border-left:3px solid #c0392b"><h4>🔴 {t["critical"]}</h4><div class="big-stat" style="color:#c0392b">{n_critical}</div></div>' if n_critical else ''}
+        {f'<div class="info-card" style="border-left:3px solid #d35400"><h4>🟠 {t["important"]}</h4><div class="big-stat" style="color:#d35400">{n_important}</div></div>' if n_important else ''}
+        <div class="info-card" style="border-left:3px solid #2980b9"><h4>🟡 {t["informative"]}</h4><div class="big-stat" style="color:#2980b9">{n_info}</div></div>
+    </div>
+
+    <h4 style="margin-top:1.5rem">💊 {t['title']} ({len(findings)} hallazgos)</h4>
+    <div style="overflow-x:auto">
+    <table>
+        <thead><tr><th>{t['gene']}</th><th>{t['variant']}</th><th>{t['drug']}</th><th>{t['phenotype']}</th><th>{t['recommendation']}</th><th>{t['cpic_source']}</th></tr></thead>
+        <tbody>{rows}</tbody>
+    </table>
+    </div>
+
+    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:0.8rem 1.2rem;margin-top:1rem">
+        <p style="font-size:0.82rem;margin:0">
+        <strong>📖 CPIC Guideline column:</strong> Indicates which clinical guideline supports this recommendation.<br>
+        <strong>CPIC</strong> = Clinical Pharmacogenetics Implementation Consortium (U.S. NIH-funded). <strong>DPWG</strong> = Dutch Pharmacogenetics Working Group (European).<br>
+        <strong>Level A/B</strong> = strongest evidence; actionable prescribing change recommended. <strong>Level C/D</strong> = weaker evidence; consider but not mandatory.
+        </p>
+    </div>
+
+    <div class="disclaimer-box" style="margin-top:1rem">
+        <p style="white-space:pre-line;font-size:0.82rem;margin:0">{t['disclaimer']}</p>
+    </div>
+    """
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN REPORT BUILDER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+CSS = """
+:root {
+    --color-low: #27ae60; --color-medium: #f39c12; --color-high: #e74c3c;
+    --color-bg: #f5f6fa; --color-surface: #ffffff; --color-text: #2c3e50;
+    --color-text-secondary: #7f8c8d; --color-border: #dee2e6;
+    --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--color-text); background: var(--color-bg); line-height: 1.6;
+}
+@media print { body { background: #fff; } .collapsible-section { break-inside: avoid; } }
+.report-header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+    color: #fff; padding: 3rem 2rem; text-align: center;
+}
+.report-header h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: .5rem; }
+.report-header .subtitle { font-size: 1.1rem; opacity: .9; }
+.report-header .meta { margin-top: 1rem; font-size: .85rem; opacity: .7; }
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+/* Collapsible sections */
+.collapsible-section { margin-bottom: 1.5rem; }
+.section-header {
+    cursor: pointer; display: flex; align-items: center; gap: .75rem;
+    padding: 1rem 1.25rem; background: var(--color-surface);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    border-left: 4px solid #3498db; user-select: none;
+    transition: background .15s;
+}
+.section-header:hover { background: #eaf2f8; }
+.section-header h2 { font-size: 1.1rem; font-weight: 600; }
+.section-arrow { font-size: .8rem; transition: transform .2s; color: #3498db; }
+.section-body { padding: 1.25rem; background: var(--color-surface);
+    border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: var(--shadow); margin-top: -2px; }
+
+/* Summary cards */
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.summary-card {
+    background: var(--color-surface); border-radius: var(--radius);
+    padding: 1.25rem; text-align: center; box-shadow: var(--shadow);
+    border-left: 4px solid var(--color-border);
+}
+.summary-card .card-number { font-size: 2.2rem; font-weight: 800; }
+.summary-card .card-label { font-size: .75rem; color: var(--color-text-secondary); margin-top: .25rem; }
+
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.info-card {
+    background: var(--color-surface); border-radius: var(--radius); padding: 1rem 1.25rem;
+    box-shadow: var(--shadow); text-align: center;
+}
+.info-card h4 { font-size: .75rem; text-transform: uppercase; color: var(--color-text-secondary); letter-spacing: .5px; margin-bottom: .5rem; }
+.info-card .big-stat { font-size: 1.8rem; font-weight: 800; }
+.info-card .stat-sub { font-size: .75rem; color: var(--color-text-secondary); margin-top: .25rem; }
+
+/* Highlight box */
+.highlight-box {
+    background: #eaf2f8; border-radius: var(--radius);
+    padding: .75rem 1rem; margin: .75rem 0; font-size: .85rem;
+}
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; background: var(--color-surface);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); margin: .75rem 0; font-size: .85rem; }
+th { background: #f1f3f5; padding: .55rem .65rem; text-align: left; font-weight: 600;
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; color: var(--color-text-secondary); }
+td { padding: .55rem .65rem; border-top: 1px solid var(--color-border); }
+tr:hover { background: #f8f9fa; }
+
+/* Risk badges */
+.risk-high { background: #fadbd8; color: #c0392b; }
+.risk-medium { background: #fdebd0; color: #b7950b; }
+.risk-low { background: #d5f5e3; color: #1e8449; }
+
+/* Disclaimer */
+.disclaimer-box {
+    background: #fef9e7; border: 1px solid #f9e79f;
+    border-radius: var(--radius); padding: 1.25rem; margin-top: 2rem;
+    font-size: .8rem; color: #7d6608;
+}
+
+/* Buttons */
+.btn-row { display: flex; gap: .5rem; justify-content: flex-end; margin-bottom: 1rem; }
+.btn {
+    padding: .4rem .8rem; border: 1px solid var(--color-border); border-radius: 4px;
+    background: var(--color-surface); cursor: pointer; font-size: .78rem;
+    transition: background .15s;
+}
+.btn:hover { background: #eaf2f8; }
+.btn.active { background: #3498db; color: #fff; border-color: #3498db; }
+
+/* Footer */
+.report-footer {
+    text-align: center; padding: 2rem; font-size: .75rem;
+    color: var(--color-text-secondary); border-top: 1px solid var(--color-border); margin-top: 2rem;
+}
+
+/* Print styles */
+@media print {
+    .section-body { display: block !important; }
+    .btn-row { display: none; }
+}
+"""
+
+JS = """
+function toggleSection(id, header) {
+    const body = document.getElementById(id);
+    const arrow = document.getElementById(id + '_arrow');
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▼';
+    } else {
+        body.style.display = 'none';
+        arrow.textContent = '▶';
+    }
+}
+function expandAll() {
+    document.querySelectorAll('.section-body').forEach(b => b.style.display = 'block');
+    document.querySelectorAll('.section-arrow').forEach(a => a.textContent = '▼');
+}
+function collapseAll() {
+    document.querySelectorAll('.section-body').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('.section-arrow').forEach(a => a.textContent = '▶');
+}
+"""
+
+
+def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
+    """Build the complete HTML report."""
+    ui = UI.get(lang, UI["en"])
+    ui["_lang"] = lang  # Pass language through for bilingual sections
+
+    # Build sections
+    sections_html = ""
+    s = ui["sections"]
+
+    # 1. Summary (always open)
+    sections_html += collapsible_section("summary", f"📊 {s['summary']}",
+        build_summary_cards(data["prs_result"], data["ancestry"],
+                           data["integrity"], data["validation"], ui),
+        open_by_default=True)
+
+    # 2. Ancestry
+    sections_html += collapsible_section("ancestry", f"🌍 {s['ancestry']}",
+        build_ancestry_section(data["ancestry"], data.get("pca_data", {}), ui))
+
+    # 2b. Deep Ancestry (haplogroups, sub-continental)
+    deep = data.get("deep_ancestry", {})
+    if deep:
+        ydna = deep.get("y_dna", {})
+        mtdna = deep.get("mt_dna", {})
+        subcont = deep.get("sub_continental", {})
+        neand = deep.get("neanderthal", {})
+
+        deep_html = "<div class='info-grid' style='grid-template-columns:1fr 1fr 1fr'>"
+        deep_html += f"<div class='info-card'><h4>🧬 mtDNA Haplogroup</h4><div class='big-stat' style='font-size:1.2rem'>{mtdna.get('haplogroup','?')}</div><div class='stat-sub'>{mtdna.get('description','')}</div></div>"
+        deep_html += f"<div class='info-card'><h4>🧬 Y-DNA Haplogroup</h4><div class='big-stat' style='font-size:1rem'>{ydna.get('haplogroup','?')}</div><div class='stat-sub'>{ydna.get('description','')[:80]}</div></div>"
+        if neand.get("reliable"):
+            deep_html += f"<div class='info-card'><h4>🦴 Neanderthal DNA</h4><div class='big-stat'>{neand.get('percentage','?')}%</div><div class='stat-sub'>European avg: ~2.1%</div></div>"
+        else:
+            deep_html += f"<div class='info-card'><h4>🦴 Neanderthal DNA</h4><div class='big-stat' style='font-size:0.9rem'>N/A</div><div class='stat-sub'>Requires archaic reference panel</div></div>"
+        deep_html += "</div>"
+
+        # Sub-continental populations
+        if subcont:
+            assigned = subcont.get("assigned_super_population", "EUR")
+            subs = subcont.get("sub_populations_available", [])
+            deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Reference Populations ({assigned})</h4>"
+            deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
+            for p in subs[:5]:
+                deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
+            deep_html += "</div>"
+            deep_html += f"<p style='font-size:0.72rem;color:var(--color-text-secondary);margin-top:0.3rem'>{subcont.get('note','')}</p>"
+
+        sections_html += collapsible_section("deep_ancestry", "🧬 Deep Ancestry — Haplogroups & Sub-Continental", deep_html)
+
+    # 3. PRS Results (always open)
+    sections_html += collapsible_section("prs", f"📈 {s['prs']}",
+        build_prs_table(data["prs_result"].get("prs_entries", []), ui),
+        open_by_default=True)
+
+    # 4. Uncertainty Decomposition
+    sections_html += collapsible_section("uncertainty_decomp", f"📐 {s['uncertainty']}",
+        build_uncertainty_decomposition(data.get("uncertainty_report", {})))
+
+    # 5. Variant Detail
+    sections_html += collapsible_section("variants", f"🧬 {s['variants']}",
+        build_variant_detail(data["prs_result"].get("prs_entries", [])))
+
+    # 6. Population Calibration
+    sections_html += collapsible_section("calibration", f"📊 {s['calibration']}",
+        build_calibration_detail_section(data.get("calibration_report", {})))
+
+    # 6b. PGS Catalog Calibration
+    pgs_data = data.get("pgs_calibration", {})
+    if pgs_data and pgs_data.get("all_entries"):
+        sections_html += collapsible_section("pgs_calibration", f"🧬 {s.get('pgs_calibration', 'PGS Catalog Calibration')}",
+            build_pgs_calibration_section(pgs_data))
+
+    # 6c. ClinVar Pathogenic Variants
+    clinvar_data = data.get("clinvar", {})
+    sections_html += collapsible_section("clinvar", f"🧬 {s.get('clinvar', 'ClinVar Pathogenic Variants')}",
+        build_clinvar_section(clinvar_data, ui))
+
+    # 6d. Pharmacogenomics
+    pharmgkb_data = data.get("pharmgkb", {})
+    pharmgkb_findings = pharmgkb_data.get("pharmacogenomic_findings", [])
+    if pharmgkb_findings:
+        sections_html += collapsible_section("pharmgkb", "💊 Pharmacogenomics — Drug Response",
+            build_pharmgkb_section(pharmgkb_data, ui))
+
+    # 7. Population Portability
+    sections_html += collapsible_section("portability", f"🌐 {s['portability']}",
+        build_portability_section(data.get("portability", {})))
+
+    # 8. Scientific Validation
+    sections_html += collapsible_section("validation", f"✅ {s['validation']}",
+        build_validation_section(data["validation"], ui))
+
+    # 9. GWAS Consortium Validation
+    sections_html += collapsible_section("gwas_consortium", f"🏛️ {s['gwas_consortium']}",
+        build_gwas_consortium_section(data.get("gwas_consortium", {})))
+
+    # 10. Quality Delta Benchmarking
+    sections_html += collapsible_section("benchmark", f"🔬 {s['benchmark']}",
+        build_benchmark_section(data["benchmark"], data.get("quality_delta", {}), ui))
+
+    # 11. Adversarial Stress Testing
+    sections_html += collapsible_section("adversarial", f"🛡️ {s['adversarial']}",
+        build_adversarial_section(data["adversarial"], ui))
+
+    # 12. Failure Mode Coverage
+    sections_html += collapsible_section("failure_map", f"⚠️ {s['failure_map']}",
+        build_failure_map_section(data["failure_map"], ui))
+
+    # 13. Leakage Prevention — Detailed
+    sections_html += collapsible_section("leakage", f"🔒 {s['leakage']}",
+        build_leakage_detail_section(data.get("leakage_audit", data.get("leakage", {}))))
+
+    # 14. GWAS-Ancestry Consistency
+    sections_html += collapsible_section("consistency", f"🔗 {s['consistency']}",
+        build_consistency_section(data.get("consistency", {})))
+
+    # 15. Scientific Integrity
+    sections_html += collapsible_section("integrity", f"🏅 {s['integrity']}",
+        build_integrity_section(data["integrity"], ui))
+
+    # 16. Reproducibility
+    sections_html += collapsible_section("reproducibility", f"🔁 {s['reproducibility']}",
+        build_reproducibility_section(data.get("reproducibility", {})))
+
+    # 17. Pipeline Methodology
+    sections_html += collapsible_section("methodology", f"⚙️ {s['methodology']}",
+        build_methodology_section(data["prs_result"], data["ancestry"]))
+
+    # 18. Limitations (always open)
+    sections_html += collapsible_section("limitations", f"⚠️ {s['limitations']}",
+        f'<div class="disclaimer-box"><h3>⚠️ Important Disclaimer</h3><p style="white-space:pre-line">{ui["disclaimer"]}</p></div>',
+        open_by_default=True)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    pop = data["ancestry"].get("assigned_population", "EUR")
+    integrity_score = data["integrity"].get("scientific_integrity_score", 0)
+
+    return f"""<!DOCTYPE html>
+<html lang="{lang}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{ui['title']} — {sample_id}</title>
+    <style>{CSS}</style>
+</head>
+<body>
+    <header class="report-header">
+        <h1>{ui['title']}</h1>
+        <div class="subtitle">{ui['subtitle']}</div>
+        <div class="meta">
+            Sample: {sample_id} | Population: {pop} | Integrity: {integrity_score:.0f}/100<br>
+            Generated: {now} | BlueGen v10.0 | GRCh37/hg19
+        </div>
+    </header>
+    <div class="container">
+        <div class="btn-row">
+            <button class="btn" onclick="expandAll()">📖 Expand All</button>
+            <button class="btn" onclick="collapseAll()">📕 Collapse All</button>
+        </div>
+        {sections_html}
+    </div>
+    <footer class="report-footer">
+        <p>BlueGen Report — Generated {now}</p>
+        <p>BlueGen v10.0 | Sample: {sample_id} | Research Use Only</p>
+    </footer>
+    <script>{JS}</script>
+</body>
+</html>"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Comprehensive HTML Report Generator")
+    parser.add_argument("--sample-id", default="SAMPLE_001")
+    parser.add_argument("--output-dir", "-o", default="reports")
+    parser.add_argument("--lang", default="both", choices=["en", "es", "both"])
+    parser.add_argument("--snp-db", default="data/snp_database_annotated.csv")
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
+                       format="%(asctime)s [%(levelname)s] %(message)s")
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load all data sources
+    logger.info("═══ Loading Pipeline Data ═══")
+
+    data = {}
+
+    # Core outputs
+    p = Path(".")
+    data["prs_result"] = load_json("prs/PRS_RESULT.json")
+    data["ancestry"] = load_json("science/ANCESTRY_MODEL.json")
+    data["validation"] = load_json("science/global_validation_report.json")
+    data["integrity"] = load_json("FINAL_SCIENTIFIC_SCORE.json")
+    data["benchmark"] = load_json("benchmark/VALIDATION_REPORT.json")
+    data["adversarial"] = load_json("science/adversarial_validation_report.json")
+    data["failure_map"] = load_json("science/failure_mode_map.json")
+    data["leakage"] = load_json("science/pipeline_gate_check.json")
+    data["quality_delta"] = load_json("benchmark/quality_delta.json")
+    # Extended data sources
+    data["uncertainty_report"] = load_json("prs/uncertainty_report.json")
+    data["calibration_report"] = load_json("prs/population_calibration_report.json")
+    data["gwas_consortium"] = load_json("benchmark/gwas_consortium_validation.json")
+    data["portability"] = load_json("benchmark/portability_report.json")
+    data["reproducibility"] = load_json("reproducibility/run_fingerprint.json")
+    data["consistency"] = load_json("prs/consistency_check_report.json")
+    data["leakage_audit"] = load_json("science/leakage_audit.json")
+    data["snp_universe"] = load_json("science/snp_universe.json")
+    data["pgs_calibration"] = load_json("prs/pgs_scores/pgs_calibration_report.json")
+    data["clinvar"] = load_json("clinvar/clinvar_pathogenic_variants.json")
+    data["pharmgkb"] = load_json("pharmgkb/pharmgkb_drug_report.json")
+    data["deep_ancestry"] = load_json("ancestry/deep_ancestry.json")
+
+    # Log what was found
+    for name, d in data.items():
+        status = "✅" if d else "⬚ (missing)"
+        logger.info(f"  {status} {name}")
+
+    # Fall back to ancestry inference if ANCESTRY_MODEL is empty or UNKNOWN
+    anc_pop = data["ancestry"].get("assigned_population", "UNKNOWN")
+    if not data["ancestry"] or anc_pop in ("UNKNOWN", None, ""):
+        alt = load_json("pca/ancestry_inference.json")
+        if alt:
+            # Map ancestry_inference format to ANCESTRY_MODEL format
+            summary = alt.get("summary", {})
+            data["ancestry"] = {
+                "assigned_population": summary.get("assigned_super_population", "EUR"),
+                "posterior_probabilities": summary.get("all_probabilities", {}),
+                "confidence": summary.get("confidence", "MODERATE"),
+                "n_reference_samples": alt.get("methodology", {}).get("snps_used", 2504),
+                "n_pcs": 20,
+                "method": alt.get("methodology", {}).get("method", "allele_frequency_distance"),
+            }
+            logger.info(f"  Using pca/ancestry_inference.json: {data['ancestry']['assigned_population']} ({data['ancestry']['confidence']})")
+
+    sample_id = args.sample_id
+    # Try to detect actual sample ID from PRS result
+    prs_sample = data["prs_result"].get("sample_id", "")
+    if prs_sample and prs_sample != "SAMPLE_001":
+        sample_id = prs_sample
+
+    langs = ["en", "es"] if args.lang == "both" else [args.lang]
+
+    for lang in langs:
+        logger.info(f"  Generating {lang.upper()} report...")
+        html = build_html_report(lang, data, sample_id)
+
+        out_path = output_dir / f"comprehensive_report_{lang}.html"
+        with open(out_path, "w") as fh:
+            fh.write(html)
+
+        size_kb = len(html) / 1024
+        logger.info(f"    ✅ {out_path} ({size_kb:.0f} KB)")
+
+    logger.info("═══ Report Complete ═══")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

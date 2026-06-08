@@ -1,0 +1,20 @@
+{
+  "source": "ftp.ncbi.nlm.nih.gov/pub/medgen/",
+  "download_date": "2026-06-08T15:21:43.380528+00:00",
+  "files": {
+    "NAMES.RRF.gz": {
+      "size": 3135448,
+      "last_modified": "Sun, 07 Jun 2026 17:59:37 GMT"
+    },
+    "MGDEF.RRF.gz": {
+      "size": 5134280,
+      "last_modified": "Sun, 07 Jun 2026 18:00:17 GMT"
+    },
+    "MGSTY.RRF.gz": {
+      "size": 1663812,
+      "last_modified": "Sun, 07 Jun 2026 18:00:22 GMT"
+    }
+  },
+  "update_frequency": "weekly (Wednesdays)",
+  "update_command": "python scripts/clinical/medgen_enrich.py --download"
+}

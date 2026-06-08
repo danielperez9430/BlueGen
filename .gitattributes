@@ -1,0 +1,19 @@
+# Auto-detect text files, normalise line endings
+* text=auto
+
+# Large reference files that should use Git LFS (optional)
+# Uncomment if you set up Git LFS:
+# prs_research_pipeline/reference/clinvar/*.vcf.gz filter=lfs diff=lfs merge=lfs -text
+# prs_research_pipeline/reference/1000G_full/*.bed filter=lfs diff=lfs merge=lfs -text
+
+# Binary files
+*.bam binary
+*.bai binary
+*.gz binary
+*.zip binary
+*.vcf.gz binary
+
+# Scripts should have LF line endings
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf

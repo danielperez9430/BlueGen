@@ -1,0 +1,98 @@
+# ── Sensitive / Personal Genomic Data ──
+raw_data/
+aligned/
+*.vcf.gz
+*.vcf.gz.tbi
+*.bam
+*.bam.bai
+*.cram
+
+# ── Large Reference Data (downloaded) ──
+# Ignore all reference data except ClinVar (small enough to commit)
+prs_research_pipeline/reference/*
+!prs_research_pipeline/reference/clinvar/
+!prs_research_pipeline/reference/medgen/
+!prs_research_pipeline/reference/clinpgx/
+!prs_research_pipeline/reference/SOURCES.md
+!prs_research_pipeline/reference/.gitkeep
+!prs_research_pipeline/reference/population_distributions/
+_gwas_vcfs/
+
+# ── Population Distributions (keep — small, expensive to recompute) ──
+# references/ is committed intentionally
+
+# ── PGS Catalog Cache (large generated files) ──
+prs_research_pipeline/pgs/
+
+# ── Pipeline Intermediates (generated at runtime) ──
+prs_research_pipeline/plink/
+prs_research_pipeline/qc/
+prs_research_pipeline/pca/
+prs_research_pipeline/prs/
+prs_research_pipeline/ancestry/
+prs_research_pipeline/interpretations/
+prs_research_pipeline/reproducibility/
+prs_research_pipeline/science/
+prs_research_pipeline/validation/
+prs_research_pipeline/benchmark/
+prs_research_pipeline/reports/
+prs_research_pipeline/benchmark/
+prs_research_pipeline/sss/
+prs_research_pipeline/gwas/
+prs_research_pipeline/clinvar/
+prs_research_pipeline/pharmgkb/
+prs_research_pipeline/ancestry/
+prs_research_pipeline/legacy/
+prs_research_pipeline/publication_evidence_pack/
+prs_research_pipeline/PUBLICATION_LOCK.md
+
+# ── Internal State ──
+prs_research_pipeline/.checkpoints/
+*.opengwas_token
+
+# Keep empty dirs structure
+!prs_research_pipeline/plink/.gitkeep
+!prs_research_pipeline/reference/.gitkeep
+!prs_research_pipeline/reference/population_distributions/
+
+# ── Virtual Environment ──
+venv/
+.venv/
+env/
+
+# ── Tools / Binaries ──
+tools/
+
+# ── Python Cache ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ── OS / IDE ──
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Pipeline Debug ──
+*.log
+pipeline_debug.log
+
+# ── Test Data ──
+prs_research_pipeline/test_samples_*.vcf.gz
+
+# ── Shell Wrapper (machine-specific paths) ──
+run
+prs_research_pipeline/reference/clinvar/*.vcf.gz
+prs_research_pipeline/reference/clinvar/*.vcf.gz.tbi
+prs_research_pipeline/reference/clinvar/*.md5
+
+# SSH keys
+clouding
+clouding.pub
+*.pem
+archive/
+_*.nopred
+_*.nosex

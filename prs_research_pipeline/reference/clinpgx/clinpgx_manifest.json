@@ -1,0 +1,9 @@
+{
+  "download_date": "2026-06-08T15:59:28.429349+00:00",
+  "source": "api.clinpgx.org (CC BY-SA 4.0)",
+  "datasets": {
+    "clinical_variants": 5190,
+    "guidelines": 218,
+    "variants": 7615
+  }
+}

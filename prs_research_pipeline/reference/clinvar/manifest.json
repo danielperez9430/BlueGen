@@ -1,0 +1,14 @@
+{
+  "source": "ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/",
+  "build": "GRCh37",
+  "download_date": "2026-06-08T13:52:37Z",
+  "file_size_bytes": 196557275,
+  "file_size_mb": 187.5,
+  "n_variants": 4435073,
+  "md5_verified": true,
+  "files": {
+    "vcf": "clinvar.vcf.gz",
+    "index": "clinvar.vcf.gz.tbi",
+    "checksum": "clinvar.vcf.gz.md5"
+  }
+}

@@ -1,0 +1,202 @@
+# ============================================================================
+# PRS Research Pipeline — Central Configuration
+# ============================================================================
+# Research-grade polygenic risk score pipeline using PLINK, LD pruning,
+# PCA-based ancestry correction, and GWAS harmonization.
+#
+# Genome build: GRCh37/hg19
+# Variant caller: DeepVariant 1.5.0
+# ============================================================================
+
+pipeline:
+  name: "PRS Research Pipeline"
+  version: "2.0.0"
+  genome_build: "GRCh37"
+  variant_caller: "DeepVariant 1.5.0"
+  description: >
+    Research-grade polygenic risk score computation with PLINK-based
+    genotype processing, LD pruning, PCA ancestry correction, and
+    harmonized GWAS effect sizes.
+
+# --- INPUT ---
+input:
+  vcf: "input.vcf.gz"                    # DeepVariant VCF (bgzip compressed)
+  gwas_catalog: ""                        # Path to GWAS Catalog summary stats (parquet/tsv)
+  reference_panel: ""                     # Optional: 1000 Genomes VCF for PCA reference
+  sample_id: "SAMPLE_001"                 # Sample identifier
+
+# --- PLINK ---
+plink:
+  binary: "plink"                         # plink or plink2
+  threads: 4                              # Number of threads for PLINK operations
+  memory: 8000                            # Memory limit in MB
+
+# --- QUALITY CONTROL ---
+qc:
+  snp_missingness: 0.1                    # --geno: max SNP missing rate (10%)
+  individual_missingness: 0.1             # --mind: max individual missing rate (10%)
+  maf: 0.01                               # Minor allele frequency threshold (1%)
+  hwe: 0.000001                           # Hardy-Weinberg equilibrium p-value (1e-6)
+  min_quality: 20                         # Minimum genotype quality (GQ)
+  min_depth: 10                           # Minimum read depth (DP)
+  remove_ref_calls: true                  # Exclude RefCall entries
+  variant_types: ["snp"]                  # snp only (indels require different handling)
+
+# --- LD PRUNING ---
+ld_pruning:
+  window_size_kb: 50                      # Window size in variant count units
+  step_size: 5                            # Step size for sliding window
+  r2_threshold: 0.2                       # LD threshold (r² < 0.2 = independent)
+  # Alternative: use PLINK's --indep-pairwise 50 5 0.2
+
+# --- PCA ---
+pca:
+  num_components: 10                      # Number of PCs to compute
+  # PC1-PC10 used for ancestry correction in PRS adjustment
+  reference_populations: true             # Include 1KG reference if available
+
+# --- GWAS HARMONIZATION ---
+gwas:
+  # Strand-ambiguous SNP handling
+  remove_palindromic: true                # Remove A/T and C/G SNPs if MAF > 0.4
+  palindromic_maf_threshold: 0.4
+  # Allele alignment
+  match_by: "position"                    # position | rsid | both
+  flip_strand: true                       # Auto-detect and flip strand
+  # Effect size
+  effect_size_column: "beta"              # Column name for effect size
+  standard_error_column: "se"             # Column name for standard error
+  pvalue_column: "p_value"                # Column name for p-value
+  effect_allele_column: "effect_allele"   # Column name for effect allele
+  reference_allele_column: "other_allele" # Column name for reference allele
+  chromosome_column: "chrom"              # Column name for chromosome
+  position_column: "pos"                  # Column name for position
+  rsid_column: "rsid"                     # Column name for rsID
+
+# --- PRS COMPUTATION ---
+prs:
+  trait_categories:
+    - "Caffeine metabolism"
+    - "Lipid metabolism"
+    - "Omega-3 metabolism"
+    - "Folate & methylation"
+    - "Lactose intolerance"
+    - "Obesity predisposition"
+    - "Dopamine regulation"
+    - "Detoxification"
+    - "Vitamin D metabolism"
+    - "Glucose metabolism"
+
+  # PLINK score method
+  score_method: "sum"                     # sum | avg | std
+  # score_method "sum" computes: PRS = Σ(dosage_i × weight_i)
+
+  # Risk category thresholds (percentiles)
+  risk_thresholds:
+    low: 25                               # Bottom 25%
+    high: 75                              # Top 25%
+    # Medium: 25%–75%
+
+  # PCA adjustment
+  pca_adjustment:
+    enabled: true
+    num_pcs: 10                           # PCs to include as covariates
+    regression_type: "linear"             # linear regression on PCs
+
+# --- POPULATION CALIBRATION (v3.0) ---
+population_calibration:
+  enabled: true
+  reference_panel: "1000G_phase3"         # 1000 Genomes Phase 3
+  reference_vcf: "reference/1000G/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
+  population_panel: "reference/1000G/20130606_g1k_3202_samples_ped_population.txt"
+  num_pcs: 20                             # PCs for ancestry inference
+  super_populations: ["EUR", "AFR", "EAS", "SAS", "AMR"]
+  ancestry_inference:
+    method: "logistic_regression"         # logistic_regression | centroid_distance | mahalanobis
+    num_pcs: 10
+  ld_pruning:
+    mode: "ancestry_matched"              # ancestry_matched | self | none
+    union_mode: "conservative"            # conservative (intersection) | inclusive (union)
+    r2_threshold: 0.2
+    # No single-sample fallback — 1000G reference REQUIRED
+  prs_stratification:
+    enabled: true
+    # Population-specific PRS reference distributions
+    # Each {trait: {pop: (mu, sigma)}} derived from 1000G or published GWAS
+
+# --- NORMALIZATION ---
+normalization:
+  method: "percentile"                    # zscore | percentile | internal
+  # When reference population is available
+  reference_population: ""                # Path to population PRS distribution file
+
+# --- BILINGUAL REPORTING (v3.0) ---
+bilingual:
+  enabled: true
+  languages: ["en", "es"]                 # en, es, both
+  # All scientific content is curated (not machine-translated)
+  # ensuring identical meaning across languages
+
+# --- NUTRIGENETIC INTERPRETATION ---
+interpretation:
+  genes_of_interest:
+    - gene: "CYP1A2"
+      trait: "Caffeine metabolism"
+      description: "Caffeine metabolism rate (slow/fast metabolizer)"
+    - gene: "MTHFR"
+      trait: "Folate & methylation"
+      description: "Folate cycle efficiency and homocysteine regulation"
+    - gene: "FADS1"
+      trait: "Omega-3 metabolism"
+      description: "Omega-3 fatty acid desaturase activity"
+    - gene: "FADS2"
+      trait: "Omega-3 metabolism"
+      description: "Long-chain PUFA synthesis efficiency"
+    - gene: "APOE"
+      trait: "Lipid metabolism"
+      description: "Apolipoprotein E — cholesterol and lipid transport"
+    - gene: "FTO"
+      trait: "Obesity predisposition"
+      description: "Appetite regulation and energy balance"
+    - gene: "TCF7L2"
+      trait: "Glucose metabolism"
+      description: "Insulin secretion and type 2 diabetes risk"
+    - gene: "LCT"
+      trait: "Lactose intolerance"
+      description: "Lactase persistence in adulthood"
+    - gene: "COMT"
+      trait: "Dopamine regulation"
+      description: "Dopamine catabolism in prefrontal cortex"
+
+# --- REPORT ---
+report:
+  title: "PRS Research Report"
+  template: "templates/report.html"
+  sample_id: "SAMPLE_001"
+  include_pca_plot: true
+  include_snp_table: true
+  include_radar_chart: true
+  output_formats: ["html", "pdf"]
+  disclaimer: |
+    ⚠️  RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS
+
+    This polygenic risk score (PRS) report is generated for RESEARCH PURPOSES ONLY.
+    It does NOT constitute a clinical diagnosis, medical advice, or a definitive
+    prediction of disease risk.
+
+    Key limitations:
+    • PRS is probabilistic, not deterministic — it estimates genetic susceptibility
+    • Effect sizes depend on GWAS discovery populations (primarily European ancestry)
+    • Ancestry bias is possible if reference panels don't match your background
+    • Gene-environment interactions are not captured by genotype alone
+    • Rare variants and structural variants are not assessed
+    • This analysis uses a curated SNP panel, not genome-wide PRS
+
+    Consult a healthcare professional before making any dietary, lifestyle,
+    or medical decisions based on genetic information.
+
+# --- LOGGING ---
+logging:
+  level: "INFO"                           # DEBUG | INFO | WARNING | ERROR
+  file: "reports/pipeline.log"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

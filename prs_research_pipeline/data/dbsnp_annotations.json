@@ -1,0 +1,1086 @@
+{
+  "rs10150332": {
+    "rsid": 10150332,
+    "uid": "61341913",
+    "chr_pos": "14:14:79470621",
+    "clinical_significance": "",
+    "gene_name": "NRXN3",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1042034": {
+    "rsid": 1042034,
+    "uid": "117805041",
+    "chr_pos": "2:2:21002409",
+    "clinical_significance": "benign,drug-response",
+    "gene_name": "APOB",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1042522": {
+    "rsid": 1042522,
+    "uid": "60388830",
+    "chr_pos": "17:17:7676154",
+    "clinical_significance": "likely-benign,uncertain-significance,benign,pathogenic,conflicting-interpretations-of-pathogenicity",
+    "gene_name": "TP53",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1048943": {
+    "rsid": 1048943,
+    "uid": "386513458",
+    "chr_pos": "15:15:74720644",
+    "clinical_significance": "benign",
+    "gene_name": "CYP1A1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1051740": {
+    "rsid": 1051740,
+    "uid": "59266540",
+    "chr_pos": "1:1:225831932",
+    "clinical_significance": "risk-factor,benign",
+    "gene_name": "EPHX1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs10741657": {
+    "rsid": 10741657,
+    "uid": "61548184",
+    "chr_pos": "11:11:14893332",
+    "clinical_significance": "",
+    "gene_name": "CYP2R1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1076560": {
+    "rsid": 1076560,
+    "uid": "1800500",
+    "chr_pos": "11:11:113412966",
+    "clinical_significance": "benign",
+    "gene_name": "DRD2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs10767664": {
+    "rsid": 10767664,
+    "uid": "59643803",
+    "chr_pos": "11:11:27704439",
+    "clinical_significance": "",
+    "gene_name": "BDNF",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs10830963": {
+    "rsid": 10830963,
+    "uid": "58117749",
+    "chr_pos": "11:11:92975544",
+    "clinical_significance": "",
+    "gene_name": "MTNR1B",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs11206510": {
+    "rsid": 11206510,
+    "uid": "57615199",
+    "chr_pos": "1:1:55030366",
+    "clinical_significance": "association",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1121980": {
+    "rsid": 1121980,
+    "uid": "386517572",
+    "chr_pos": "16:16:53775335",
+    "clinical_significance": "",
+    "gene_name": "FTO",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1138272": {
+    "rsid": 1138272,
+    "uid": "61323549",
+    "chr_pos": "11:11:67586108",
+    "clinical_significance": "benign,association",
+    "gene_name": "GSTP1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs11558471": {
+    "rsid": 11558471,
+    "uid": "52800511",
+    "chr_pos": "8:8:117173494",
+    "clinical_significance": "",
+    "gene_name": "SLC30A8",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs11605924": {
+    "rsid": 11605924,
+    "uid": "57361652",
+    "chr_pos": "11:11:45851540",
+    "clinical_significance": "",
+    "gene_name": "CRY2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1208": {
+    "rsid": 1208,
+    "uid": "58999469",
+    "chr_pos": "8:8:18400806",
+    "clinical_significance": "likely-benign,drug-response",
+    "gene_name": "NAT2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs12255372": {
+    "rsid": 12255372,
+    "uid": "61466944",
+    "chr_pos": "10:10:113049143",
+    "clinical_significance": "risk-factor",
+    "gene_name": "TCF7L2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1260326": {
+    "rsid": 1260326,
+    "uid": "58226775",
+    "chr_pos": "2:2:27508073",
+    "clinical_significance": "benign,association",
+    "gene_name": "GCKR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs12678919": {
+    "rsid": 12678919,
+    "uid": "57659229",
+    "chr_pos": "8:8:19986711",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs12785878": {
+    "rsid": 12785878,
+    "uid": "56554767",
+    "chr_pos": "11:11:71456403",
+    "clinical_significance": "",
+    "gene_name": "NADSYN1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs13266634": {
+    "rsid": 13266634,
+    "uid": "57876063",
+    "chr_pos": "8:8:117172544",
+    "clinical_significance": "benign,risk-factor",
+    "gene_name": "SLC30A8",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1367117": {
+    "rsid": 1367117,
+    "uid": "117604440",
+    "chr_pos": "2:2:21041028",
+    "clinical_significance": "benign,drug-response,uncertain-significance,benign-likely-benign",
+    "gene_name": "APOB",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1378942": {
+    "rsid": 1378942,
+    "uid": "60607055",
+    "chr_pos": "15:15:74785026",
+    "clinical_significance": "",
+    "gene_name": "CSK",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1387153": {
+    "rsid": 1387153,
+    "uid": "56915544",
+    "chr_pos": "11:11:92940662",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1421085": {
+    "rsid": 1421085,
+    "uid": "17817021",
+    "chr_pos": "16:16:53767042",
+    "clinical_significance": "risk-factor",
+    "gene_name": "FTO",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs145946881": {
+    "rsid": 145946881,
+    "uid": "145946881",
+    "chr_pos": "2:2:135851176",
+    "clinical_significance": "association",
+    "gene_name": "MCM6",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1476413": {
+    "rsid": 1476413,
+    "uid": "386533606",
+    "chr_pos": "1:1:11792243",
+    "clinical_significance": "likely-benign,benign",
+    "gene_name": "MTHFR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1535": {
+    "rsid": 1535,
+    "uid": "58718270",
+    "chr_pos": "11:11:61830500",
+    "clinical_significance": "",
+    "gene_name": "FADS2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1544410": {
+    "rsid": 1544410,
+    "uid": "386536760",
+    "chr_pos": "12:12:47846052",
+    "clinical_significance": "benign,likely-risk-allele",
+    "gene_name": "VDR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1558902": {
+    "rsid": 1558902,
+    "uid": "17217768",
+    "chr_pos": "16:16:53769662",
+    "clinical_significance": "",
+    "gene_name": "FTO",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1695": {
+    "rsid": 1695,
+    "uid": "56971933",
+    "chr_pos": "11:11:67585218",
+    "clinical_significance": "benign,not-provided",
+    "gene_name": "GSTP1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174546": {
+    "rsid": 174546,
+    "uid": "59070584",
+    "chr_pos": "11:11:61802358",
+    "clinical_significance": "",
+    "gene_name": "FADS1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174547": {
+    "rsid": 174547,
+    "uid": "60936508",
+    "chr_pos": "11:11:61803311",
+    "clinical_significance": "",
+    "gene_name": "FADS1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174548": {
+    "rsid": 174548,
+    "uid": "61589025",
+    "chr_pos": "11:11:61803876",
+    "clinical_significance": "",
+    "gene_name": "FADS1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174556": {
+    "rsid": 174556,
+    "uid": "57462469",
+    "chr_pos": "11:11:61813163",
+    "clinical_significance": "",
+    "gene_name": "FADS1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174570": {
+    "rsid": 174570,
+    "uid": "60839961",
+    "chr_pos": "11:11:61829740",
+    "clinical_significance": "",
+    "gene_name": "FADS2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs174575": {
+    "rsid": 174575,
+    "uid": "17763526",
+    "chr_pos": "11:11:61834531",
+    "clinical_significance": "benign",
+    "gene_name": "FADS2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs17782313": {
+    "rsid": 17782313,
+    "uid": "59781239",
+    "chr_pos": "18:18:60183864",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1790349": {
+    "rsid": 1790349,
+    "uid": "386545345",
+    "chr_pos": "11:11:71431304",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1799732": {
+    "rsid": 1799732,
+    "uid": "397832683",
+    "chr_pos": "11:11:113475529",
+    "clinical_significance": "benign",
+    "gene_name": "DRD2",
+    "variant_type": "delins",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1799884": {
+    "rsid": 1799884,
+    "uid": "60014400",
+    "chr_pos": "7:7:44189469",
+    "clinical_significance": "benign",
+    "gene_name": "GCK",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1799930": {
+    "rsid": 1799930,
+    "uid": "61467963",
+    "chr_pos": "8:8:18400593",
+    "clinical_significance": "benign,drug-response",
+    "gene_name": "NAT2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1799931": {
+    "rsid": 1799931,
+    "uid": "58803786",
+    "chr_pos": "8:8:18400860",
+    "clinical_significance": "drug-response",
+    "gene_name": "NAT2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1800497": {
+    "rsid": 1800497,
+    "uid": "117686243",
+    "chr_pos": "11:11:113400106",
+    "clinical_significance": "benign,likely-benign",
+    "gene_name": "ANKK1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1800566": {
+    "rsid": 1800566,
+    "uid": "57135274",
+    "chr_pos": "16:16:69711242",
+    "clinical_significance": "benign,risk-factor,pathogenic,not-provided",
+    "gene_name": "NQO1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1801131": {
+    "rsid": 1801131,
+    "uid": "17857426",
+    "chr_pos": "1:1:11794419",
+    "clinical_significance": "no-classifications-from-unflagged-records,benign,other,risk-factor,likely-benign",
+    "gene_name": "MTHFR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1801133": {
+    "rsid": 1801133,
+    "uid": "386545618",
+    "chr_pos": "1:1:11796321",
+    "clinical_significance": "benign,other,conflicting-interpretations-of-pathogenicity,not-provided,uncertain-significance,drug-response,likely-benign",
+    "gene_name": "MTHFR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1801177": {
+    "rsid": 1801177,
+    "uid": "386481815",
+    "chr_pos": "8:8:19948197",
+    "clinical_significance": "other,benign,likely-benign,risk-factor",
+    "gene_name": "LPL",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1801394": {
+    "rsid": 1801394,
+    "uid": "52813630",
+    "chr_pos": "5:5:7870860",
+    "clinical_significance": "benign,uncertain-significance,risk-factor,drug-response",
+    "gene_name": "MTRR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1805087": {
+    "rsid": 1805087,
+    "uid": "61036243",
+    "chr_pos": "1:1:236885200",
+    "clinical_significance": "uncertain-significance,risk-factor,likely-benign,benign",
+    "gene_name": "MTR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs182549": {
+    "rsid": 182549,
+    "uid": "607359",
+    "chr_pos": "2:2:135859184",
+    "clinical_significance": "association",
+    "gene_name": "MCM6",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs1979277": {
+    "rsid": 1979277,
+    "uid": "57933897",
+    "chr_pos": "17:17:18328782",
+    "clinical_significance": "uncertain-significance",
+    "gene_name": "SHMT1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2060793": {
+    "rsid": 2060793,
+    "uid": "56669275",
+    "chr_pos": "11:11:14893764",
+    "clinical_significance": "",
+    "gene_name": "CYP2R1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2069514": {
+    "rsid": 2069514,
+    "uid": "2069514",
+    "chr_pos": "15:15:74745879",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2191349": {
+    "rsid": 2191349,
+    "uid": "58640639",
+    "chr_pos": "7:7:15024684",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2228570": {
+    "rsid": 2228570,
+    "uid": "117559231",
+    "chr_pos": "12:12:47879112",
+    "clinical_significance": "benign,uncertain-significance",
+    "gene_name": "VDR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2236212": {
+    "rsid": 2236212,
+    "uid": "111168649",
+    "chr_pos": "6:6:10994782",
+    "clinical_significance": "",
+    "gene_name": "ELOVL2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2282679": {
+    "rsid": 2282679,
+    "uid": "116893012",
+    "chr_pos": "4:4:71742666",
+    "clinical_significance": "",
+    "gene_name": "GC",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2283265": {
+    "rsid": 2283265,
+    "uid": "60749713",
+    "chr_pos": "11:11:113414814",
+    "clinical_significance": "benign",
+    "gene_name": "DRD2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2470893": {
+    "rsid": 2470893,
+    "uid": "60381661",
+    "chr_pos": "15:15:74727108",
+    "clinical_significance": "",
+    "gene_name": "CYP1A1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2472297": {
+    "rsid": 2472297,
+    "uid": "57326042",
+    "chr_pos": "15:15:74735539",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2479409": {
+    "rsid": 2479409,
+    "uid": "59883310",
+    "chr_pos": "1:1:55038977",
+    "clinical_significance": "benign",
+    "gene_name": "PCSK9",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2867125": {
+    "rsid": 2867125,
+    "uid": "386575770",
+    "chr_pos": "2:2:622827",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs2910164": {
+    "rsid": 2910164,
+    "uid": "61270459",
+    "chr_pos": "5:5:160485411",
+    "clinical_significance": "",
+    "gene_name": "MIR146A",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs3135506": {
+    "rsid": 3135506,
+    "uid": "28939090",
+    "chr_pos": "11:11:116791691",
+    "clinical_significance": "benign,likely-benign,uncertain-significance,risk-factor",
+    "gene_name": "APOA5",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs328": {
+    "rsid": 328,
+    "uid": "52834251",
+    "chr_pos": "8:8:19962213",
+    "clinical_significance": "benign",
+    "gene_name": "LPL",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs340874": {
+    "rsid": 340874,
+    "uid": "58436202",
+    "chr_pos": "1:1:213985913",
+    "clinical_significance": "",
+    "gene_name": "PROX1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs35694136": {
+    "rsid": 35694136,
+    "uid": "374281455",
+    "chr_pos": "15:15:74747272",
+    "clinical_significance": "",
+    "gene_name": "CYP1A2",
+    "variant_type": "del",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs3733890": {
+    "rsid": 3733890,
+    "uid": "59208899",
+    "chr_pos": "5:5:79126136",
+    "clinical_significance": "",
+    "gene_name": "BHMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs3734398": {
+    "rsid": 3734398,
+    "uid": "61103196",
+    "chr_pos": "6:6:10982740",
+    "clinical_significance": "",
+    "gene_name": "ELOVL2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs41380247": {
+    "rsid": "rs41380247",
+    "status": "not_found"
+  },
+  "rs41525747": {
+    "rsid": 41525747,
+    "uid": "41525747",
+    "chr_pos": "2:2:135851073",
+    "clinical_significance": "association",
+    "gene_name": "MCM6",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs429358": {
+    "rsid": 429358,
+    "uid": "61228756",
+    "chr_pos": "19:19:44908684",
+    "clinical_significance": "association,drug-response,risk-factor,protective,uncertain-significance,pathogenic,not-provided,conflicting-interpretations-of-pathogenicity,pathogenic-established-risk-allele,other,likely-pathogenic",
+    "gene_name": "APOE",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4410790": {
+    "rsid": 4410790,
+    "uid": "59310321",
+    "chr_pos": "7:7:17244953",
+    "clinical_significance": "",
+    "gene_name": "LOC101927609",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4506565": {
+    "rsid": 4506565,
+    "uid": "61174005",
+    "chr_pos": "10:10:112996282",
+    "clinical_significance": "",
+    "gene_name": "TCF7L2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4532": {
+    "rsid": 4532,
+    "uid": "61505681",
+    "chr_pos": "5:5:175443147",
+    "clinical_significance": "benign,likely-benign",
+    "gene_name": "DRD1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4588": {
+    "rsid": 4588,
+    "uid": "16846941",
+    "chr_pos": "4:4:71752606",
+    "clinical_significance": "other,benign",
+    "gene_name": "GC",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4633": {
+    "rsid": 4633,
+    "uid": "58430367",
+    "chr_pos": "22:22:19962712",
+    "clinical_significance": "benign,drug-response",
+    "gene_name": "COMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4646903": {
+    "rsid": 4646903,
+    "uid": "116877783",
+    "chr_pos": "15:15:74719300",
+    "clinical_significance": "",
+    "gene_name": "CYP1A1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4680": {
+    "rsid": 4680,
+    "uid": "58002978",
+    "chr_pos": "22:22:19963748",
+    "clinical_significance": "benign,drug-response",
+    "gene_name": "COMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4818": {
+    "rsid": 4818,
+    "uid": "117008153",
+    "chr_pos": "22:22:19963684",
+    "clinical_significance": "benign,drug-response,uncertain-risk-allele",
+    "gene_name": "COMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4846049": {
+    "rsid": 4846049,
+    "uid": "4846049",
+    "chr_pos": "1:1:11790308",
+    "clinical_significance": "benign",
+    "gene_name": "MTHFR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4880": {
+    "rsid": 4880,
+    "uid": "386596107",
+    "chr_pos": "6:6:159692840",
+    "clinical_significance": "risk-factor,likely-risk-allele,benign",
+    "gene_name": "SOD2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs4988235": {
+    "rsid": 4988235,
+    "uid": "4988235",
+    "chr_pos": "2:2:135851076",
+    "clinical_significance": "association",
+    "gene_name": "MCM6",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs5219": {
+    "rsid": 5219,
+    "uid": "386597997",
+    "chr_pos": "11:11:17388025",
+    "clinical_significance": "risk-factor,likely-benign,drug-response,benign,benign-likely-benign",
+    "gene_name": "KCNJ11",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs543874": {
+    "rsid": 543874,
+    "uid": "58933620",
+    "chr_pos": "1:1:177920345",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs560887": {
+    "rsid": 560887,
+    "uid": "58393244",
+    "chr_pos": "2:2:168906638",
+    "clinical_significance": "",
+    "gene_name": "G6PC2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs571312": {
+    "rsid": 571312,
+    "uid": "60606399",
+    "chr_pos": "18:18:60172536",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6013897": {
+    "rsid": 6013897,
+    "uid": "61437793",
+    "chr_pos": "20:20:54125940",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6265": {
+    "rsid": 6265,
+    "uid": "386602118",
+    "chr_pos": "11:11:27658369",
+    "clinical_significance": "benign,likely-risk-allele,risk-factor",
+    "gene_name": "BDNF",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6277": {
+    "rsid": 6277,
+    "uid": "17413837",
+    "chr_pos": "11:11:113412737",
+    "clinical_significance": "benign,benign-likely-benign",
+    "gene_name": "DRD2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6280": {
+    "rsid": 6280,
+    "uid": "117481259",
+    "chr_pos": "3:3:114171968",
+    "clinical_significance": "risk-factor,likely-benign,benign",
+    "gene_name": "DRD3",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs646776": {
+    "rsid": 646776,
+    "uid": "386602928",
+    "chr_pos": "1:1:109275908",
+    "clinical_significance": "",
+    "gene_name": "CELSR2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6511720": {
+    "rsid": 6511720,
+    "uid": "59327054",
+    "chr_pos": "19:19:11091630",
+    "clinical_significance": "benign",
+    "gene_name": "LDLR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs651852": {
+    "rsid": 651852,
+    "uid": "3797545",
+    "chr_pos": "5:5:79113237",
+    "clinical_significance": "",
+    "gene_name": "BHMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6567160": {
+    "rsid": 6567160,
+    "uid": "6567160",
+    "chr_pos": "18:18:60161902",
+    "clinical_significance": "",
+    "gene_name": "",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs662799": {
+    "rsid": 662799,
+    "uid": "60708336",
+    "chr_pos": "11:11:116792991",
+    "clinical_significance": "",
+    "gene_name": "APOA5",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs688": {
+    "rsid": 688,
+    "uid": "57911429",
+    "chr_pos": "19:19:11116926",
+    "clinical_significance": "benign-likely-benign,benign",
+    "gene_name": "LDLR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs6968865": {
+    "rsid": 6968865,
+    "uid": "6968865",
+    "chr_pos": "7:7:17247645",
+    "clinical_significance": "",
+    "gene_name": "LOC101927609",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs7041": {
+    "rsid": 7041,
+    "uid": "60269151",
+    "chr_pos": "4:4:71752617",
+    "clinical_significance": "benign",
+    "gene_name": "GC",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs731236": {
+    "rsid": 731236,
+    "uid": "386609145",
+    "chr_pos": "12:12:47844974",
+    "clinical_significance": "benign,likely-risk-allele",
+    "gene_name": "VDR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs7412": {
+    "rsid": 7412,
+    "uid": "3200542",
+    "chr_pos": "19:19:44908822",
+    "clinical_significance": "drug-response,risk-factor,benign,likely-benign,uncertain-significance,pathogenic,other",
+    "gene_name": "APOE",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs762551": {
+    "rsid": 762551,
+    "uid": "57172993",
+    "chr_pos": "15:15:74749576",
+    "clinical_significance": "likely-benign",
+    "gene_name": "CYP1A2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs780094": {
+    "rsid": 780094,
+    "uid": "386613275",
+    "chr_pos": "2:2:27518370",
+    "clinical_significance": "",
+    "gene_name": "GCKR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs7903146": {
+    "rsid": 7903146,
+    "uid": "60693287",
+    "chr_pos": "10:10:112998590",
+    "clinical_significance": "risk-factor,likely-risk-allele",
+    "gene_name": "TCF7L2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs7946": {
+    "rsid": 7946,
+    "uid": "57409990",
+    "chr_pos": "17:17:17506246",
+    "clinical_significance": "benign",
+    "gene_name": "PEMT",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs7975232": {
+    "rsid": 7975232,
+    "uid": "17879735",
+    "chr_pos": "12:12:47845054",
+    "clinical_significance": "benign,likely-pathogenic",
+    "gene_name": "VDR",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs953413": {
+    "rsid": 953413,
+    "uid": "59786251",
+    "chr_pos": "6:6:11012626",
+    "clinical_significance": "",
+    "gene_name": "ELOVL2",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs964184": {
+    "rsid": 964184,
+    "uid": "17120026",
+    "chr_pos": "11:11:116778201",
+    "clinical_significance": "",
+    "gene_name": "ZPR1",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  },
+  "rs9939609": {
+    "rsid": 9939609,
+    "uid": "61046791",
+    "chr_pos": "16:16:53786615",
+    "clinical_significance": "",
+    "gene_name": "FTO",
+    "variant_type": "snv",
+    "global_maf": "",
+    "validated": false
+  }
+}

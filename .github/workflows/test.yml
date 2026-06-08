@@ -1,0 +1,55 @@
+name: PRS Pipeline CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bcftools tabix
+
+      - name: Install Python dependencies
+        run: |
+          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests
+
+      - name: Syntax check
+        run: |
+          python -m py_compile prs.py
+          find prs_research_pipeline/scripts -name "*.py" -exec python -m py_compile {} \;
+
+      - name: Quick tests (JSON integrity — warnings expected without data)
+        run: |
+          python prs.py test --quick
+        continue-on-error: true
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for common issues
+        run: |
+          # No hardcoded paths
+          ! grep -rn "/Users/" prs_research_pipeline/scripts/ --include="*.py" || echo "⚠️  Hardcoded paths found"
+          # No bare excepts
+          ! grep -rn "except:" prs_research_pipeline/scripts/ --include="*.py" || echo "⚠️  Bare excepts found"
+          # Verify all __init__.py exist
+          for d in setup prs validation sss publication benchmarking utils clinical; do
+            [ -f "prs_research_pipeline/scripts/$d/__init__.py" ] || echo "⚠️  Missing __init__.py in $d"
+          done

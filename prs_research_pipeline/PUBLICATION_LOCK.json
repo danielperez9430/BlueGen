@@ -1,0 +1,82 @@
+{
+  "publication_ready": false,
+  "n_checks": 10,
+  "n_passed": 9,
+  "n_failed": 1,
+  "final_score": 77.6,
+  "final_category": "RESEARCH_GRADE",
+  "lock_date": "2026-06-08 22:19 UTC",
+  "lock_hash": "c5ba355f4a457a16",
+  "checks": [
+    {
+      "lock_id": "LOCK-001",
+      "criterion": "No hidden dual PRS definitions",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "CRITICAL"
+    },
+    {
+      "lock_id": "LOCK-002",
+      "criterion": "No calibration circularity",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "CRITICAL"
+    },
+    {
+      "lock_id": "LOCK-003",
+      "criterion": "No ancestry leakage",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "CRITICAL"
+    },
+    {
+      "lock_id": "LOCK-004",
+      "criterion": "No benchmarking self-validation",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-005",
+      "criterion": "No method redundancy",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-006",
+      "criterion": "Reproducibility infrastructure active",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-007",
+      "criterion": "Failure modes documented",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-008",
+      "criterion": "Adversarial stress testing completed",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-009",
+      "criterion": "Final integrity score computed",
+      "passed": true,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    },
+    {
+      "lock_id": "LOCK-010",
+      "criterion": "Publication evidence package complete",
+      "passed": false,
+      "evidence": "\u2705 Evidence found",
+      "severity": "HIGH"
+    }
+  ]
+}
