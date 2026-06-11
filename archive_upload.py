@@ -92,6 +92,7 @@ ITEMS = {
         "mediatype": "data",
         "collection": "opensource",
         "source_paths": [
+            ("1000G", "1000 Genomes chr22 VCF — test/validation (Public Domain)"),
             ("1000G_full", "1000 Genomes Phase 3 — merged PLINK binaries (Public Domain)"),
             ("hg19", "hg19/GRCh37 reference genome — BWA index (Public Domain)"),
             ("clinvar", "ClinVar pathogenic variant classifications (Public Domain)"),
