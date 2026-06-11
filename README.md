@@ -48,10 +48,28 @@ Data sources: [`prs_research_pipeline/reference/SOURCES.md`](prs_research_pipeli
 
 ## 🔧 Requirements
 
-- Python 3.10+, PLINK 1.9 (bundled), bcftools + tabix
+- **Python 3.10+** — `pip install -r prs_research_pipeline/requirements.txt`
+- **PLINK v1.90b7.2+** — [Download](https://www.cog-genomics.org/plink/) (free, GPLv3)
+- **PLINK 2.0** — [Download](https://www.cog-genomics.org/plink/2.0/) (optional, for advanced QC)
+- **bcftools + tabix** — `brew install bcftools tabix` (macOS) or `apt install bcftools tabix` (Linux)
+- **BWA** — `brew install bwa` (optional, for FASTQ → BAM alignment)
 - macOS/Linux (Windows via WSL2)
 - ~200 MB reference data (auto-downloaded on first run)
-- ~25 GB optional: 1000 Genomes reference (one-time download)
+- ~65 GB reference data bundle (optional — from [archive.org](https://archive.org/details/bluegen-reference-data) snapshot or `prs_research_pipeline/scripts/setup/` to fetch latest from public sources)
+  - [`bluegen-reference-data`](https://archive.org/details/bluegen-reference-data) — 1000 Genomes, hg19, ClinVar, MedGen, ClinPGx
+  - [`bluegen-pgs-cache`](https://archive.org/details/bluegen-pgs-cache) — 56 PGS Catalog scoring files
+  - > **Maintainer:** `python archive_upload.py -j 8` to refresh snapshots
+
+### System Tools
+
+PLINK is **not bundled** — download the correct build for your OS:
+
+| Tool | Version | macOS (Apple Silicon) | macOS (Intel) | Linux |
+|------|---------|----------------------|---------------|-------|
+| PLINK 1.9 | [v1.90b7.2](https://www.cog-genomics.org/plink/) | `plink` (Rosetta) | `plink_mac` | `plink_linux` |
+| PLINK 2.0 | [v2.0.0-a.7.1](https://www.cog-genomics.org/plink/2.0/) | `plink2_mac_arm64` | `plink2_mac` | `plink2_linux` |
+
+Place the binaries in your `PATH` or symlink them into the project root.
 
 ## ⚠️ Disclaimer
 
