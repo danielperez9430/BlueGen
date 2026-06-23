@@ -7,7 +7,13 @@ Runs PLINK --score on genome-wide 1000G reference, aggregates PRS
 per trait × population, and saves empirical distribution parameters.
 """
 
-import sys, os, json, logging, subprocess, tempfile, shutil
+import sys
+import os
+import json
+import logging
+import subprocess
+import tempfile
+import shutil
 from pathlib import Path
 from typing import Dict, List
 from datetime import datetime

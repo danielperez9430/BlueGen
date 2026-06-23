@@ -13,7 +13,8 @@ Usage:
   python prs.py audit     Export peer review package
 """
 
-import sys, os
+import sys
+import os
 # Auto-detect project venv — must happen before non-stdlib imports
 _VENV_PYTHON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "bin", "python3")
 if os.path.exists(_VENV_PYTHON):
@@ -24,7 +25,10 @@ if os.path.exists(_VENV_PYTHON):
             _argv0 = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(_argv0) or "prs.py")
         os.execv(_VENV_PYTHON, [_VENV_PYTHON, _argv0] + sys.argv[1:])
 
-import json, subprocess, time, shutil
+import json
+import subprocess
+import time
+import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 

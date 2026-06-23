@@ -25,7 +25,10 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-import sys, os, json, logging
+import sys
+import os
+import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
@@ -102,10 +105,9 @@ class GlobalScientificValidator:
         passed = sum(1 for c in checks if c.passed)
         warnings = sum(1 for c in checks if not c.passed and c.severity == "WARNING")
         errors = sum(1 for c in checks if not c.passed and c.severity == "ERROR")
-        total_score = sum(c.score for c in checks)
-        max_score = sum(c.score for c in checks) + sum(
-            (1.0 - c.score) for c in checks if not c.passed)
-        overall = (total_score / max(max_score, 1)) * 100
+        earned = sum(c.score for c in checks if c.passed)
+        max_score = sum(c.score for c in checks)
+        overall = (earned / max(max_score, 1)) * 100
 
         if overall >= 90:
             status = "PUBLICATION_READY"

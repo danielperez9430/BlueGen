@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-orange)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-orange)]()
 [![PRSKit](https://img.shields.io/badge/engine-PRSKit-purple)]()
 
 Turn a WGS VCF into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
@@ -35,7 +35,8 @@ venv/bin/streamlit run dashboard.py
 | 🧬 **PRS Engine** | 56 traits, 179 SNPs, population-calibrated z-scores | Curated GWAS + 1000 Genomes |
 | 🔬 **ClinVar** | Pathogenic/likely pathogenic variants with confidence tiers | NCBI ClinVar (4.4M records) |
 | 💊 **PharmGKB** | Drug-gene interactions, CPIC guideline recommendations | CPIC/DPWG (218 guidelines) |
-| 🌍 **Ancestry** | PCA + mtDNA haplogroup + sub-continental | 1000 Genomes (26 populations) |
+| 🌍 **Ancestry** | PCA + mtDNA/Y-DNA haplogroups + sub-continental | 1000 Genomes (26 populations) |
+| 🦴 **Archaic DNA** | Neanderthal/Denisovan admixture via AADR direct comparison | Allen Ancient DNA Resource (1.23M SNPs) |
 | 🩺 **PGS Catalog** | 54 published polygenic scores for complex diseases | PGS Catalog (EBI) |
 | 📖 **MedGen** | Disease definitions for ClinVar findings | NCBI MedGen (23K concepts) |
 | 📊 **Dashboard** | 6-page interactive Streamlit app | All JSON outputs |
@@ -62,6 +63,7 @@ Data sources: [`prs_research_pipeline/reference/SOURCES.md`](prs_research_pipeli
 - ~65 GB reference data bundle (optional — from [archive.org](https://archive.org/details/bluegen-reference-data) snapshot or `prs_research_pipeline/scripts/setup/` to fetch latest from public sources)
   - [`bluegen-reference-data`](https://archive.org/details/bluegen-reference-data) — 1000 Genomes, hg19, ClinVar, MedGen, ClinPGx
   - [`bluegen-pgs-cache`](https://archive.org/details/bluegen-pgs-cache) — 56 PGS Catalog scoring files
+  - [`bluegen-archaic-reference`](https://archive.org/details/bluegen-archaic-reference) — AADR 1240K archaic panel (Neanderthal + Denisovan), pre-converted to PLINK
   - > **Maintainer:** `python archive_upload.py -j 8` to refresh snapshots
 
 ### System Tools

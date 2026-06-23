@@ -16,7 +16,10 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-import sys, os, json, logging
+import sys
+import os
+import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field, asdict
@@ -26,13 +29,20 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ConsistencyCheck:
-    dimension: str; expected: str; observed: str; match: bool; detail: str
+    dimension: str
+    expected: str
+    observed: str
+    match: bool
+    detail: str
 
 @dataclass
 class EvidencePackage:
     consistency: List[ConsistencyCheck] = field(default_factory=list)
-    n_checks: int = 0; n_passed: int = 0; all_consistent: bool = False
-    ssst_hash: str = ""; generated_date: str = ""
+    n_checks: int = 0
+    n_passed: int = 0
+    all_consistent: bool = False
+    ssst_hash: str = ""
+    generated_date: str = ""
 
 class PublicationEvidencePack:
     """Generates the complete publication evidence package."""

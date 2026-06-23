@@ -68,8 +68,8 @@ POP_NAMES = {
     "es": {
         "EUR": "Europea",
         "AFR": "Africana",
-        "EAS": "Asi\u00e1tica Oriental",
-        "SAS": "Sudasi\u00e1tica",
+        "EAS": "Asiática Oriental",
+        "SAS": "Sudasiática",
         "AMR": "Americana Mixta",
     },
 }
@@ -178,7 +178,7 @@ def generate_report(
             )
             dietary_html = (
                 f'<div style="background:#eaf2f8;border-radius:8px;padding:1rem;margin-top:1rem">'
-                f"<h4>{_t('Dietary & Lifestyle Context', 'Contexto Diet\u00e9tico', is_es)}</h4>"
+                f"<h4>{_t('Dietary & Lifestyle Context', 'Contexto Dietético', is_es)}</h4>"
                 f"<ul>{dietary}</ul></div>"
                 if dietary
                 else ""
@@ -225,7 +225,7 @@ def generate_report(
         if uncertainty is not None and len(uncertainty) > 0:
             u_rows = "".join(
                 f'<tr><td>{h(r["trait"])}</td>'
-                f'<td>{float(r["prs"]):.3f} \u00b1 {float(r["prs_se"]):.3f}</td>'
+                f'<td>{float(r["prs"]):.3f} ± {float(r["prs_se"]):.3f}</td>'
                 f'<td>[{float(r["ci_95_lower"]):.3f}, {float(r["ci_95_upper"]):.3f}]</td>'
                 f'<td>{float(r["uncertainty_score"]):.3f}</td></tr>'
                 for _, r in uncertainty.iterrows()
@@ -233,7 +233,7 @@ def generate_report(
             unc_html = (
                 f'<section><h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
                 f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-                f'\U0001F4CA {_t("Uncertainty Overview", "Resumen de Incertidumbre", is_es)}</h2>'
+                f'📊 {_t("Uncertainty Overview", "Resumen de Incertidumbre", is_es)}</h2>'
                 f'<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;'
                 f'overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:1rem 0">'
                 f'<thead><tr style="background:#f1f3f5">'
@@ -241,7 +241,7 @@ def generate_report(
                 f'text-transform:uppercase">'
                 f'{_t("Trait", "Rasgo", is_es)}</th>'
                 f'<th style="padding:.65rem .75rem;text-align:left;font-weight:600;font-size:.8rem;'
-                f'text-transform:uppercase">PRS \u00b1 SE</th>'
+                f'text-transform:uppercase">PRS ± SE</th>'
                 f'<th style="padding:.65rem .75rem;text-align:left;font-weight:600;font-size:.8rem;'
                 f'text-transform:uppercase">95% CI</th>'
                 f'<th style="padding:.65rem .75rem;text-align:left;font-weight:600;font-size:.8rem;'
@@ -263,27 +263,27 @@ def generate_report(
             cons_html = (
                 f'<section><h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
                 f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-                f'\U0001F52C {_t("GWAS-Ancestry Compatibility", "Compatibilidad GWAS-Ancestral", is_es)}</h2>'
+                f'🔬 {_t("GWAS-Ancestry Compatibility", "Compatibilidad GWAS-Ancestral", is_es)}</h2>'
                 f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));'
                 f'gap:1rem;margin:1.5rem 0">'
                 f'<div style="background:#fff;border-radius:8px;padding:1.25rem;text-align:center;'
                 f'box-shadow:0 1px 3px rgba(0,0,0,.08)">'
                 f'<div style="font-size:2rem;font-weight:800;color:{sc}">{st}</div>'
                 f'<div style="font-size:.85rem;color:#7f8c8d">'
-                f'{_t("Validation Status", "Estado de Validaci\u00f3n", is_es)}</div></div></div></section>'
+                f'{_t("Validation Status", "Estado de Validación", is_es)}</div></div></div></section>'
             )
 
         # Full HTML
         html = (
             f'<!DOCTYPE html><html lang="{lg}">'
             f'<head><meta charset="UTF-8"><title>'
-            f'{_t("PRS Research Report", "Informe PRS", is_es)} \u2014 {h(sample_id)}</title>'
+            f'{_t("PRS Research Report", "Informe PRS", is_es)} — {h(sample_id)}</title>'
             f"<style>{CSS}</style></head><body>"
             f'<header class="report-header">'
             f'<h1 style="font-size:2.2rem">'
-            f'{_t("PRS Research Report", "Informe de Investigaci\u00f3n PRS", is_es)}</h1>'
+            f'{_t("PRS Research Report", "Informe de Investigación PRS", is_es)}</h1>'
             f'<div style="font-size:1.1rem;opacity:.9">'
-            f'{_t("Population-Calibrated PRS Analysis", "An\u00e1lisis de PRS Calibrado por Poblaci\u00f3n", is_es)}</div>'
+            f'{_t("Population-Calibrated PRS Analysis", "Análisis de PRS Calibrado por Población", is_es)}</div>'
             f'<div style="margin-top:1rem;font-size:.85rem;opacity:.7">'
             f'{_t("Sample", "Muestra", is_es)}: {h(sample_id)} | '
             f'{_t("Date", "Fecha", is_es)}: {date_str} | Pipeline v6.0.0 | GRCh37/hg19</div></header>'
@@ -291,7 +291,7 @@ def generate_report(
             # Genetic Overview
             f'<section><h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
             f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-            f'\U0001F4CA {_t("Genetic Overview", "Resumen Gen\u00e9tico", is_es)}</h2>'
+            f'📊 {_t("Genetic Overview", "Resumen Genético", is_es)}</h2>'
             f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));'
             f'gap:1rem;margin-bottom:2rem">'
             f'<div style="background:#fff;border-radius:8px;padding:1.25rem;text-align:center;'
@@ -320,7 +320,7 @@ def generate_report(
             # PRS Table
             f'<section><h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
             f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-            f'\U0001F4C8 {_t("Population-Calibrated PRS", "PRS Calibrado por Poblaci\u00f3n", is_es)}</h2>'
+            f'📈 {_t("Population-Calibrated PRS", "PRS Calibrado por Población", is_es)}</h2>'
             f'<table><thead><tr style="background:#f1f3f5">'
             f'<th style="padding:.65rem .75rem;text-align:left;font-weight:600;font-size:.8rem;'
             f'text-transform:uppercase">{_t("Trait", "Rasgo", is_es)}</th>'
@@ -334,15 +334,15 @@ def generate_report(
             # Trait Analysis
             f'<h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
             f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-            f'\U0001F52C {_t("Nutrigenetic Trait Analysis", "An\u00e1lisis Nutrigen\u00e9tico", is_es)}</h2>'
+            f'🔬 {_t("Nutrigenetic Trait Analysis", "Análisis Nutrigenético", is_es)}</h2>'
             f"{trait_secs}{unc_html}{cons_html}"
             # Methodology
             f'<section><h2 style="font-size:1.3rem;font-weight:600;margin:2rem 0 1rem;'
             f'padding-bottom:.5rem;border-bottom:2px solid #dee2e6">'
-            f'\U0001F4D0 {_t("Methodology", "Metodolog\u00eda", is_es)}</h2>'
+            f'📐 {_t("Methodology", "Metodología", is_es)}</h2>'
             f'<p><strong>{_t("PRS Model:", "Modelo PRS:", is_es)}</strong> '
-            f"PRS = \u03a3 (\u03b2\u209c \u00d7 G\u1d62\u2c7c) "
-            f'{_t("with", "con", is_es)} LD pruning (r\u00b2 &lt; {ld_r2}), '
+            f"PRS = Σ (βₜ × Gᵢⱼ) "
+            f'{_t("with", "con", is_es)} LD pruning (r² &lt; {ld_r2}), '
             f"true PCA projection onto 1000 Genomes, empirical population calibration, "
             f"3-layer uncertainty propagation, Phase 6 corrections.</p></section>"
             # Disclaimer
@@ -353,7 +353,7 @@ def generate_report(
             f"</div>"
             # Footer
             f'<footer class="report-footer"><p>'
-            f'{_t("PRS Research Platform", "Plataforma PRS", is_es)} v6.0.0 \u2014 '
+            f'{_t("PRS Research Platform", "Plataforma PRS", is_es)} v6.0.0 — '
             f'{_t("Generated", "Generado", is_es)} {date_str}</p>'
             f'<p>{_t("Sample", "Muestra", is_es)}: {h(sample_id)} | GRCh37/hg19</p></footer>'
             f"</body></html>"

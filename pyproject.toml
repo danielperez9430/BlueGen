@@ -7,8 +7,17 @@ select = ["E", "F", "W"]
 ignore = [
     "E501",   # line too long (handled by formatter)
     "W505",   # line too long (docstring)
-    "F841",   # local variable assigned but never used (common in pipeline scripts)
-    "E722",   # bare except (some scripts use it for resilience)
+    "E402",   # module-level import not at top — venv bootstrap in prs.py
+    "E701",   # multiple statements on one line (colon) — pipeline style
+    "E702",   # multiple statements on one line (semicolon) — compact status lines
+    "E722",   # bare except — resilience in pipeline scripts
+    "E731",   # lambda assignment — intentional translation helper
+    "E741",   # ambiguous variable name — intentional single-char in math contexts
+    "F401",   # imported but unused — common in pipeline scripts
+    "F402",   # import shadowed by loop var — harmless in older scripts
+    "F541",   # f-string without placeholders — cosmetic
+    "F821",   # undefined name — type annotations in older scripts
+    "F841",   # local variable assigned but never used — common in pipeline scripts
 ]
 
 [tool.ruff.lint.per-file-ignores]

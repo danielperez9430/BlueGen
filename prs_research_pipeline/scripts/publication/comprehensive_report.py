@@ -14,7 +14,10 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-import sys, os, json, logging
+import sys
+import os
+import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -1736,9 +1739,30 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         deep_html += f"<div class='info-card'><h4>🧬 mtDNA Haplogroup</h4><div class='big-stat' style='font-size:1.2rem'>{mtdna.get('haplogroup','?')}</div><div class='stat-sub'>{mtdna.get('description','')}</div></div>"
         deep_html += f"<div class='info-card'><h4>🧬 Y-DNA Haplogroup</h4><div class='big-stat' style='font-size:1rem'>{ydna.get('haplogroup','?')}</div><div class='stat-sub'>{ydna.get('description','')[:80]}</div></div>"
         if neand.get("reliable"):
-            deep_html += f"<div class='info-card'><h4>🦴 Neanderthal DNA</h4><div class='big-stat'>{neand.get('percentage','?')}%</div><div class='stat-sub'>European avg: ~2.1%</div></div>"
+            pct = neand.get("percentage", "?")
+            method = neand.get("method", "snp_panel")
+            closest = neand.get("closest_population", "EUR")
+            pop_label = neand.get("population_comparisons", {}).get(closest, {}).get("label", closest)
+
+            if "AADR" in method:
+                affinity = neand.get("admix_ratio", neand.get("archaic_affinity_ratio", "?"))
+                deep_html += (f'<div class="info-card"><h4>🦴 Archaic DNA</h4>'
+                              f'<div class="big-stat">{pct}%</div>'
+                              f'<div class="stat-sub">AADR-based (1.23M SNPs) | Affinity: {affinity}x</div></div>')
+            else:
+                deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                              f'<div class="big-stat">{pct}%</div>'
+                              f'<div class="stat-sub">Closest to {pop_label} | 133-SNP panel</div></div>')
+        elif neand.get("snps_found", 0) > 0:
+            nf = neand.get("snps_found", 0)
+            nt = neand.get("snps_total", "?")
+            deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                          f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
+                          f'<div class="stat-sub">Insufficient coverage ({nf}/{nt} SNPs). Need WGS VCF.</div></div>')
         else:
-            deep_html += f"<div class='info-card'><h4>🦴 Neanderthal DNA</h4><div class='big-stat' style='font-size:0.9rem'>N/A</div><div class='stat-sub'>Requires archaic reference panel</div></div>"
+            deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                          f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
+                          f'<div class="stat-sub">No archaic SNPs found in VCF</div></div>')
         deep_html += "</div>"
 
         # Sub-continental populations

@@ -69,6 +69,28 @@ This project uses the following public databases. All are free and publicly acce
 - **Citation:** Buniello A et al. *Nucleic Acids Research*. 2019. doi:10.1093/nar/gky1120
 - **Used by:** `scripts/benchmarking/gwas_summary_stats.py`
 
+## AADR — Allen Ancient DNA Resource (Archaic Reference Panel)
+
+- **Source:** Harvard Dataverse / Reich Lab, Harvard Medical School
+- **URL:** https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/FFIDCW
+- **Download:** `python scripts/setup/download_aadr_reference.py` (builds from 1240K panel, ~7 GB download)
+- **Pre-built:** https://archive.org/details/bluegen-archaic-reference (~188 MB PLINK binaries)
+- **License:** CC0 1.0 Universal (Public Domain Dedication)
+- **Citation:** Mallick S et al. *Scientific Data*. 2024. doi:10.1038/s41597-024-03000-0
+- **Contents:** Altai, Vindija, Chagyrskaya Neanderthals + Denisova Denisovan + 341 modern reference individuals (27 populations)
+- **Local path:** `reference/aadr/`
+- **Used by:** `scripts/clinical/ancestry_deep.py` (AADR direct comparison mode)
+
+## Archaic Introgression SNP Panel (Curated)
+
+- **Source:** Published scientific literature
+- **References:**
+  - Sankararaman S et al. *Nature*. 2014. doi:10.1038/nature12961
+  - Vernot B & Akey JM. *Science*. 2014. doi:10.1126/science.1245938
+  - Browning SR et al. *Cell*. 2018. doi:10.1016/j.cell.2018.02.031
+- **Local path:** `reference/archaic/archaic_introgression_snps.csv` (133 high-confidence SNPs)
+- **Used by:** `scripts/clinical/ancestry_deep.py` (133-SNP panel fallback)
+
 ---
 
 ## Disclaimer

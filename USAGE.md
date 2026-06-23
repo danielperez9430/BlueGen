@@ -1,6 +1,6 @@
 # BlueGen — User Guide
 
-**Version:** 1.0 | **Status:** Publication-Ready | **Date:** 2026-06-08
+**Version:** 1.1 | **Status:** Publication-Ready | **Date:** 2026-06-23
 
 ⏱️ **Quick links:** [Pipeline Stages](#pipeline-stages) · [ClinVar](#clinvar-pathogenic-variants) · [PharmGKB](#pharmacogenomics) · [Dashboard](#streamlit-dashboard)
 
@@ -16,6 +16,11 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r prs_research_pipeline/requirements.txt
 # Optional: download genome-wide 1000G reference (~25 GB)
 python3 prs_research_pipeline/scripts/setup/download_1000G_full.py --output-dir prs_research_pipeline/reference/1000G_full
+
+# Optional: download AADR archaic reference for Neanderthal/Denisovan analysis (~7 GB)
+python3 prs_research_pipeline/scripts/setup/download_aadr_reference.py
+# Or use pre-built snapshot (~188 MB):
+# curl -L https://archive.org/download/bluegen-archaic-reference/aadr.tar.gz | tar xz -C prs_research_pipeline/reference/
 
 # 2. Run pipeline with DeepVariant VCF
 python3 prs.py run --full --vcf aligned/E250090601_L01_91_dv.vcf.gz
@@ -186,7 +191,8 @@ python3 prs.py pdf --lang en    # English only
 ```bash
 python3 prs.py run --stage clinvar --vcf sample.vcf.gz     # ClinVar only
 python3 prs.py run --stage pharmgkb --vcf sample.vcf.gz     # PharmGKB only
-python3 prs.py run --stage ancestry --vcf sample.vcf.gz     # Deep ancestry only
+python3 prs.py run --stage ancestry --vcf sample.vcf.gz     # Deep ancestry + Neanderthal
+python3 prs.py run --stage archaic --vcf sample.vcf.gz     # Archaic admixture only
 python3 prs.py run --stage medgen --vcf sample.vcf.gz       # MedGen enrichment only
 ```
 
@@ -210,6 +216,9 @@ Enabled with `--clinvar` or `--full`. Downloads ClinPGx data (~2 MB) once.
 - **mtDNA haplogroup:** Called from chrM variants
 - **Y-DNA haplogroup:** Requires chrY coverage (limited in WGS)
 - **Sub-continental:** 26 1000G reference populations
+- **Neanderthal/Denisovan admixture:** Two-tier analysis
+  - **AADR Gold:** Direct comparison against Altai, Vindija, Chagyrskaya Neanderthal + Denisova genomes (1.23M SNPs). Requires AADR reference download (~7 GB) or pre-built snapshot (~188 MB).
+  - **133-SNP Panel (fallback):** Curated archaic introgression SNPs from published literature with population baselines. Works without AADR download.
 - **Output:** `ancestry/deep_ancestry.json`
 
 ### Streamlit Dashboard

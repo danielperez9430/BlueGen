@@ -12,7 +12,10 @@ Usage:
     --output-dir prs/pgs_scores/
 """
 
-import sys, os, subprocess, json
+import sys
+import os
+import subprocess
+import json
 from pathlib import Path
 from collections import defaultdict
 import pandas as pd

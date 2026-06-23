@@ -4,7 +4,12 @@ Export ClinVar pathogenic variants as annotated VCF.
 Output: clinvar/clinvar_pathogenic.vcf.gz — ready for IGV or sharing.
 """
 
-import sys, os, json, logging, subprocess, tempfile
+import sys
+import os
+import json
+import logging
+import subprocess
+import tempfile
 from pathlib import Path
 from datetime import datetime
 

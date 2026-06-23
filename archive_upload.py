@@ -44,6 +44,50 @@ PGS_DIR = ROOT / "prs_research_pipeline" / "pgs"
 # ── archive.org items ──────────────────────────────────────────────────────
 
 ITEMS = {
+    "bluegen-archaic-reference": {
+        "title": "BlueGen — Archaic Reference Panel (AADR 1240K — Neanderthal/Denisovan)",
+        "description": (
+            "Archaic hominin reference genotypes extracted from the Allen Ancient DNA "
+            "Resource (AADR v66.p1) for Neanderthal and Denisovan admixture analysis "
+            "in the BlueGen Personal Genomics Platform.<br><br>"
+            "<b>Contents:</b><br>"
+            "<ul>"
+            "<li><b>aadr_archaic</b> — PLINK binaries (bed/bim/fam) for Altai, Vindija, "
+            "Chagyrskaya Neanderthals and Denisova Denisovan (~1.24M SNPs, hg19)</li>"
+            "<li><b>aadr_modern</b> — PLINK binaries for ~500 modern reference individuals "
+            "from global populations</li>"
+            "<li><b>aadr_manifest.json</b> — provenance, version, individual metadata</li>"
+            "</ul>"
+            "<b>Source:</b> Mallick et al. (2024) The Allen Ancient DNA Resource: "
+            "A curated compendium of ancient human genomes. <i>Scientific Data</i>.<br>"
+            "DOI: <a href='https://doi.org/10.7910/DVN/FFIDCW'>10.7910/DVN/FFIDCW</a><br><br>"
+            "<b>License:</b> <a href='https://creativecommons.org/publicdomain/zero/1.0/'>"
+            "CC0 1.0 Universal</a> (Public Domain Dedication)<br><br>"
+            "<b>Why this exists:</b> The full AADR dataset is ~12 GB and requires "
+            "Eigenstrat→PLINK conversion. This pre-built PLINK snapshot enables direct "
+            "archaic admixture analysis in BlueGen without the multi-hour download and "
+            "conversion step. Users who need the complete AADR with all samples can "
+            "re-run <code>scripts/setup/download_aadr_reference.py</code>."
+        ),
+        "subject": [
+            "genomics", "ancient DNA", "Neanderthal", "Denisovan", "archaic hominin",
+            "AADR", "Allen Ancient DNA Resource", "PLINK", "bioinformatics",
+        ],
+        "creator": "BlueGen Pipeline",
+        "date": "2026-06-23",
+        "licenseurl": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "mediatype": "data",
+        "collection": "opensource",
+        "source_paths": [
+            ("aadr/aadr_archaic.bed", "Archaic genotypes — PLINK binary (CC0)"),
+            ("aadr/aadr_archaic.bim", "Archaic variant info — PLINK (CC0)"),
+            ("aadr/aadr_archaic.fam", "Archaic individual info — PLINK (CC0)"),
+            ("aadr/aadr_modern.bed", "Modern reference genotypes — PLINK (CC0)"),
+            ("aadr/aadr_modern.bim", "Modern reference variants — PLINK (CC0)"),
+            ("aadr/aadr_modern.fam", "Modern reference individuals — PLINK (CC0)"),
+            ("aadr/aadr_manifest.json", "Provenance & metadata (CC0)"),
+        ],
+    },
     "bluegen-reference-data": {
         "title": "BlueGen — Public Reference Data (1000 Genomes, hg19, ClinVar, MedGen, ClinPGx)",
         "description": (
@@ -405,8 +449,8 @@ def main():
         help="Validate files and metadata without uploading anything."
     )
     parser.add_argument(
-        "--only", choices=("ref", "pgs"), default=None,
-        help="Upload only reference data or only PGS cache."
+        "--only", choices=("ref", "pgs", "archaic"), default=None,
+        help="Upload only reference data, PGS cache, or archaic panel."
     )
     parser.add_argument(
         "--parallel", "-j", type=int, default=4,
@@ -460,14 +504,22 @@ def main():
             parallel=args.parallel,
         )
 
+    if args.only is None or args.only == "archaic":
+        upload_item(
+            "bluegen-archaic-reference",
+            ITEMS["bluegen-archaic-reference"],
+            REFERENCE_DIR,
+            dry_run=args.dry_run,
+            parallel=args.parallel,
+        )
+
     elapsed = time.time() - start
     print(f"\n{'='*70}")
     print(f"  Done in {elapsed:.0f}s.")
     if not args.dry_run:
         print(f"  Reference:  https://archive.org/details/bluegen-reference-data")
         print(f"  PGS cache:  https://archive.org/details/bluegen-pgs-cache")
-        print(f"  Reference:  https://archive.org/details/bluegen-reference-data")
-        print(f"  PGS cache:  https://archive.org/details/bluegen-pgs-cache")
+        print(f"  Archaic:    https://archive.org/details/bluegen-archaic-reference")
     print(f"{'='*70}\n")
 
 

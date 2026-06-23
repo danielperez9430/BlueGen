@@ -21,9 +21,7 @@ jobs:
         run: pip install ruff
 
       - name: Lint with ruff
-        run: |
-          ruff check prs.py prs_research_pipeline/scripts/ --select E,F,W --ignore E501,W505
-          ruff format --check prs.py prs_research_pipeline/scripts/ || echo "Format issues found (non-blocking)"
+        run: ruff check prs.py prs_research_pipeline/scripts/ tests/
 
       - name: Check for common issues
         run: |

@@ -9,7 +9,11 @@ Output:
   data/dbsnp_annotations.json  (API cache — subsequent runs instant)
 """
 
-import sys, os, json, logging, time
+import sys
+import os
+import json
+import logging
+import time
 from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError

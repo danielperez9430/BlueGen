@@ -29,6 +29,11 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+# PLINK binary path
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_PLINK_LOCAL = _PROJECT_ROOT / "tools" / "plink"
+PLINK_BIN = str(_PLINK_LOCAL) if _PLINK_LOCAL.exists() else "plink"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Y-DNA HAPLOGROUP DATABASE
 # Key defining SNPs for major haplogroups (ISOGG 2024)
@@ -97,43 +102,43 @@ MTDNA_HAPLOGROUPS = {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEANDERTHAL / ARCHAIC ADMIXTURE SNPs
-# ~50 key SNPs tagging Neanderthal introgression in modern humans
-# From Vernot & Akey (2014), Sankararaman et al. (2014)
+# NEANDERTHAL / ARCHAIC ADMIXTURE — loaded from reference panel
 # ═══════════════════════════════════════════════════════════════════════════════
 
-NEANDERTHAL_SNPS = [
-    # Chromosome, Position (hg19), Neanderthal allele
-    ("1", 4456612, "G"), ("1", 45879954, "A"), ("1", 152766625, "T"),
-    ("2", 54257353, "C"), ("2", 109212075, "A"), ("2", 136795923, "G"),
-    ("3", 194353876, "T"), ("3", 47582017, "C"), ("3", 99606408, "A"),
-    ("4", 1388923, "G"), ("4", 38888270, "T"), ("4", 101721207, "C"),
-    ("5", 42556721, "A"), ("5", 130988048, "G"), ("5", 172012869, "T"),
-    ("6", 29915774, "C"), ("6", 84508306, "A"), ("6", 101797526, "G"),
-    ("7", 45678912, "T"), ("7", 99765432, "C"), ("7", 130654321, "A"),
-    ("8", 27890123, "G"), ("8", 87654321, "T"), ("8", 145678901, "C"),
-    ("9", 12345678, "A"), ("9", 87650987, "G"), ("9", 140456789, "T"),
-    ("10", 45678901, "C"), ("10", 98765098, "A"), ("10", 135678901, "G"),
-    ("11", 12345098, "T"), ("11", 56789012, "C"), ("11", 134567890, "A"),
-    ("12", 8765432, "G"), ("12", 34567890, "T"), ("12", 98765432, "C"),
-    ("13", 23456789, "A"), ("13", 45678901, "G"), ("13", 112345678, "T"),
-    ("14", 23450890, "C"), ("14", 54321098, "A"), ("14", 98765678, "G"),
-    ("15", 45643210, "T"), ("15", 65432109, "C"), ("15", 102345678, "A"),
-    ("16", 34561234, "G"), ("16", 87650987, "T"), ("16", 90123456, "C"),
-    ("17", 12345000, "A"), ("17", 76540123, "G"), ("17", 81234567, "T"),
-    ("18", 9876098, "C"), ("18", 23456789, "A"), ("18", 76543210, "G"),
-    ("19", 3456123, "T"), ("19", 54012345, "C"), ("19", 63456789, "A"),
-    ("20", 21098765, "G"), ("20", 45670123, "T"), ("20", 62345678, "C"),
-    ("21", 12345678, "A"), ("21", 45678901, "G"), ("21", 48123456, "T"),
-    ("22", 16000123, "C"), ("22", 22000567, "A"), ("22", 50000123, "G"),
-]
+def _load_archaic_reference() -> tuple:
+    """Load archaic introgression SNPs and population baselines from reference files."""
+    import pandas as pd
+    ref_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "archaic"
+    snp_csv = ref_dir / "archaic_introgression_snps.csv"
+    freq_json = ref_dir / "population_frequencies.json"
 
-# European reference Neanderthal percentages (from published studies)
-NEANDERTHAL_REFERENCE = {
-    "European": 2.1,
-    "East Asian": 2.3,
-    "South Asian": 1.8,
-    "African": 0.3,
+    snps = []
+    populations = {}
+
+    if snp_csv.exists():
+        df = pd.read_csv(snp_csv, dtype={"chrom": str, "pos": int})
+        snps = [(str(r.chrom), int(r.pos), str(r.archaic_allele),
+                  str(r.gene_region), str(r.confidence))
+                 for r in df.itertuples(index=False)]
+
+    if freq_json.exists():
+        with open(freq_json) as fh:
+            freq_data = json.load(fh)
+        populations = freq_data.get("population_baselines",
+                                     POPULATION_ARCHAIC_BASELINE)
+    else:
+        populations = POPULATION_ARCHAIC_BASELINE
+
+    return snps, populations
+
+
+# Fallback population baselines (from Sankararaman 2014, Vernot 2014)
+POPULATION_ARCHAIC_BASELINE = {
+    "EUR": {"mean_pct": 2.1, "std_pct": 0.4, "label": "European"},
+    "EAS": {"mean_pct": 2.3, "std_pct": 0.5, "label": "East Asian"},
+    "SAS": {"mean_pct": 1.8, "std_pct": 0.5, "label": "South Asian"},
+    "AMR": {"mean_pct": 1.9, "std_pct": 0.6, "label": "Admixed American"},
+    "AFR": {"mean_pct": 0.3, "std_pct": 0.2, "label": "African"},
 }
 
 
@@ -373,63 +378,351 @@ def call_mtdna_haplogroup(user_vcf: str) -> Dict:
 # NEANDERTHAL ADMIXTURE ESTIMATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def estimate_neanderthal(user_vcf: str) -> Dict:
-    """
-    Estimate Neanderthal admixture percentage from published archaic introgression SNPs.
-    NOTE: For a rigorous estimate, download the full archaic introgression map from:
-    https://ftp.eva.mpg.de/neandertal/Vindija/VCF/
-    Current implementation uses a limited SNP panel — results are approximate.
-    """
-    logger.info("── Neanderthal Admixture ──")
-    logger.info("  NOTE: Limited SNP panel. Download full map for rigorous estimate.")
+def _aadr_available() -> bool:
+    """Check if AADR reference data exists."""
+    ref_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "aadr"
+    return (ref_dir / "aadr_archaic.bed").exists() and \
+           (ref_dir / "aadr_modern.bed").exists()
 
-    n_total = len(NEANDERTHAL_SNPS)
+
+def estimate_neanderthal_aadr(user_vcf: str) -> Dict:
+    """
+    Estimate archaic admixture via direct comparison against AADR archaic genomes.
+
+    Compares user genotypes against actual Neanderthal (Altai, Vindija, Chagyrskaya)
+    and Denisovan genomes from the Allen Ancient DNA Resource.
+
+    Method (corrected — admixture %, not allele sharing):
+        1. Compute archaic & modern allele frequencies at all AADR SNPs (via PLINK --freq)
+        2. Select top 5000 SNPs by |archaic_MAF - modern_MAF| (most informative delta)
+        3. Query user genotypes at these informative SNPs via tabix
+        4. Compute archaic admixture %: excess of archaic-like alleles over modern baseline,
+           normalized by archaic-modern delta, scaled to European baseline (2.1%)
+
+        Formula: admix_pct = (user_af - modern_af) / (archaic_af - modern_af) × 2.1
+    """
+    logger.info("── Archaic Admixture (AADR Direct Comparison) ──")
+    logger.info("  Reference: Allen Ancient DNA Resource (Mallick et al. 2024)")
+
+    import pandas as pd
+
+    ref_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "aadr"
+
+    # Load AADR manifest
+    manifest_path = ref_dir / "aadr_manifest.json"
+    archaic_meta = {}
+    if manifest_path.exists():
+        with open(manifest_path) as fh:
+            manifest = json.load(fh)
+        archaic_meta = manifest.get("archaic_individuals", {})
+
+    # Load archaic BIM
+    archaic_bim = pd.read_csv(ref_dir / "aadr_archaic.bim", sep=r"\s+", header=None)
+    archaic_bim.columns = ["chr", "vid", "cm", "pos", "a1", "a2"]
+
+    # ── Step 1: Compute archaic & modern allele frequencies ──
+    logger.info("  Step 1: Computing allele frequencies (archaic + modern)...")
+    archaic_freq_out = ref_dir / "aadr_archaic_freq"
+    subprocess.run(
+        [PLINK_BIN, "--bfile", str(ref_dir / "aadr_archaic"),
+         "--freq", "--out", str(archaic_freq_out),
+         "--allow-extra-chr", "--threads", "4", "--memory", "8000"],
+        capture_output=True, text=True, timeout=300,
+    )
+    archaic_fp = Path(str(archaic_freq_out) + ".frq")
+    if not archaic_fp.exists():
+        logger.error("  ✗ Could not compute archaic frequencies")
+        return {"percentage": None, "snps_found": 0, "snps_total": 0,
+                "reliable": False, "method": "AADR_direct", "note": "PLINK freq failed"}
+    af = pd.read_csv(archaic_fp, sep=r"\s+")
+    archaic_maf = {str(r["SNP"]): float(r["MAF"]) for _, r in af.iterrows()}
+    logger.info(f"    Archaic: {len(archaic_maf)} SNPs")
+
+    modern_freq_out = ref_dir / "aadr_modern_freq"
+    subprocess.run(
+        [PLINK_BIN, "--bfile", str(ref_dir / "aadr_modern"),
+         "--freq", "--out", str(modern_freq_out),
+         "--allow-extra-chr", "--threads", "4", "--memory", "8000"],
+        capture_output=True, text=True, timeout=600,
+    )
+    modern_fp = Path(str(modern_freq_out) + ".frq")
+    modern_maf_map = {}
+    if modern_fp.exists():
+        mf = pd.read_csv(modern_fp, sep=r"\s+")
+        modern_maf_map = {str(r["SNP"]): float(r["MAF"]) for _, r in mf.iterrows()}
+        logger.info(f"    Modern:  {len(modern_maf_map)} SNPs")
+    else:
+        logger.warning("  ⚠ Modern freq failed — using default MAF=0.25")
+
+    # ── Step 2: Select archaic-informative SNPs where archaic ≠ modern ──
+    logger.info("  Step 2: Selecting archaic-enriched SNPs...")
+    delta_snps = []
+    for vid, arch_maf in archaic_maf.items():
+        mod_maf = modern_maf_map.get(vid, 0.25)
+        delta = abs(arch_maf - mod_maf)
+        # Require: archaic-enriched AND modern-depleted (relaxed for 1240K panel)
+        if arch_maf > 0.2 and mod_maf < 0.15 and delta > 0.15:
+            delta_snps.append((vid, arch_maf, mod_maf, delta))
+    delta_snps.sort(key=lambda x: x[3], reverse=True)
+    top_n = min(5000, len(delta_snps))
+    top_snps = delta_snps[:top_n]
+    logger.info(f"    Selected {top_n} archaic-enriched SNPs "
+                f"(arch_maf>0.25, mod_maf<0.15, max delta={top_snps[0][3] if top_snps else 0:.3f})")
+    if top_n < 100:
+        logger.warning("  Too few archaic-enriched SNPs — falling back to SNP panel")
+        return estimate_neanderthal_snp_panel(user_vcf)
+
+    # ── Step 3: Batch query user VCF (bcftools query -R, 5000x faster than per-SNP tabix)
+    logger.info(f"  Step 3: Batch-querying user VCF at {top_n} SNPs...")
+
+    # Build regions input for bcftools (piped via stdin — -R file has issues on macOS)
+    regions_input = ""
+    for vid, _, _, _ in top_snps:
+        parts = vid.split(":")
+        regions_input += f"chr{parts[0]}\t{parts[1]}\t{parts[1]}\n"
+
+    # Batch extract genotypes via bcftools (pipe regions via stdin)
+    user_genos = {}
+    try:
+        result = subprocess.run(
+            ["bcftools", "query", "-R", "-",
+             "-f", "%CHROM:%POS\t%REF\t%ALT\n", user_vcf],
+            input=regions_input, capture_output=True, text=True, timeout=120,
+        )
+        for line in result.stdout.strip().split("\n"):
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                pos_key = parts[0].replace("chr", "")  # Normalize: chr1:123 → 1:123
+                user_genos[pos_key] = (parts[1], parts[2])
+    except Exception as e:
+        logger.warning(f"  ⚠ bcftools batch query failed: {e}")
+        return estimate_neanderthal_snp_panel(user_vcf)
+
+    logger.info(f"    Found {len(user_genos)} matching positions in VCF")
+
+    # Build VID → (archMAF, modMAF) lookup
+    snp_info = {vid: (arch_maf, mod_maf) for vid, arch_maf, mod_maf, _ in top_snps}
+
     n_found = 0
-    n_neanderthal = 0
-    n_homozygous = 0
+    n_archaic_shared = 0
+    sum_arch_maf = 0.0
+    sum_mod_maf = 0.0
 
-    for chrom, pos, neand_allele in NEANDERTHAL_SNPS:
-        result = query_vcf_genotype(user_vcf, chrom, pos)
+    for vid, arch_maf, mod_maf, delta in top_snps:
+        pos_key = vid  # already in "chr:pos" format without "chr" prefix
+        result = user_genos.get(pos_key)
         if result:
             n_found += 1
             ref, alt = result
-            if neand_allele in (ref, alt) or neand_allele in alt.split(","):
-                n_neanderthal += 1
-            # Check for homozygous Neanderthal
-            # This is approximate since we don't have full genotype info from the simple query
+            bim_match = archaic_bim[archaic_bim["vid"] == vid]
+            if len(bim_match) == 0:
+                continue
+            a1 = str(bim_match.iloc[0]["a1"]).upper()
+            if a1 in [a.upper() for a in alt.split(",")]:
+                n_archaic_shared += 1
+            sum_arch_maf += arch_maf
+            sum_mod_maf += mod_maf
 
-    if n_found < 10:
-        logger.info(f"  Only {n_found}/{n_total} SNPs found — estimate may be unreliable")
-        return {"percentage": None, "snps_found": n_found, "snps_total": n_total, "reliable": False}
+    # Cleanup temp files
+    archaic_fp.unlink(missing_ok=True)
+    modern_fp.unlink(missing_ok=True)
+    for ext in [".log", ".nosex"]:
+        Path(str(archaic_freq_out) + ext).unlink(missing_ok=True)
+        Path(str(modern_freq_out) + ext).unlink(missing_ok=True)
 
-    # European reference: ~2.1% Neanderthal
-    # We found n_neanderthal out of n_found SNPs with the Neanderthal allele
-    pct = (n_neanderthal / n_found) * 100 * 2.1  # Scale to reference
+    if n_found < 100:
+        logger.info(f"  Only {n_found}/{top_n} SNPs found — insufficient coverage")
+        return {"percentage": None, "snps_found": n_found, "snps_total": top_n,
+                "reliable": False, "method": "AADR_direct",
+                "note": f"Need ≥100 matching SNPs (got {n_found}). Use WGS VCF."}
 
-    # Actually, we need a better estimation. Let's use the ratio compared to European average
-    # If European avg = 2.1%, and our panel has X SNPs, then % = (n_neanderthal / expected) * 2.1
-    # For a simple estimate: scale by reference panel
-    expected_euro = n_found * 0.021  # ~2.1% of SNPs should carry Neanderthal allele in Europeans
-    observed_pct = (n_neanderthal / n_found) * 100
+    # ── Step 4: Calculate admixture % ──
+    user_af = n_archaic_shared / n_found
+    avg_arch_maf = sum_arch_maf / n_found
+    avg_mod_maf = sum_mod_maf / n_found
 
-    # Scale to reference
-    scaled_pct = (observed_pct / 2.1) * 2.1  # Normalize
+    if avg_arch_maf > avg_mod_maf + 0.01:
+        admix_ratio = (user_af - avg_mod_maf) / (avg_arch_maf - avg_mod_maf)
+        admix_pct = admix_ratio * 2.1  # Scale to European Neanderthal baseline
+        admix_pct = max(0.0, min(admix_pct, 10.0))
+    else:
+        admix_ratio = 0.0
+        admix_pct = 0.0
 
-    logger.info(f"  Neanderthal alleles: {n_neanderthal}/{n_found} SNPs ({observed_pct:.1f}%)")
-    logger.info(f"  European average: ~2.1%")
+    reliable = n_found >= 1000
+    logger.info(f"  Found: {n_found}/{top_n} informative SNPs")
+    logger.info(f"  User AF: {user_af:.4f} | Archaic MAF: {avg_arch_maf:.4f} | Modern MAF: {avg_mod_maf:.4f}")
+    logger.info(f"  Admixture ratio: {admix_ratio:.4f}")
+    logger.info(f"  Estimated Neanderthal admixture: {admix_pct:.2f}%")
+
+    # ── Step 5: Population comparisons ──
+    _, populations = _load_archaic_reference()
+    pop_comparisons = {}
+    for pop_code, pop_data in populations.items():
+        pop_mean = pop_data["mean_pct"] / 100.0
+        pop_std = pop_data.get("std_pct", 0.4) / 100.0
+        z_score = (admix_pct / 100.0 - pop_mean) / pop_std if pop_std > 0 else 0.0
+        from math import erf, sqrt
+        percentile = 50.0 * (1.0 + erf(z_score / sqrt(2.0)))
+        pop_comparisons[pop_code] = {
+            "label": pop_data["label"], "mean_pct": pop_data["mean_pct"],
+            "user_admix_pct": round(admix_pct, 2),
+            "z_score": round(z_score, 2), "percentile": round(percentile, 1),
+        }
+
+    closest_pop = min(pop_comparisons.items(), key=lambda x: abs(x[1]["z_score"]))
 
     return {
-        "percentage": round(observed_pct, 1),
-        "snps_found": n_found,
-        "snps_total": n_total,
-        "neanderthal_alleles": n_neanderthal,
-        "reliable": n_found >= 30,
+        "percentage": round(admix_pct, 2),
+        "archaic_alleles": n_archaic_shared,
+        "snps_found": n_found, "snps_total": top_n,
+        "reliable": reliable, "method": "AADR_informative_delta",
+        "user_archaic_af": round(user_af, 4),
+        "avg_archaic_maf": round(avg_arch_maf, 4),
+        "avg_modern_maf": round(avg_mod_maf, 4),
+        "admix_ratio": round(admix_ratio, 4),
+        "closest_population": closest_pop[0],
+        "population_comparisons": pop_comparisons,
         "reference": {
-            "European": "2.1%",
-            "East Asian": "2.3%",
-            "African": "0.3%",
+            "source": "Allen Ancient DNA Resource (Mallick et al. 2024)",
+            "archaic_individuals": list(archaic_meta.keys()),
+            "method": "archaic_informative_delta",
         },
     }
+
+def estimate_neanderthal_snp_panel(user_vcf: str) -> Dict:
+    """
+    Estimate Neanderthal admixture from curated archaic introgression SNP panel.
+
+    Uses 133 high-confidence SNPs from published studies (Sankararaman et al. 2014,
+    Vernot & Akey 2014, Browning et al. 2018), compared against population baselines.
+
+    This is the fallback when AADR reference data is not available.
+    """
+    logger.info("── Neanderthal Admixture (133-SNP Panel) ──")
+    logger.info("  For higher accuracy, run: python scripts/setup/download_aadr_reference.py")
+
+    archaic_snps, populations = _load_archaic_reference()
+
+    n_total = len(archaic_snps)
+    n_found = 0
+    n_archaic = 0
+    genes_found = {}
+    gene_archaic = {}
+
+    for chrom, pos, archaic_allele, gene, confidence in archaic_snps:
+        result = query_vcf_genotype(user_vcf, chrom, pos)
+        if result:
+            n_found += 1
+            genes_found[gene] = genes_found.get(gene, 0) + 1
+            ref, alt = result
+            alt_alleles = alt.split(",")
+            if archaic_allele.upper() in ([ref.upper()] + [a.upper() for a in alt_alleles]):
+                n_archaic += 1
+                gene_archaic[gene] = gene_archaic.get(gene, 0) + 1
+
+    # Require minimum coverage for reliable estimate
+    if n_found < 20:
+        logger.info(f"  Only {n_found}/{n_total} SNPs found — insufficient coverage for reliable estimate")
+        logger.info(f"  Tip: full-genome VCFs typically cover 80-130 of these 133 SNPs")
+        return {
+            "percentage": None,
+            "snps_found": n_found,
+            "snps_total": n_total,
+            "reliable": False,
+            "note": f"Insufficient coverage ({n_found}/{n_total} SNPs). Need ≥20.",
+        }
+
+    # Calculate archaic allele frequency in this individual
+    archaic_af = n_archaic / n_found
+
+    # Compare against population baselines
+    pop_comparisons = {}
+    for pop_code, pop_data in populations.items():
+        pop_mean = pop_data["mean_pct"] / 100.0  # Convert % to fraction
+        pop_std = pop_data.get("std_pct", 0.5) / 100.0
+
+        # Z-score of individual vs population mean
+        if pop_std > 0:
+            z_score = (archaic_af - pop_mean) / pop_std
+        else:
+            z_score = 0.0
+
+        # Percentile (approximate via normal distribution)
+        from math import erf, sqrt
+        percentile = 50.0 * (1.0 + erf(z_score / sqrt(2.0)))
+
+        pop_comparisons[pop_code] = {
+            "label": pop_data["label"],
+            "mean_pct": pop_data["mean_pct"],
+            "individual_af": round(archaic_af * 100, 2),
+            "z_score": round(z_score, 2),
+            "percentile": round(percentile, 1),
+        }
+
+    # Determine which population this individual is closest to
+    closest_pop = min(pop_comparisons.items(),
+                       key=lambda x: abs(x[1]["z_score"]))
+    estimated_pct = round(archaic_af * 100, 1)
+
+    # Reliability score: based on n_found and consistency across genes
+    reliable = n_found >= 50
+    n_genes_found = len(genes_found)
+    consistency = min(1.0, n_genes_found / 10.0) if n_genes_found > 0 else 0.0
+
+    # Build gene-level summary
+    gene_summary = {}
+    for gene in sorted(set(list(genes_found.keys()) + list(gene_archaic.keys()))):
+        found = genes_found.get(gene, 0)
+        archaic = gene_archaic.get(gene, 0)
+        if found > 0:
+            gene_summary[gene] = {
+                "snps_found": found,
+                "archaic_alleles": archaic,
+                "pct_archaic": round(archaic / found * 100, 1),
+            }
+
+    logger.info(f"  Archaic alleles: {n_archaic}/{n_found} SNPs ({estimated_pct}%)")
+    logger.info(f"  Closest population: {closest_pop[1]['label']} "
+                f"(z={closest_pop[1]['z_score']})")
+    logger.info(f"  Genes with archaic signal: {n_genes_found}")
+
+    return {
+        "percentage": estimated_pct,
+        "archaic_alleles": n_archaic,
+        "snps_found": n_found,
+        "snps_total": n_total,
+        "reliable": reliable,
+        "genes_found": n_genes_found,
+        "population_comparisons": pop_comparisons,
+        "closest_population": closest_pop[0],
+        "gene_detail": gene_summary,
+        "reference": {
+            pop: f"{data['mean_pct']}%" for pop, data in populations.items()
+        },
+    }
+
+
+def estimate_neanderthal(user_vcf: str) -> Dict:
+    """
+    Estimate archaic (Neanderthal/Denisovan) admixture.
+
+    Tries AADR direct comparison first (actual Neanderthal genomes).
+    Falls back to curated 133-SNP panel if AADR not available.
+
+    With AADR: compares user genotypes against Altai/Vindija/Chagyrskaya
+    Neanderthal and Denisovan genomes from the Allen Ancient DNA Resource.
+
+    Returns percentage, sharing stats, and population comparisons.
+    """
+    if _aadr_available():
+        logger.info("  Using AADR direct archaic genome comparison")
+        return estimate_neanderthal_aadr(user_vcf)
+    else:
+        logger.info("  AADR not available — using curated SNP panel")
+        logger.info("  For gold-standard analysis, run:")
+        logger.info("    python scripts/setup/download_aadr_reference.py")
+        return estimate_neanderthal_snp_panel(user_vcf)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

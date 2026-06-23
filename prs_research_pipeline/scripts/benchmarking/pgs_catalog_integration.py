@@ -11,7 +11,14 @@ Output:
   pgs/concordance.json  — Concordance with platform PRS
 """
 
-import sys, os, json, logging, time, gzip, subprocess, shutil
+import sys
+import os
+import json
+import logging
+import time
+import gzip
+import subprocess
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.request import urlopen, Request

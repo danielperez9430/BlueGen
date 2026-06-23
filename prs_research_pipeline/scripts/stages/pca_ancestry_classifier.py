@@ -20,11 +20,13 @@ Output:
   science/ANCESTRY_MODEL.json  (overwrites UNKNOWN with real data)
 """
 
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import _venv
 
-import json, logging
+import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Tuple

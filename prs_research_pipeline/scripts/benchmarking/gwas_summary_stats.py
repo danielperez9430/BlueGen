@@ -11,10 +11,13 @@ Output:
   gwas/gwas_stats_detailed.json  — Full per-SNP GWAS results
 """
 
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys; import os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import _venv
 
-import json, logging, time, subprocess
+import json
+import logging
+import time
+import subprocess
 from pathlib import Path
 from datetime import datetime
 

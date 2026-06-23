@@ -5,7 +5,8 @@ Import at the top of any script that needs the venv Python:
 Place this BEFORE any non-stdlib imports (pandas, numpy, etc.).
 Safe to import from any subdirectory depth."""
 
-import sys, os
+import sys
+import os
 
 # Find the venv by walking up from this file's location
 _this_dir = os.path.dirname(os.path.abspath(__file__))

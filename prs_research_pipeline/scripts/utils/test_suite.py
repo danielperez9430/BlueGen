@@ -9,7 +9,10 @@ Usage:
   python3 prs.py test --verbose    # Show all checks
 """
 
-import sys, os, json, logging
+import sys
+import os
+import json
+import logging
 from pathlib import Path
 from typing import Any, Tuple, List
 from datetime import datetime
