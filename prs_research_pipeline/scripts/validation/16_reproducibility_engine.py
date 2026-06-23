@@ -349,8 +349,21 @@ class ReproducibilityEngine:
         except Exception:
             pass
 
-        # Capture system tools
-        for tool in ["plink", "plink2", "bcftools", "tabix", "bgzip"]:
+        # Capture system tools — use tool_detection for the primary tools
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            from utils.tool_detection import detect_all
+            detected = detect_all()
+            env.system_tools["plink"] = detected["plink"]["version"]
+            if detected["bcftools"]["available"]:
+                env.system_tools["bcftools"] = "available"
+            if detected["tabix"]["available"]:
+                env.system_tools["tabix"] = "available"
+        except Exception:
+            pass
+
+        # Capture additional tools (bgzip) directly
+        for tool in ["bgzip"]:
             try:
                 result = subprocess.run(
                     [tool, "--version"], capture_output=True, text=True, timeout=10

@@ -37,8 +37,14 @@ All notable changes to BlueGen.
 - **`population_calibrate_v2.py`:** Filters unknown JSON keys (e.g., `method`) before constructing dataclass
 - **`gwas_summary_stats.py`:** Added `OPENGWAS_TOKEN` env var support (was file-only)
 - **`population_calibrate_v2.py`:** Removed duplicate `@dataclass` decorator on `PopulationDistribution`
+- **Pipeline version:** Normalized to `v1.1.0` across all output files (was v6/7/9/10 in different JSONs)
+- **Tool detection:** `16_reproducibility_engine.py` now uses `tool_detection.detect_all()` — only reports primary PLINK (v1.9), not plink2
 - **`README.md`:** Added BlueGen logo (`assets/blugen-logo.png`)
 - **`LICENSE`:** Added MIT license file
+- **`scripts/setup/download_archaic_reference.py`:** Curated 133-SNP archaic introgression panel with population baselines
+- **`scripts/setup/download_aadr_reference.py`:** AADR 1240K panel download + Eigenstrat→PLINK conversion (Altai/Vindija/Chagyrskaya + Denisova)
+- **`archive_upload.py`:** Added `bluegen-archaic-reference` item (188 MB PLINK binaries on archive.org)
+- **`scripts/clinical/ancestry_deep.py`:** AADR direct archaic genome comparison + 133-SNP panel fallback; batch bcftools query for fast VCF extraction
 
 ---
 

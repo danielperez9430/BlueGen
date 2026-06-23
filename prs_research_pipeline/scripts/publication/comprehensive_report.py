@@ -996,7 +996,7 @@ def build_methodology_section(prs_result, ancestry):
     n_traits = meta.get("n_traits", 10)
     formula = meta.get("prs_formula", "PRS = Σ(βⱼ × Gᵢⱼ)")
     method = meta.get("computation_method", "PLINK --score (dosage-weighted)")
-    pipeline_ver = meta.get("pipeline_version", "9.0.0")
+    pipeline_ver = meta.get("pipeline_version", "1.1.0")
     n_ref = ancestry.get("n_reference_samples", 2504)
     n_pcs = ancestry.get("n_pcs", 20)
 
@@ -1198,7 +1198,7 @@ def build_calibration_detail_section(calibration_report):
     n_traits = meta.get("n_traits", 10)
     formula = meta.get("prs_formula", "PRS = Σ(βⱼ × Gᵢⱼ)")
     method = meta.get("computation_method", "PLINK --score (dosage-weighted)")
-    pipeline_ver = meta.get("pipeline_version", "9.0.0")
+    pipeline_ver = meta.get("pipeline_version", "1.1.0")
     n_ref = ancestry.get("n_reference_samples", 2504)
     n_pcs = ancestry.get("n_pcs", 20)
 
