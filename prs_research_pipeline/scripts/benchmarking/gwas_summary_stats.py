@@ -317,6 +317,8 @@ def integrate(token: str = None, snp_db_path: str = "data/snp_database_annotated
               output_dir: str = "gwas") -> Dict:
     """Main entry point. Uses OpenGWAS API (fast, requires token)."""
     if not token:
+        token = os.environ.get("OPENGWAS_TOKEN")
+    if not token:
         token_file = Path(output_dir).parent / ".opengwas_token"
         if token_file.exists():
             token = token_file.read_text().strip()
@@ -325,7 +327,7 @@ def integrate(token: str = None, snp_db_path: str = "data/snp_database_annotated
         return download_via_api(token, snp_db_path, output_dir)
     else:
         logger.error("No OpenGWAS token. Get one at https://api.opengwas.io/")
-        logger.error("Save it to .opengwas_token or pass via --token")
+        logger.error("Set OPENGWAS_TOKEN env var, pass --token, or save to .opengwas_token")
         return {"error": "no_token"}
 
 

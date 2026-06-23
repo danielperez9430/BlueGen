@@ -34,7 +34,8 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 PLATFORM_DIR = PROJECT_ROOT / "prs_research_pipeline"
 SCRIPTS = PLATFORM_DIR / "scripts"
 PYTHON = sys.executable
-_START_TIME = time.time()
+START_TIME = time.time()
+SNP_DB_PATH = str(PLATFORM_DIR / "data" / "snp_database_annotated.csv")
 
 # Ensure we're in the project root for relative path resolution
 os.chdir(str(PROJECT_ROOT))
@@ -50,7 +51,7 @@ def err(s):    print(f"  {R}✗{N} {s}")
 def hdr(s):    print(f"\n{B}{C}── {s} ──{N}")
 def info(s):   print(f"  {D}{s}{N}")
 def big(s):    print(f"\n{B}{C}{'═'*60}{N}\n{B}{C}  {s}{N}\n{B}{C}{'═'*60}{N}")
-def elapsed(): return f"{time.time() - _START_TIME:.0f}s"
+def elapsed(): return f"{time.time() - START_TIME:.0f}s"
 
 # ── Command registry ──────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ ROUTES = {
     "ancestry_classifier": "stages/pca_ancestry_classifier.py",
     # ── PRS computation ──
     "stage_f": "prs/06_prs_compute.py",
+    "prs_plink_score": "prs/prs_plink_score.py",
     "stage_g": "prs/pca_adjust_v2.py",
     "stage_h": "prs/population_calibrate_v2.py",
     "stage_i": "validation/13_gwas_ld_consistency_check.py",
@@ -191,6 +193,8 @@ def run_script(key, *args, shell=False, required=False):
                 info(f"    {D}Full log: pipeline_debug.log{N}")
                 for line in lines[-8:]:
                     info(f"    {D}{line[:130]}{N}")
+            if required:
+                err(f"  Pipeline halted: {key} failed with exit code {result.returncode}")
         return result.returncode
     except subprocess.TimeoutExpired:
         err(f"  {key} — timed out")
@@ -199,6 +203,17 @@ def run_script(key, *args, shell=False, required=False):
 
 def run_shell(key, *args, required=False):
     return run_script(key, *args, shell=True, required=required)
+
+
+def require_output(path, label, stage=""):
+    """Validate that a pipeline output file exists. Returns True or halts."""
+    if exists(path):
+        return True
+    err(f"Output not found: {path} ({label})")
+    if stage:
+        err(f"  Stage '{stage}' did not produce expected output")
+    err(f"  Check pipeline_debug.log for details")
+    return False
 
 
 def exists(path):
@@ -260,6 +275,16 @@ def cmd_run(args):
     big(f"PRS PIPELINE {'(dry-run)' if DRY_RUN else ''}")
     info(f"Sample: {sample} | VCF: {vcf} | Language: {lang}")
     info(f"Mode: {'FULL' if full else 'PIPELINE ONLY'}{' — Stage: '+args.stage if args.stage else ''}")
+
+    # Validate config
+    if not DRY_RUN:
+        try:
+            sys.path.insert(0, str(PLATFORM_DIR / "scripts"))
+            from utils.config_validator import validate_config
+            validate_config(str(PLATFORM_DIR / "config.yaml"))
+            ok("Config validated")
+        except SystemExit:
+            return 1
 
     # ── Single stage mode ──
     if args.stage:
@@ -323,22 +348,18 @@ def cmd_run(args):
         venv_bin = str(Path(__file__).parent / "venv" / "bin")
         os.environ["PATH"] = f"{tools_dir}:{venv_bin}:" + os.environ.get("PATH", "")
 
-        if Path(tools_dir, "plink").exists():
-            ok(f"PLINK: tools/plink (v1.9, stable)")
-        elif Path(tools_dir, "plink2").exists():
-            ok(f"PLINK: tools/plink2 (v2.0, alpha)")
-        elif shutil.which("plink") or shutil.which("plink2"):
-            ok(f"PLINK: {shutil.which('plink') or shutil.which('plink2')} (system)")
-        else:
-            err("PLINK not found in tools/ or system PATH")
-            err("Download PLINK 1.9: https://www.cog-genomics.org/plink/")
+        try:
+            sys.path.insert(0, str(PLATFORM_DIR / "scripts"))
+            from utils.tool_detection import find_plink
+            plink_path, plink_ver = find_plink()
+            ok(f"PLINK: {plink_path} ({plink_ver})")
+        except SystemExit:
             return 1
-    snp_db = str(PLATFORM_DIR / "data/snp_database_annotated.csv")
+
+    snp_db = SNP_DB_PATH
 
     # Resolve 1000G reference paths once
-    # Full genome-wide reference (from scripts/setup/download_1000G_full.py)
     g1k_full_bfile = str(PLATFORM_DIR / "reference/1000G_full/1000G_full")
-    # Fall back to chr22 VCF if full reference not yet built
     g1k_vcf = str(PLATFORM_DIR / "reference/1000G/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz")
     pop_panel_full = str(PLATFORM_DIR / "reference/1000G_full/population_panel.txt")
     pop_panel = str(PLATFORM_DIR / "reference/1000G/20130606_g1k_3202_samples_ped_population.txt")
@@ -357,11 +378,16 @@ def cmd_run(args):
     # ── Genotype Processing ──
     hdr("Genotype Processing (Stages A–D)")
     run_shell("stage_a", "--input-vcf", vcf, "--out-dir", "plink/", required=True)
+    require_output("plink/cohort.bed", "PLINK binary dataset", "stage_a")
+
     run_shell("stage_b", "--bfile", "plink/cohort", "--out-dir", "qc/", required=True)
+    require_output("qc/qc_filtered.bed", "QC-filtered dataset", "stage_b")
+
     run_shell("stage_c", "--bfile", "qc/qc_filtered",
               g1k_arg, g1k_ref,
               "--population-panel", pop_ref,
               "--out-dir", "plink/", required=True)
+    require_output("plink/ld_pruned_dataset.bed", "LD-pruned dataset", "stage_c")
 
     run_shell("stage_d", g1k_arg, g1k_ref,
               "--target-bfile", "plink/ld_pruned_dataset",
@@ -386,138 +412,23 @@ def cmd_run(args):
     # ── PRS Computation ──
     hdr("PRS Computation (Stages F–H)")
     if not DRY_RUN:
-        # Use PLINK --score for multi-sample PRS (handles N samples natively)
-        result = subprocess.run([PYTHON, "-c", f"""
-import sys, os, subprocess, csv, json
-from pathlib import Path
-import pandas as pd
-import numpy as np
-
-# Load SNP database and build score files per trait
-db = pd.read_csv('{snp_db}', dtype=str)
-trait_col = 'trait_category'
-output_dir = Path('prs/')
-output_dir.mkdir(parents=True, exist_ok=True)
-plink = str(Path('{PLATFORM_DIR}/../tools/plink'))
-bfile = 'qc/qc_filtered'
-bim_path = Path(bfile + '.bim')
-
-# Fix duplicate variant IDs in bim (PLINK silently fails on duplicates)
-bim = pd.read_csv(bim_path, sep=r'\\s+', header=None, dtype=str)
-bim.columns = ['chr', 'vid', 'cm', 'pos', 'a1', 'a2']
-dups = bim[bim['vid'].duplicated()]['vid'].unique()
-if len(dups) > 0:
-    # Make duplicates unique with numbered suffixes (first occurrence stays)
-    dup_counts = {{}}
-    new_vids = []
-    for _, row in bim.iterrows():
-        v = row['vid']
-        if v in dups:
-            if v not in dup_counts:
-                dup_counts[v] = 1
-                new_vids.append(v)  # first occurrence: keep original
-            else:
-                dup_counts[v] += 1
-                new_vids.append(f'{{v}}_{{dup_counts[v]}}')
-        else:
-            new_vids.append(v)
-    bim['vid'] = new_vids
-    tmp_bim = output_dir / 'qc_dedup.bim'
-    bim.to_csv(tmp_bim, sep='\\t', header=False, index=False)
-    import shutil
-    for ext in ['.bed', '.fam']:
-        shutil.copy2(Path(bfile + ext), output_dir / ('qc_dedup' + ext))
-    bfile = str(output_dir / 'qc_dedup')
-    print(f'  PRS: fixed {{len(dups)}} duplicate bim IDs')
-
-# Get bim variant IDs for matching
-bim_ids = set(bim['vid'].values)
-
-traits = db[trait_col].dropna().unique()
-all_results = []
-
-for trait in traits:
-    trait_snps = db[db[trait_col] == trait]
-    safe = trait.lower().replace(' ', '_').replace('&', 'and').replace('/', '_').replace('(', '').replace(')', '')
-    score_file = output_dir / f'tmp_{{safe}}.score'
-
-    # Build PLINK score file: variant_id allele weight (only matching SNPs)
-    n_written = 0
-    with open(score_file, 'w') as fh:
-        for _, row in trait_snps.iterrows():
-            chrom = str(row.get('chrom', '')).replace('chr', '')
-            pos = str(row.get('pos', '')).strip()
-            allele = str(row.get('effect_allele', '')).strip()
-            weight = row.get('weight', '1.0')
-            vid = f'{{chrom}}:{{pos}}'
-            if chrom and pos and allele and vid in bim_ids:
-                try:
-                    w = float(weight)
-                    fh.write(vid + chr(9) + allele + chr(9) + str(w) + chr(10))
-                    n_written += 1
-                except ValueError:
-                    continue
-
-    if n_written == 0:
-        score_file.unlink(missing_ok=True)
-        continue
-
-    # Run PLINK --score
-    out_prefix = output_dir / f'tmp_{{safe}}'
-    subprocess.run([plink, '--bfile', bfile, '--score', str(score_file), '1', '2', '3',
-                    '--out', str(out_prefix), '--allow-extra-chr', '--threads', '4',
-                    '--memory', '8000'],
-                   capture_output=True, timeout=300)
-
-    # Parse profile
-    profile_path = Path(str(out_prefix) + '.profile')
-    if profile_path.exists():
-        prof = pd.read_csv(profile_path, sep='[\\t ]+', dtype={{'IID': str}})
-        for _, prow in prof.iterrows():
-            all_results.append({{
-                'individual_id': str(prow['IID']),
-                'trait': trait,
-                'prs_raw': float(prow.get('SCORE', prow.get('SCORESUM', 0))),
-                'n_snps': int(prow.get('CNT', 0)),
-                'n_snps_used': int(prow.get('CNT2', 0)),
-            }})
-        profile_path.unlink()
-
-    # Clean up
-    score_file.unlink(missing_ok=True)
-    for ext in ['.log', '.nosex', '.nopred']:
-        Path(str(out_prefix) + ext).unlink(missing_ok=True)
-
-# Save results
-if all_results:
-    df = pd.DataFrame(all_results)
-    n_samples = df['individual_id'].nunique()
-    n_traits = df['trait'].nunique()
-    df.to_csv(output_dir / 'prs_raw.csv', index=False)
-    print(f'  PRS: {{n_traits}} traits, {{n_samples}} samples, {{df["n_snps_used"].sum()}}/{{df["n_snps"].sum()}} SNPs')
-else:
-    print('  PRS: 0 scores — no variants matched')
-    pd.DataFrame().to_csv(output_dir / 'prs_raw.csv', index=False)
-
-# Clean up dedup bfile
-for ext in ['.bed', '.bim', '.fam']:
-    Path(str(output_dir / 'qc_dedup') + ext).unlink(missing_ok=True)
-"""], cwd=str(PLATFORM_DIR), capture_output=True, text=True, timeout=600)
-        # Print PRS summary from the inline code
-        if result.stdout.strip():
-            for line in result.stdout.strip().split("\n"):
-                if "PRS:" in line or "traits" in line:
-                    info(f"    {line.strip()}")
-        if result.returncode != 0 and result.stderr:
-            warn(f"    PRS computation issue — check pipeline_debug.log")
-            with open(PLATFORM_DIR / "pipeline_debug.log", "a") as lf:
-                lf.write(f"\nPRS inline error:\n{result.stderr[-500:]}\n")
+        plink_bin = str(Path(__file__).parent / "tools" / "plink")
+        rc = run_script("prs_plink_score",
+                   "--snp-db", snp_db,
+                   "--bfile", "qc/qc_filtered",
+                   "--output-dir", "prs/",
+                   "--plink", plink_bin)
+        if rc != 0:
+            err("PRS computation failed — check pipeline_debug.log")
+            return 1
+        require_output("prs/prs_raw.csv", "Raw PRS scores", "prs_plink_score")
 
     # PCA adjustment — skip if no PCA output
     if exists("prs/prs_raw.csv") and exists("pca/target_pcs.eigenvec"):
         run_script("stage_g", "--prs-data", "prs/prs_raw.csv",
                    "--sample-pcs", "pca/target_pcs.eigenvec",
                    "--output-dir", "prs/", "--sample-id", sample)
+        require_output("prs/pca_adjusted_scores.csv", "PCA-adjusted PRS", "stage_g")
     elif exists("prs/prs_raw.csv"):
         info("  Skipping PCA adjustment — no target_pcs.eigenvec (run Stage D first)")
 
@@ -526,8 +437,8 @@ for ext in ['.bed', '.bim', '.fam']:
     if not exists(anc_json):
         anc_json = "pca/ancestry_inference.json"
     cal_done = False
-    if exists(anc_json) and exists("prs/prs_adjusted.csv"):
-        run_script("stage_h", "--sample-prs", "prs/prs_adjusted.csv",
+    if exists(anc_json) and exists("prs/pca_adjusted_scores.csv"):
+        run_script("stage_h", "--sample-prs", "prs/pca_adjusted_scores.csv",
                    "--ancestry-json", anc_json, "--output-dir", "prs/",
                    "--calibrate-only")
         cal_done = True
@@ -552,6 +463,11 @@ for ext in ['.bed', '.bim', '.fam']:
                    "--snp-db", snp_db, "--vcf", vcf, "--output-dir", "prs/")
         run_script("stage_k", "--prs-calibrated", prs_cal, "--ancestry", anc_json,
                    "--output-dir", "interpretations/", "--lang", lang)
+    else:
+        if not exists(prs_cal):
+            warn("No calibrated PRS — skipping uncertainty and interpretation stages")
+        if not exists(anc_json):
+            warn("No ancestry data — skipping uncertainty and interpretation stages")
 
     # ── ClinVar Pathogenic Variant Annotation ──
     if clinvar:
@@ -694,7 +610,7 @@ for ext in ['.bed', '.bim', '.fam']:
 def cmd_validate(args):
     big("SCIENTIFIC VALIDATION")
     sample = args.sample or "SAMPLE_001"
-    snp_db = str(PLATFORM_DIR / "data/snp_database_annotated.csv")
+    snp_db = SNP_DB_PATH
 
     stages = [
         ("Leakage Prevention", "leakage_prevention", ["--sample-id", sample, "--output-dir", "science"]),
@@ -787,7 +703,7 @@ def cmd_report(args):
 
 def cmd_benchmark(args):
     big("EXTERNAL BENCHMARKING")
-    snp_db = str(PLATFORM_DIR / "data/snp_database_annotated.csv")
+    snp_db = SNP_DB_PATH
     prs_cal = "prs/population_calibrated_v2.csv"
     if not exists(prs_cal):
         prs_cal = "prs/population_calibrated.csv"
@@ -842,21 +758,13 @@ def cmd_status(args):
     print(f"    Platform: {PLATFORM_DIR}")
 
     # Check PLINK
-    # Detect PLINK: check tools/ first, then system PATH
-    tools_plink = Path(__file__).parent / "tools" / "plink"
-    if tools_plink.exists():
-        try:
-            r = subprocess.run([str(tools_plink), "--version"], capture_output=True, text=True, timeout=5)
-            plink_ver = r.stdout.split("\n")[0].strip() if r.stdout else "not found"
-        except Exception:
-            plink_ver = "not found"
-    else:
-        try:
-            r = subprocess.run(["plink", "--version"], capture_output=True, text=True, timeout=5)
-            plink_ver = r.stdout.split("\n")[0].strip() if r.stdout else "not found"
-        except Exception:
-            plink_ver = "not found"
-    print(f"    PLINK: {plink_ver}")
+    try:
+        sys.path.insert(0, str(PLATFORM_DIR / "scripts"))
+        from utils.tool_detection import find_plink
+        plink_path, plink_ver = find_plink()
+        print(f"    PLINK: {plink_ver}")
+    except SystemExit:
+        print(f"    PLINK: {R}not found{N}")
 
     # Pipeline state
     print(f"\n  {B}Pipeline State{N}")

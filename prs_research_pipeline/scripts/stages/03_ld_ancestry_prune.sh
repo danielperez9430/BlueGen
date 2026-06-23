@@ -102,7 +102,7 @@ if [[ -n "${G1K_BFILE:-}" ]] && [[ -f "${G1K_BFILE}.bed" ]]; then
         DATASET="${OUT_DIR}/ld_pruned_dataset"
         echo "  Extracting $(wc -l < "$FINAL_PRUNE" | tr -d ' ') ancestry-matched independent SNPs" | tee -a "$LOG"
         "$PLINK_BIN" --bfile "$BFILE" --extract "$FINAL_PRUNE" \
-            --make-bed --out "$DATASET" \
+            --make-bed --out "$DATASET" --allow-extra-chr \
             --threads "$THREADS" --memory "$MEMORY" 2>&1 | tee -a "$LOG"
         cp "$FINAL_PRUNE" "${OUT_DIR}/pruned.prune.in" 2>/dev/null || true
         cut -f2 "${BFILE}.bim" | sort > "${OUT_DIR}/target_snps_sorted.txt"
@@ -148,7 +148,7 @@ if [[ ! -f "${G1K_QC}.bed" ]] || [[ ! -f "${G1K_QC}.bim" ]] || [[ ! -f "${G1K_QC
     echo "" | tee -a "$LOG"
     echo "── QC 1000G reference ──" | tee -a "$LOG"
     "$PLINK_BIN" --bfile "$G1K_PREFIX" --geno 0.05 --maf 0.01 \
-        --hwe 0.000001 midp --make-bed --out "$G1K_QC" \
+        --hwe 0.000001 midp --make-bed --out "$G1K_QC" --allow-extra-chr \
         --threads "$THREADS" --memory "$MEMORY" 2>&1 | tee -a "$LOG"
 fi
 
@@ -213,7 +213,7 @@ for POP in "${SUPER_POPS[@]}"; do
 
         # Extract population-specific data
         "$PLINK_BIN" --bfile "$G1K_QC" --keep "$KEEP_FILE" \
-            --make-bed --out "${POP_PREFIX}" \
+            --make-bed --out "${POP_PREFIX}" --allow-extra-chr \
             --memory "$PARALLEL_MEMORY" 2>&1 | sed "s/^/  [$POP] /"
 
         N_POP=$(wc -l < "${POP_PREFIX}.fam" | tr -d ' ')
@@ -225,7 +225,7 @@ for POP in "${SUPER_POPS[@]}"; do
         # LD prune this population
         "$PLINK_BIN" --bfile "${POP_PREFIX}" \
             --indep-pairwise "$WINDOW_SIZE" "$STEP_SIZE" "$R2_THRESHOLD" \
-            --out "${POP_PREFIX}_ld" \
+            --out "${POP_PREFIX}_ld" --allow-extra-chr \
             --memory "$PARALLEL_MEMORY" 2>&1 | sed "s/^/  [$POP] /"
 
         N_KEEP=$(wc -l < "${POP_PREFIX}_ld.prune.in" | tr -d ' ')
@@ -314,7 +314,7 @@ if [[ -f "$FINAL_PRUNE" ]] && [[ -s "$FINAL_PRUNE" ]]; then
     echo "  Extracting $N_FINAL ancestry-matched independent SNPs" | tee -a "$LOG"
 
     "$PLINK_BIN" --bfile "$BFILE" --extract "$FINAL_PRUNE" \
-        --make-bed --out "$DATASET" \
+        --make-bed --out "$DATASET" --allow-extra-chr \
         --threads "$THREADS" --memory "$MEMORY" 2>&1 | tee -a "$LOG"
 
     # Also save prune.in/out for compatibility

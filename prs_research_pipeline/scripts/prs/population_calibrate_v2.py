@@ -391,7 +391,22 @@ class PopulationCalibrationV2:
                 continue  # Skip metadata keys like "generated_date", "n_populations"
             self._reference_distributions[trait] = {}
             for pop, data in pops.items():
-                self._reference_distributions[trait][pop] = PopulationDistribution(**data)
+                if not isinstance(data, dict):
+                    continue
+                # Normalize alternate key names (q25→percentile_25, etc.)
+                normalized = dict(data)
+                key_map = {"q25": "percentile_25", "q75": "percentile_75",
+                           "p5": "percentile_5", "p95": "percentile_95"}
+                for old_key, new_key in key_map.items():
+                    if old_key in normalized and new_key not in normalized:
+                        normalized[new_key] = normalized.pop(old_key)
+                # Compute iqr from percentile_25/75 if missing
+                if "iqr" not in normalized and "percentile_25" in normalized and "percentile_75" in normalized:
+                    normalized["iqr"] = normalized["percentile_75"] - normalized["percentile_25"]
+                # Filter to only fields the dataclass accepts
+                valid_fields = {f.name for f in PopulationDistribution.__dataclass_fields__.values()}
+                normalized = {k: v for k, v in normalized.items() if k in valid_fields}
+                self._reference_distributions[trait][pop] = PopulationDistribution(**normalized)
 
         logger.info(f"  Loaded distributions for {len(self._reference_distributions)} traits")
 

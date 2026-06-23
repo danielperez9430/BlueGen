@@ -2,6 +2,46 @@
 
 All notable changes to BlueGen.
 
+## [1.1.0] — 2026-06-12
+
+### Added
+- **`scripts/prs/prs_plink_score.py`:** Extracted PRS computation from inline code into standalone module
+- **`scripts/publication/bilingual_report_generator.py`:** Extracted bilingual HTML/PDF report generation from inline code
+- **`scripts/utils/constants.py`:** Centralized paths, traits, thresholds, and version constants
+- **`scripts/utils/tool_detection.py`:** Centralized PLINK/bcftools/tabix detection with version validation
+- **`scripts/utils/config_validator.py`:** Schema validation for config.yaml (types, ranges, allowed values)
+- **`scripts/utils/logging_config.py`:** Unified logging with colored console output, file rotation, and StageProgress context manager
+- **`tests/`:** 28 pytest unit tests for constants, tool_detection, config_validator, logging_config
+- **`pyproject.toml`:** Ruff linting configuration (Python 3.10+, line length 120)
+- **`require_output()`:** Pipeline helper to validate stage outputs exist before proceeding
+- **`OPENGWAS_TOKEN` env var:** Environment variable support for OpenGWAS API token (fallback to file)
+
+### Changed
+- **`prs.py`:** PLINK detection now uses `utils.tool_detection` instead of hardcoded paths
+- **`prs.py`:** SNP_DB path centralized as module-level constant (eliminated 3 duplications)
+- **`prs.py`:** Config validated at pipeline startup via `config_validator.py`
+- **`prs.py`:** Stages F-H now have `required=True` and output validation between stages
+- **`prs.py`:** Stage G now checks for `pca_adjusted_scores.csv` (matching actual script output)
+- **CI/CD:** Python version matrix (3.10, 3.11, 3.12), ruff linting, pytest unit tests
+- **CI/CD:** Removed `continue-on-error: true` — tests now fail the build
+- **All new modules:** Comprehensive docstrings with input/output schemas and usage examples
+
+### Removed
+- **`prs_research_pipeline/run.sh`:** Legacy bash orchestrator (replaced by `prs.py` as single entry point)
+
+### Fixed
+- **`03_ld_ancestry_prune.sh`:** Added `--allow-extra-chr` to all PLINK commands (fixes `chr6_ssto_hap7` error with DeepVariant VCFs)
+- **`population_calibrate_v2.py`:** Added `@dataclass` decorator to `PopulationDistribution` class
+- **`population_calibrate_v2.py`:** Normalizes JSON keys (`q25`→`percentile_25`, `q75`→`percentile_75`, `p5`→`percentile_5`, `p95`→`percentile_95`)
+- **`population_calibrate_v2.py`:** Computes `iqr` from `percentile_75 - percentile_25` when missing
+- **`population_calibrate_v2.py`:** Filters unknown JSON keys (e.g., `method`) before constructing dataclass
+- **`gwas_summary_stats.py`:** Added `OPENGWAS_TOKEN` env var support (was file-only)
+- **`population_calibrate_v2.py`:** Removed duplicate `@dataclass` decorator on `PopulationDistribution`
+- **`README.md`:** Added BlueGen logo (`assets/blugen-logo.png`)
+- **`LICENSE`:** Added MIT license file
+
+---
+
 ## [1.0.0] — 2026-06-09
 
 ### Added

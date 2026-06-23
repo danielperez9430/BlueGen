@@ -1,4 +1,4 @@
-name: PRS Pipeline CI
+name: BlueGen CI
 
 on:
   push:
@@ -8,8 +8,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint with ruff
+        run: |
+          ruff check prs.py prs_research_pipeline/scripts/ --select E,F,W --ignore E501,W505
+          ruff format --check prs.py prs_research_pipeline/scripts/ || echo "Format issues found (non-blocking)"
+
+      - name: Check for common issues
+        run: |
+          # No hardcoded user paths
+          ! grep -rn "/Users/" prs_research_pipeline/scripts/ --include="*.py" || { echo "Hardcoded paths found"; exit 1; }
+          # No bare excepts
+          ! grep -rn "except:" prs_research_pipeline/scripts/ --include="*.py" || { echo "Bare excepts found"; exit 1; }
+          # Verify all __init__.py exist
+          for d in setup prs validation sss publication benchmarking utils clinical; do
+            [ -f "prs_research_pipeline/scripts/$d/__init__.py" ] || { echo "Missing __init__.py in $d"; exit 1; }
+          done
+
   test:
     runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,7 +49,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install system dependencies
         run: |
@@ -26,30 +58,27 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests
+          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest
 
       - name: Syntax check
         run: |
           python -m py_compile prs.py
           find prs_research_pipeline/scripts -name "*.py" -exec python -m py_compile {} \;
 
-      - name: Quick tests (JSON integrity — warnings expected without data)
+      - name: Unit tests
+        run: |
+          python -m pytest tests/ -v --tb=short
+
+      - name: Validate config
+        run: |
+          cd prs_research_pipeline
+          python -c "from scripts.utils.config_validator import validate_config; validate_config('config.yaml')"
+
+      - name: Tool detection test
+        run: |
+          cd prs_research_pipeline
+          python -c "from scripts.utils.tool_detection import detect_all; import json; print(json.dumps(detect_all(), indent=2))" || true
+
+      - name: Quick tests (JSON integrity)
         run: |
           python prs.py test --quick
-        continue-on-error: true
-
-  lint:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check for common issues
-        run: |
-          # No hardcoded paths
-          ! grep -rn "/Users/" prs_research_pipeline/scripts/ --include="*.py" || echo "⚠️  Hardcoded paths found"
-          # No bare excepts
-          ! grep -rn "except:" prs_research_pipeline/scripts/ --include="*.py" || echo "⚠️  Bare excepts found"
-          # Verify all __init__.py exist
-          for d in setup prs validation sss publication benchmarking utils clinical; do
-            [ -f "prs_research_pipeline/scripts/$d/__init__.py" ] || echo "⚠️  Missing __init__.py in $d"
-          done
