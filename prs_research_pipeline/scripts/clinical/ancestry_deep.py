@@ -378,11 +378,263 @@ def call_mtdna_haplogroup(user_vcf: str) -> Dict:
 # NEANDERTHAL ADMIXTURE ESTIMATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _vindija_available() -> bool:
+    """Check if Vindija Neanderthal VCF reference is available."""
+    v_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "vindija"
+    return any(v_dir.glob("chr*_mq25_mapab100.vcf.gz"))
+
+
 def _aadr_available() -> bool:
     """Check if AADR reference data exists."""
     ref_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "aadr"
     return (ref_dir / "aadr_archaic.bed").exists() and \
            (ref_dir / "aadr_modern.bed").exists()
+
+
+def estimate_neanderthal_vindija(user_vcf: str) -> Dict:
+    """
+    Estimate Neanderthal admixture via direct comparison against Vindija genome.
+
+    Uses the Vindija 33.19 Neanderthal genome (~30x, hg19) from the Max Planck
+    Institute. Compares the user's genotypes directly against the actual
+    Neanderthal genome — the gold standard in archaic genomics.
+
+    Method:
+        1. Extract Vindija alleles at all positions (~2M variants)
+        2. Find overlap between user VCF and Vindija genome via batch query
+        3. Count how many Vindija-specific ALT alleles the user carries
+        4. Compare against population baselines (AFR ~0.3%, EUR ~2.1%)
+    """
+    import pandas as pd
+
+    logger.info("── Neanderthal Admixture (Vindija Direct) ──")
+    logger.info("  Reference: Vindija 33.19 (Prüfer et al. 2017 Science)")
+
+    v_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "vindija"
+    vcf_files = sorted(v_dir.glob("chr*_mq25_mapab100.vcf.gz"))
+
+    if not vcf_files:
+        return {"percentage": None, "snps_found": 0, "reliable": False,
+                "method": "vindija", "note": "No Vindija VCF files found"}
+
+    logger.info(f"  Loaded {len(vcf_files)} Vindija chromosome file(s): "
+                f"{', '.join(f.name[:8] for f in vcf_files)}")
+
+    # ── Extract Vindija alleles from all chromosome files ──
+    vindija_alleles = {}
+    n_total_vindija = 0
+    for vcf_path in vcf_files:
+        try:
+            result = subprocess.run(
+                ["bcftools", "query", "-i", 'ALT!="."',
+                 "-f", "%CHROM:%POS\t%ALT{0}\n", str(vcf_path)],
+                capture_output=True, text=True, timeout=120,
+            )
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("\t")
+                if len(parts) == 2:
+                    vindija_alleles[parts[0]] = parts[1]
+                    n_total_vindija += 1
+        except Exception as e:
+            logger.warning(f"  ⚠ Could not read {vcf_path.name}: {e}")
+
+    logger.info(f"    {n_total_vindija:,} Vindija variants across {len(vcf_files)} chromosome(s)")
+
+    # ── Find overlap: write regions to temp file (chr prefix), query user VCF ──
+    logger.info("  Computing user-Vindija overlap...")
+    user_genos = {}
+
+    # Write Vindija positions to temp file (add chr prefix for user VCF compatibility)
+    regions_file = v_dir / "vindija_regions.txt"
+    with open(regions_file, "w") as fh:
+        for pos_key in vindija_alleles:
+            parts = pos_key.split(":")
+            fh.write(f"chr{parts[0]}\t{parts[1]}\t{parts[1]}\n")
+
+    try:
+        result = subprocess.run(
+            ["bcftools", "query", "-R", str(regions_file),
+             "-f", "%CHROM:%POS\t%ALT{0}\n", user_vcf],
+            capture_output=True, text=True, timeout=600,
+        )
+        for line in result.stdout.strip().split("\n"):
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                key = parts[0].replace("chr", "")
+                user_genos[key] = parts[1] if len(parts) > 1 else ""
+    except Exception as e:
+        logger.warning(f"  ⚠ Query failed: {e}")
+    finally:
+        regions_file.unlink(missing_ok=True)
+
+    n_overlap = len(user_genos)
+    logger.info(f"    {n_overlap:,} overlapping positions")
+
+    if n_overlap < 500:
+        return {"percentage": None, "snps_found": n_overlap,
+                "snps_total": n_total_vindija, "reliable": False,
+                "method": "vindija",
+                "note": f"Need >=500 overlapping positions (got {n_overlap})"}
+
+    # ── Step 2: Filter to Vindija-specific variants (rare in Africans) ──
+    logger.info("  Filtering to Vindija-specific archaic variants...")
+
+    # Get African/European frequencies from 1000 Genomes (661 AFR + 503 EUR)
+    afr_freqs = {}
+    eur_freqs = {}
+    g1k_dir = Path(__file__).resolve().parent.parent.parent / "reference" / "1000G_full"
+    g1k_bfile = str(g1k_dir / "1000G_full")
+    pop_panel_path = str(g1k_dir / "population_panel.txt")
+    extract_file = v_dir / "overlap_snps.txt"
+    with open(extract_file, "w") as fh:
+        for pos_key in sorted(user_genos.keys()):
+            fh.write(f"{pos_key}\n")
+
+    if Path(pop_panel_path).exists() and Path(g1k_bfile + ".bed").exists():
+        try:
+            pop_df = pd.read_csv(pop_panel_path, sep=r"\s+", dtype=str)
+
+            # AFR: 661 individuals
+            afr_samples = pop_df[pop_df["super_pop"] == "AFR"]
+            afr_keep = v_dir / "g1k_afr_keep.txt"
+            afr_samples[["sample", "sample"]].to_csv(afr_keep, sep="\t", header=False, index=False)
+
+            # EUR: 503 individuals
+            eur_samples = pop_df[pop_df["super_pop"] == "EUR"]
+            eur_keep = v_dir / "g1k_eur_keep.txt"
+            eur_samples[["sample", "pop"]].to_csv(eur_keep, sep="\t", header=False, index=False)
+
+            logger.info(f"    1000G: {len(afr_samples)} AFR + {len(eur_samples)} EUR")
+
+            # PLINK --freq AFR
+            afr_out = v_dir / "g1k_afr_freq"
+            subprocess.run(
+                [PLINK_BIN, "--bfile", g1k_bfile, "--keep", str(afr_keep),
+                 "--extract", str(extract_file), "--freq", "--out", str(afr_out),
+                 "--allow-extra-chr", "--threads", "4", "--memory", "16000"],
+                capture_output=True, text=True, timeout=600,
+            )
+            afr_fp = Path(str(afr_out) + ".frq")
+            if afr_fp.exists():
+                afr_df = pd.read_csv(afr_fp, sep=r"\s+")
+                for _, row in afr_df.iterrows():
+                    afr_freqs[str(row["SNP"])] = float(row["MAF"])
+                afr_fp.unlink()
+            for ext in [".log", ".nosex"]:
+                Path(str(afr_out) + ext).unlink(missing_ok=True)
+            afr_keep.unlink(missing_ok=True)
+
+            # PLINK --freq EUR
+            eur_out = v_dir / "g1k_eur_freq"
+            subprocess.run(
+                [PLINK_BIN, "--bfile", g1k_bfile, "--keep", str(eur_keep),
+                 "--extract", str(extract_file), "--freq", "--out", str(eur_out),
+                 "--allow-extra-chr", "--threads", "4", "--memory", "16000"],
+                capture_output=True, text=True, timeout=600,
+            )
+            eur_fp = Path(str(eur_out) + ".frq")
+            if eur_fp.exists():
+                eur_df = pd.read_csv(eur_fp, sep=r"\s+")
+                for _, row in eur_df.iterrows():
+                    eur_freqs[str(row["SNP"])] = float(row["MAF"])
+                eur_fp.unlink()
+            for ext in [".log", ".nosex"]:
+                Path(str(eur_out) + ext).unlink(missing_ok=True)
+            eur_keep.unlink(missing_ok=True)
+
+        except Exception as e:
+            logger.warning(f"  ⚠ 1000G freq extraction failed: {e}")
+
+    extract_file.unlink(missing_ok=True)
+
+    # ── Step 3: Count Vindija-specific archaic allele sharing ──
+    n_checked = 0
+    n_vindija_shared = 0
+    n_archaic_specific = 0
+    sum_eur_af_archaic = 0.0
+
+    for pos_key, user_alt in user_genos.items():
+        vindija_alt = vindija_alleles.get(pos_key)
+        if not vindija_alt:
+            continue
+
+        # Get population frequencies at this position
+        afr_maf = afr_freqs.get(pos_key, 0.5)
+        eur_maf = eur_freqs.get(pos_key, 0.5)
+
+        # Vindija-specific: Vindija ALT is rare in Africans, present in Europeans
+        is_archaic_specific = afr_maf < 0.01
+
+        n_checked += 1
+        user_alt_alleles = [a.upper() for a in user_alt.split(",")]
+
+        if vindija_alt.upper() in user_alt_alleles:
+            n_vindija_shared += 1
+            if is_archaic_specific:
+                n_archaic_specific += 1
+                sum_eur_af_archaic += eur_maf
+
+    vindija_total_af = n_vindija_shared / n_checked if n_checked > 0 else 0
+
+    # Compute archaic-specific sharing rate (at positions rare in Africans)
+    # Also compute European expected sharing at these same positions
+    n_archaic_positions = sum(1 for pk in user_genos if afr_freqs.get(pk, 0.5) < 0.01)
+    archaic_specific_af = n_archaic_specific / n_archaic_positions if n_archaic_positions > 0 else 0
+    avg_eur_af_archaic = sum_eur_af_archaic / n_archaic_positions if n_archaic_positions > 0 else 0
+
+    logger.info(f"    Total Vindija sharing: {n_vindija_shared}/{n_checked} ({vindija_total_af*100:.1f}%)")
+    logger.info(f"    Archaic-specific positions: {n_archaic_positions}/{n_checked}")
+    logger.info(f"    User archaic matches: {n_archaic_specific}/{n_archaic_positions} ({archaic_specific_af*100:.2f}%)")
+    logger.info(f"    EUR avg freq at these positions: {avg_eur_af_archaic*100:.2f}%")
+
+    # ── Step 4: Admixture % ──
+    # At archaic-specific positions, Europeans carry the archaic allele at `avg_eur_af_archaic`
+    # The user's rate compared to EUR expected = admix_ratio
+    # Scale by known EUR admixture (2.1%)
+    if avg_eur_af_archaic > 0.001 and n_archaic_positions >= 20:
+        admix_pct = (archaic_specific_af / avg_eur_af_archaic) * 2.1
+        admix_pct = max(0.0, min(admix_pct, 10.0))
+    else:
+        admix_pct = 0.0
+
+    reliable = n_archaic_positions >= 100
+    logger.info(f"    Estimated Neanderthal admixture: {admix_pct:.2f}%")
+
+    # ── Population comparisons ──
+    _, populations = _load_archaic_reference()
+    pop_comparisons = {}
+    for pop_code, pop_data in populations.items():
+        pop_mean = pop_data["mean_pct"] / 100.0
+        pop_std = pop_data.get("std_pct", 0.4) / 100.0
+        z_score = (admix_pct / 100.0 - pop_mean) / pop_std if pop_std > 0 else 0.0
+        from math import erf, sqrt
+        percentile = 50.0 * (1.0 + erf(z_score / sqrt(2.0)))
+        pop_comparisons[pop_code] = {
+            "label": pop_data["label"], "mean_pct": pop_data["mean_pct"],
+            "user_admix_pct": round(admix_pct, 2),
+            "z_score": round(z_score, 2), "percentile": round(percentile, 1),
+        }
+
+    closest_pop = min(pop_comparisons.items(), key=lambda x: abs(x[1]["z_score"]))
+
+    return {
+        "percentage": round(admix_pct, 2),
+        "archaic_alleles": n_vindija_shared,
+        "snps_found": n_checked,
+        "snps_total": n_total_vindija,
+        "reliable": reliable,
+        "method": "vindija_direct",
+        "vindija_total_sharing": round(vindija_total_af, 4),
+        "archaic_specific_sharing": round(archaic_specific_af, 4),
+        "n_african_freqs": len(afr_freqs),
+        "closest_population": closest_pop[0],
+        "population_comparisons": pop_comparisons,
+        "reference": {
+            "source": "Vindija 33.19 Neanderthal (Prüfer et al. 2017 Science)",
+            "coverage": "~30x, hg19",
+            "chromosomes": len(vcf_files),
+        },
+    }
 
 
 def estimate_neanderthal_aadr(user_vcf: str) -> Dict:
@@ -707,20 +959,23 @@ def estimate_neanderthal(user_vcf: str) -> Dict:
     """
     Estimate archaic (Neanderthal/Denisovan) admixture.
 
-    Tries AADR direct comparison first (actual Neanderthal genomes).
-    Falls back to curated 133-SNP panel if AADR not available.
-
-    With AADR: compares user genotypes against Altai/Vindija/Chagyrskaya
-    Neanderthal and Denisovan genomes from the Allen Ancient DNA Resource.
+    Tries in order of accuracy:
+      1. Vindija Neanderthal genome — direct comparison (gold standard, ~2 GB download)
+      2. AADR archaic reference panel — Altai/Vindija/Chagyrskaya + Denisova (1.23M SNPs)
+      3. Curated 133-SNP panel — literature-validated introgression markers
 
     Returns percentage, sharing stats, and population comparisons.
     """
-    if _aadr_available():
+    if _vindija_available():
+        logger.info("  Using Vindija Neanderthal genome (gold standard)")
+        return estimate_neanderthal_vindija(user_vcf)
+    elif _aadr_available():
         logger.info("  Using AADR direct archaic genome comparison")
         return estimate_neanderthal_aadr(user_vcf)
     else:
         logger.info("  AADR not available — using curated SNP panel")
         logger.info("  For gold-standard analysis, run:")
+        logger.info("    python scripts/setup/download_vindija_reference.py")
         logger.info("    python scripts/setup/download_aadr_reference.py")
         return estimate_neanderthal_snp_panel(user_vcf)
 

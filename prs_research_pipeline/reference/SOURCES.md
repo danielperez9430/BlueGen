@@ -91,6 +91,18 @@ This project uses the following public databases. All are free and publicly acce
 - **Local path:** `reference/archaic/archaic_introgression_snps.csv` (133 high-confidence SNPs)
 - **Used by:** `scripts/clinical/ancestry_deep.py` (133-SNP panel fallback)
 
+## Vindija Neanderthal Genome — Direct Archaic Comparison
+
+- **Source:** Max Planck Institute for Evolutionary Anthropology
+- **URL:** http://ftp.eva.mpg.de/neandertal/Vindija/VCF/Vindija33.19/
+- **Download:** `python scripts/setup/download_vindija_reference.py --all` (~44 GB)
+- **Pre-built mirror:** https://archive.org/details/bluegen-vindija-reference
+- **License:** Public Domain (scientific data)
+- **Citation:** Prüfer K et al. *Science*. 2017. doi:10.1126/science.aao1887
+- **Specimen:** Vindija 33.19, ~30x coverage, hg19/GRCh37, MQ≥25 filter
+- **Local path:** `reference/vindija/`
+- **Used by:** `scripts/clinical/ancestry_deep.py` (Vindija direct comparison — gold standard)
+
 ---
 
 ## Disclaimer

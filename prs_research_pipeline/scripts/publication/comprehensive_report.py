@@ -136,7 +136,7 @@ def load_json(path: str, default=None):
 
 def safe_float(v, default=0.0):
     try: return float(v)
-    except: return default
+    except (ValueError, TypeError): return default
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTML GENERATORS
@@ -370,7 +370,7 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
     snp_db = None
     if os.path.exists(snp_db_path):
         try: snp_db = pd.read_csv(snp_db_path, dtype=str)
-        except: pass
+        except Exception: pass
 
     sections = ""
     for e in entries:
@@ -1345,7 +1345,7 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
         try:
             v = float(af)
             return f"{v:.4f}" if v >= 0.0001 else f"{v:.2e}"
-        except: return af
+        except (ValueError, TypeError): return af
 
     def fmt_review(r):
         if not r: return "—"

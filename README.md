@@ -64,6 +64,7 @@ Data sources: [`prs_research_pipeline/reference/SOURCES.md`](prs_research_pipeli
   - [`bluegen-reference-data`](https://archive.org/details/bluegen-reference-data) — 1000 Genomes, hg19, ClinVar, MedGen, ClinPGx
   - [`bluegen-pgs-cache`](https://archive.org/details/bluegen-pgs-cache) — 56 PGS Catalog scoring files
   - [`bluegen-archaic-reference`](https://archive.org/details/bluegen-archaic-reference) — AADR 1240K archaic panel (Neanderthal + Denisovan), pre-converted to PLINK
+  - [`bluegen-vindija-reference`](https://archive.org/details/bluegen-vindija-reference) — Vindija Neanderthal genome VCFs (chr1–22, hg19, ~44 GB)
   - > **Maintainer:** `python archive_upload.py -j 8` to refresh snapshots
 
 ### System Tools

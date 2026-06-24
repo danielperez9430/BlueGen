@@ -44,6 +44,40 @@ PGS_DIR = ROOT / "prs_research_pipeline" / "pgs"
 # ── archive.org items ──────────────────────────────────────────────────────
 
 ITEMS = {
+    "bluegen-vindija-reference": {
+        "title": "BlueGen — Vindija Neanderthal Reference (hg19, MQ≥25)",
+        "description": (
+            "Vindija 33.19 Neanderthal genome VCF files (per-chromosome) for direct "
+            "archaic admixture analysis in the BlueGen Personal Genomics Platform.<br><br>"
+            "<b>Contents:</b><br>"
+            "<ul>"
+            "<li>22 VCF files (chr1–chr22) with MQ≥25 and MAPQ≥100 filters</li>"
+            "<li>Tabix indexes (.tbi) for all chromosomes</li>"
+            "<li>~2.6M variant positions across the genome</li>"
+            "</ul>"
+            "<b>Source:</b> Max Planck Institute for Evolutionary Anthropology<br>"
+            "URL: http://ftp.eva.mpg.de/neandertal/Vindija/VCF/Vindija33.19/<br>"
+            "<b>Specimen:</b> Vindija 33.19, ~30x coverage, hg19/GRCh37<br>"
+            "<b>Citation:</b> Prüfer et al. (2017) <i>Science</i>. "
+            "doi:<a href='https://doi.org/10.1126/science.aao1887'>10.1126/science.aao1887</a><br><br>"
+            "<b>License:</b> Public Domain (scientific data)<br><br>"
+            "<b>Why this exists:</b> The original MPI FTP server can be slow or unavailable. "
+            "This archive.org mirror ensures reliable access. Users can also download directly "
+            "from MPI via <code>scripts/setup/download_vindija_reference.py</code>."
+        ),
+        "subject": [
+            "genomics", "Neanderthal", "Vindija", "ancient DNA", "archaic hominin",
+            "hg19", "bioinformatics", "paleogenomics",
+        ],
+        "creator": "BlueGen Pipeline / Max Planck Institute EVA",
+        "date": "2026-06-24",
+        "licenseurl": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "mediatype": "data",
+        "collection": "opensource",
+        "source_paths": [
+            ("vindija/vindija_manifest.json", "Provenance & specimen metadata"),
+        ],
+    },
     "bluegen-archaic-reference": {
         "title": "BlueGen — Archaic Reference Panel (AADR 1240K — Neanderthal/Denisovan)",
         "description": (
@@ -449,8 +483,8 @@ def main():
         help="Validate files and metadata without uploading anything."
     )
     parser.add_argument(
-        "--only", choices=("ref", "pgs", "archaic"), default=None,
-        help="Upload only reference data, PGS cache, or archaic panel."
+        "--only", choices=("ref", "pgs", "archaic", "vindija"), default=None,
+        help="Upload only reference data, PGS cache, archaic panel, or Vindija."
     )
     parser.add_argument(
         "--parallel", "-j", type=int, default=4,
@@ -513,6 +547,15 @@ def main():
             parallel=args.parallel,
         )
 
+    if args.only is None or args.only == "vindija":
+        upload_item(
+            "bluegen-vindija-reference",
+            ITEMS["bluegen-vindija-reference"],
+            REFERENCE_DIR,
+            dry_run=args.dry_run,
+            parallel=args.parallel,
+        )
+
     elapsed = time.time() - start
     print(f"\n{'='*70}")
     print(f"  Done in {elapsed:.0f}s.")
@@ -520,6 +563,7 @@ def main():
         print(f"  Reference:  https://archive.org/details/bluegen-reference-data")
         print(f"  PGS cache:  https://archive.org/details/bluegen-pgs-cache")
         print(f"  Archaic:    https://archive.org/details/bluegen-archaic-reference")
+        print(f"  Vindija:    https://archive.org/details/bluegen-vindija-reference")
     print(f"{'='*70}\n")
 
 
