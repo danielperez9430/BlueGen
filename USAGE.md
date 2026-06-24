@@ -19,8 +19,11 @@ python3 prs_research_pipeline/scripts/setup/download_1000G_full.py --output-dir 
 
 # Optional: download AADR archaic reference for Neanderthal/Denisovan analysis (~7 GB)
 python3 prs_research_pipeline/scripts/setup/download_aadr_reference.py
-# Or use pre-built snapshot (~188 MB):
-# curl -L https://archive.org/download/bluegen-archaic-reference/aadr.tar.gz | tar xz -C prs_research_pipeline/reference/
+
+# Optional: download Vindija Neanderthal genome for gold-standard archaic analysis (~44 GB)
+python3 prs_research_pipeline/scripts/setup/download_vindija_reference.py --all
+# Or use pre-built mirror from archive.org (44 GB):
+# https://archive.org/details/bluegen-vindija-reference
 
 # 2. Run pipeline with DeepVariant VCF
 python3 prs.py run --full --vcf aligned/E250090601_L01_91_dv.vcf.gz
@@ -216,9 +219,10 @@ Enabled with `--clinvar` or `--full`. Downloads ClinPGx data (~2 MB) once.
 - **mtDNA haplogroup:** Called from chrM variants
 - **Y-DNA haplogroup:** Requires chrY coverage (limited in WGS)
 - **Sub-continental:** 26 1000G reference populations
-- **Neanderthal/Denisovan admixture:** Two-tier analysis
-  - **AADR Gold:** Direct comparison against Altai, Vindija, Chagyrskaya Neanderthal + Denisova genomes (1.23M SNPs). Requires AADR reference download (~7 GB) or pre-built snapshot (~188 MB).
-  - **133-SNP Panel (fallback):** Curated archaic introgression SNPs from published literature with population baselines. Works without AADR download.
+- **Neanderthal/Denisovan admixture:** Three-tier analysis
+  - **Vindija Gold:** Direct comparison against the Vindija 33.19 Neanderthal genome (~30x, hg19). Requires Vindija VCF download (~44 GB) or archive.org mirror.
+  - **AADR Silver:** Comparison against Altai/Vindija/Chagyrskaya Neanderthal + Denisova genomes via 1240K panel (1.23M SNPs). Requires AADR download (~7 GB) or pre-built snapshot (~188 MB).
+  - **133-SNP Panel (fallback):** Curated archaic introgression SNPs from published literature. Works without any downloads.
 - **Output:** `ancestry/deep_ancestry.json`
 
 ### Streamlit Dashboard

@@ -43,6 +43,8 @@ All notable changes to BlueGen.
 - **`LICENSE`:** Added MIT license file
 - **`scripts/setup/download_archaic_reference.py`:** Curated 133-SNP archaic introgression panel with population baselines
 - **`scripts/setup/download_aadr_reference.py`:** AADR 1240K panel download + Eigenstrat→PLINK conversion (Altai/Vindija/Chagyrskaya + Denisova)
+- **`scripts/setup/download_vindija_reference.py`:** Vindija Neanderthal genome VCF download (chr1-22, hg19, ~44 GB) with parallel support
+- **`scripts/clinical/ancestry_deep.py`:** Vindija direct comparison (gold standard) + 1000G African/European frequency filter (661 AFR + 503 EUR)
 - **`archive_upload.py`:** Added `bluegen-archaic-reference` item (188 MB PLINK binaries on archive.org)
 - **`scripts/clinical/ancestry_deep.py`:** AADR direct archaic genome comparison + 133-SNP panel fallback; batch bcftools query for fast VCF extraction
 
