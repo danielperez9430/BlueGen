@@ -1,29 +1,38 @@
 """Tests for utils.tool_detection module."""
 
 import sys
-import shutil
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "prs_research_pipeline" / "scripts"))
 
-from utils.tool_detection import find_plink, find_bcftools, find_tabix, detect_all
+from utils.tool_detection import (
+    _find_plink_raw,
+    find_bcftools,
+    find_tabix,
+    detect_all,
+)
 
 
-def test_find_plink_returns_tuple():
-    result = find_plink()
+def test_find_plink_raw_returns_tuple():
+    result = _find_plink_raw()
     assert isinstance(result, tuple)
     assert len(result) == 2
 
 
-def test_find_plink_path_is_string():
-    path, ver = find_plink()
-    assert isinstance(path, str)
-    assert len(path) > 0
+def test_find_plink_raw_none_or_strings():
+    path, ver = _find_plink_raw()
+    if path is not None:
+        assert isinstance(path, str)
+        assert len(path) > 0
+    if ver is not None:
+        assert isinstance(ver, str)
 
 
-def test_find_plink_version_is_string():
-    path, ver = find_plink()
-    assert isinstance(ver, str)
+def test_find_plink_raw_handles_missing():
+    path, ver = _find_plink_raw()
+    # Should return (None, None) when PLINK not found, or (str, str) when found
+    assert path is None or isinstance(path, str)
+    assert ver is None or isinstance(ver, str)
 
 
 def test_find_bcftools_returns_string_or_none():

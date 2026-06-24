@@ -34,6 +34,31 @@ def _check_version(binary: str, min_version: str | None = None) -> str:
         return "unknown"
 
 
+def _find_plink_raw() -> tuple[str | None, str | None]:
+    """Find PLINK binary. Returns (path, version) or (None, None) if not found."""
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    candidates = [
+        project_root / "tools" / "plink",
+        project_root / "tools" / "plink2",
+        Path.home() / "bin" / "plink",
+        Path("/usr/local/bin/plink"),
+        Path("/opt/homebrew/bin/plink"),
+    ]
+
+    for c in candidates:
+        if c.exists() and c.is_file():
+            ver = _check_version(str(c))
+            return str(c), ver
+
+    for name in ["plink2", "plink"]:
+        path = shutil.which(name)
+        if path:
+            ver = _check_version(path)
+            return path, ver
+
+    return None, None
+
+
 def find_plink(min_version: str = "1.90") -> tuple[str, str]:
     """
     Find PLINK binary. Returns (path, version_string).
@@ -46,27 +71,9 @@ def find_plink(min_version: str = "1.90") -> tuple[str, str]:
 
     Raises SystemExit if not found.
     """
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
-    candidates = [
-        project_root / "tools" / "plink",
-        project_root / "tools" / "plink2",
-        Path.home() / "bin" / "plink",
-        Path("/usr/local/bin/plink"),
-        Path("/opt/homebrew/bin/plink"),
-    ]
-
-    # Check project-local first
-    for c in candidates:
-        if c.exists() and c.is_file():
-            ver = _check_version(str(c))
-            return str(c), ver
-
-    # Check system PATH
-    for name in ["plink2", "plink"]:
-        path = shutil.which(name)
-        if path:
-            ver = _check_version(path)
-            return path, ver
+    path, ver = _find_plink_raw()
+    if path:
+        return path, ver or "unknown"
 
     print(
         "\n\033[0;31m✗ PLINK not found.\033[0m\n"
@@ -136,10 +143,11 @@ def require_tabix() -> str:
 
 
 def detect_all() -> dict:
-    """Detect all tools and return a summary dict."""
-    plink_path, plink_ver = find_plink()
+    """Detect all tools and return a summary dict. Graceful when tools missing."""
+    plink_path, plink_ver = _find_plink_raw()
     return {
-        "plink": {"path": plink_path, "version": plink_ver},
+        "plink": {"path": plink_path or "not found",
+                  "version": plink_ver or "unknown"},
         "bcftools": {"path": find_bcftools(), "available": find_bcftools() is not None},
         "tabix": {"path": find_tabix(), "available": find_tabix() is not None},
     }
