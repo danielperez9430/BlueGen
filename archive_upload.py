@@ -29,6 +29,7 @@ Archive.org S3 credentials:
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -75,7 +76,7 @@ ITEMS = {
         "mediatype": "data",
         "collection": "opensource",
         "source_paths": [
-            ("vindija/vindija_manifest.json", "Provenance & specimen metadata"),
+            ("vindija", "Vindija Neanderthal VCFs + indexes + manifest (44 GB)"),
         ],
     },
     "bluegen-archaic-reference": {
@@ -328,15 +329,43 @@ def _local_md5(fp: Path) -> str:
 
 def _upload_file(
     item, remote: str, fp: Path, metadata: dict,
+    large_threshold: int = 100 * 1024 * 1024,  # 100 MB
 ) -> tuple[str, bool]:
-    """Upload a single file via internetarchive library. Skips if remote MD5 matches."""
+    """
+    Upload a single file. Uses ia CLI for large files (>100 MB) with
+    progress bars; uses Python library for small files. Skips if remote
+    MD5 matches (verified on archive.org).
+    """
     # Check if already uploaded with same content
     remote_md5 = _remote_md5(item, remote)
     if remote_md5:
         local_md5 = _local_md5(fp)
         if local_md5 == remote_md5:
-            return (remote, True)  # already uploaded, caller prints "skip"
+            return (remote, True)
 
+    file_size = fp.stat().st_size
+    identifier = item.identifier
+
+    # ── Large files: use ia CLI (robust multipart upload, progress bar) ──
+    if file_size > large_threshold:
+        try:
+            result = subprocess.run(
+                ["ia", "upload", "--retries", "5", identifier, str(fp)],
+                timeout=86400,  # 24h timeout for very large files
+                capture_output=True, text=True,
+            )
+            ok = result.returncode == 0
+            if not ok:
+                print(f"    ia CLI stderr: {result.stderr[:200]}")
+            return (remote, ok)
+        except FileNotFoundError:
+            print(f"    ⚠ 'ia' CLI not found. Install: pip install internetarchive")
+            print(f"    Falling back to Python library (may fail for large files)...")
+        except Exception as e:
+            print(f"    ⚠ ia CLI failed: {e}")
+            print(f"    Falling back to Python library...")
+
+    # ── Small files (or fallback): use Python library ──
     try:
         access, secret = _get_s3_keys()
         result = item.upload(
