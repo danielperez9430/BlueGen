@@ -218,7 +218,6 @@ ITEMS = {
         "collection": "opensource",
         "source_paths": [
             ("aj_centroid.json", "Ashkenazi Jewish PCA centroid (literature-based)"),
-            (".gitkeep", "Directory structure marker"),
         ],
     },
     "bluegen-pgs-cache": {
@@ -301,10 +300,14 @@ def collect_files(item_cfg: dict, base_dir: Path) -> list[tuple[Path, str]]:
             print(f"  ⚠  SKIP: {rel} (not found at {src})")
             continue
         if src.is_file():
-            if not _is_excluded(rel):
+            # Skip dotfiles — archive.org rejects them
+            if src.name.startswith("."):
+                print(f"  ⚠  SKIP: {rel} (dotfile, not uploadable to archive.org)")
+            elif not _is_excluded(rel):
                 files.append((src, rel))
         else:
             for f in sorted(src.rglob("*")):
+                # Skip dotfiles (.gitkeep, .DS_Store, etc.) — archive.org rejects them
                 if f.is_file() and not f.name.startswith("."):
                     remote = str(f.relative_to(base_dir))
                     if _is_excluded(remote):
