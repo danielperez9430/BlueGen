@@ -42,6 +42,7 @@ SUB_POP_NAMES = {
     "CEU": "Northwest European (Utah/German)",
     "TSI": "Tuscan Italian",
     "FIN": "Finnish",
+    "AJ": "Ashkenazi Jewish",
 }
 SUB_POP_DESCRIPTIONS = {
     "IBS": "Southwestern European. High genetic affinity to Basques, Sardinians, and North Africans.",
@@ -49,7 +50,10 @@ SUB_POP_DESCRIPTIONS = {
     "CEU": "Central/Western European. Representative of continental Germanic populations.",
     "TSI": "Southern European. Bridges European and Mediterranean genetic clusters.",
     "FIN": "Northeastern European. Genetically distinct due to founder effects and Uralic admixture.",
+    "AJ": "Ashkenazi Jewish. Distinct genetic cluster intermediate between Southern European and Middle Eastern populations. Strong founder effects and endogamy.",
 }
+# Extended European sub-populations available when Human Origins dataset is loaded
+EXTENDED_EUR_POPS = EUR_SUB_POPS + ["AJ"]
 
 
 def load_data(ref_pcs_path: str, target_pcs_path: str, pop_panel_path: str):
@@ -86,7 +90,30 @@ def load_data(ref_pcs_path: str, target_pcs_path: str, pop_panel_path: str):
     x_target = target[pc_cols].values[0].astype(np.float64)
     y_ref = ref_eur["sub_pop"].values
 
-    return X_ref, x_target, y_ref, pc_cols
+    # ── Try loading extended reference (Human Origins) ──────────────────────
+    extended_pops = EUR_SUB_POPS.copy()
+    ho_dir = Path("reference/human_origins")
+    ho_fam = ho_dir / "european_aj_subset.fam"
+    if ho_fam.exists():
+        try:
+            ho_ref = pd.read_csv(ho_fam, sep=r"\s+", header=None)
+            ho_ref.columns = ["FID", "IID"] + [f"V{i}" for i in range(2, len(ho_ref.columns))]
+            ho_labels = ho_dir / "population_labels.txt"
+            if ho_labels.exists():
+                ho_pops = pd.read_csv(ho_labels, sep=r"\s+", dtype=str, header=None)
+                ho_pop_map = {}
+                for _, r in ho_pops.iterrows():
+                    ho_pop_map[str(r.iloc[0])] = str(r.iloc[1])  # IID -> pop
+                ho_ref["sub_pop"] = ho_ref["IID"].astype(str).map(ho_pop_map)
+                aj_count = len(ho_ref[ho_ref["sub_pop"] == "AJ"])
+                if aj_count > 0:
+                    logger.info(f"  Extended reference: {len(ho_ref)} samples from Human Origins including {aj_count} AJ")
+                    extended_pops = EUR_SUB_POPS + ["AJ"]
+                    logger.info(f"  Using extended pops: {extended_pops}")
+        except Exception as e:
+            logger.debug(f"  Extended reference not loaded: {e}")
+
+    return X_ref, x_target, y_ref, pc_cols, extended_pops
 
 
 def classify_centroid(X_ref: np.ndarray, x_target: np.ndarray, y_ref: np.ndarray,
@@ -209,11 +236,11 @@ def main():
     logger.info("═══ Sub-Continental Ancestry Classifier ═══")
 
     # Load data
-    X_ref, x_target, y_ref, pc_cols = load_data(args.ref_pcs, args.target_pcs, args.pop_panel)
+    X_ref, x_target, y_ref, pc_cols, active_pops = load_data(args.ref_pcs, args.target_pcs, args.pop_panel)
 
     # Classify
     knn_result = classify_knn(X_ref, x_target, y_ref, k=15)
-    centroid_result = classify_centroid(X_ref, x_target, y_ref, EUR_SUB_POPS)
+    centroid_result = classify_centroid(X_ref, x_target, y_ref, active_pops)
     result = ensemble(knn_result, centroid_result)
 
     logger.info(f"  Assigned: {result['assigned_population']} ({SUB_POP_NAMES.get(result['assigned_population'], '?')})")
@@ -222,7 +249,7 @@ def main():
 
     # Build output with full sub-population details
     sub_pops_available = []
-    for pop in EUR_SUB_POPS:
+    for pop in active_pops:
         sub_pops_available.append({
             "code": pop,
             "name": SUB_POP_NAMES.get(pop, pop),

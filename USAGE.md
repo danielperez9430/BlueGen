@@ -25,6 +25,11 @@ python3 prs_research_pipeline/scripts/setup/download_vindija_reference.py --all
 # Or use pre-built mirror from archive.org (44 GB):
 # https://archive.org/details/bluegen-vindija-reference
 
+# Optional: download European sub-continental reference (Ashkenazi Jewish + European, ~200 MB)
+bash prs_research_pipeline/scripts/setup/download_ashkenazi_reference.sh
+# Or use pre-built mirror from archive.org (~150 MB):
+# https://archive.org/details/bluegen-european-reference
+
 # 2. Run pipeline with DeepVariant VCF
 python3 prs.py run --full --vcf aligned/E250090601_L01_91_dv.vcf.gz
 
@@ -218,12 +223,16 @@ Enabled with `--clinvar` or `--full`. Downloads ClinPGx data (~2 MB) once.
 ### Deep Ancestry
 - **mtDNA haplogroup:** Called from chrM variants
 - **Y-DNA haplogroup:** Requires chrY coverage (limited in WGS)
-- **Sub-continental:** 26 1000G reference populations
+- **Sub-continental ancestry:** Real PCA-based classification into European sub-populations (IBS/GBR/CEU/TSI/FIN) using 1000G reference. For Ashkenazi Jewish classification, download the extended European reference panel:
+  ```bash
+  bash prs_research_pipeline/scripts/setup/download_ashkenazi_reference.sh
+  ```
+  After download and processing, `subcontinental_pca.py` automatically detects and uses the extended reference.
 - **Neanderthal/Denisovan admixture:** Three-tier analysis
   - **Vindija Gold:** Direct comparison against the Vindija 33.19 Neanderthal genome (~30x, hg19). Requires Vindija VCF download (~44 GB) or archive.org mirror.
   - **AADR Silver:** Comparison against Altai/Vindija/Chagyrskaya Neanderthal + Denisova genomes via 1240K panel (1.23M SNPs). Requires AADR download (~7 GB) or pre-built snapshot (~188 MB).
   - **133-SNP Panel (fallback):** Curated archaic introgression SNPs from published literature. Works without any downloads.
-- **Output:** `ancestry/deep_ancestry.json`
+- **Output:** `ancestry/deep_ancestry.json`, `pca/subcontinental_assignment.json`
 
 ### Streamlit Dashboard
 ```bash

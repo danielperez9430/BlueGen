@@ -181,6 +181,45 @@ ITEMS = {
             ("SOURCES.md", "Data provenance & attribution"),
         ],
     },
+    "bluegen-european-reference": {
+        "title": "BlueGen — European Sub-Continental Reference Panel (Human Origins + 1000G)",
+        "description": (
+            "Extended European sub-continental ancestry reference panel for the BlueGen "
+            "Personal Genomics Platform. Combines 1000 Genomes European populations with "
+            "the Human Origins dataset (Lazaridis et al. 2016) to enable fine-scale "
+            "classification including Ashkenazi Jewish ancestry.<br><br>"
+            "<b>Contents:</b><br>"
+            "<ul>"
+            "<li><b>european_aj_subset</b> — PLINK binaries (bed/bim/fam) with European + "
+            "Ashkenazi Jewish samples from Human Origins (~600K SNPs, hg19)</li>"
+            "<li><b>population_labels.txt</b> — Population assignments for all samples "
+            "(IBS, GBR, CEU, TSI, FIN, AJ)</li>"
+            "<li><b>download_ashkenazi_reference.sh</b> — Script to reproduce the download "
+            "and processing from source</li>"
+            "</ul>"
+            "<b>Populations:</b> Iberian (IBS), British (GBR), NW European (CEU), "
+            "Tuscan Italian (TSI), Finnish (FIN), Ashkenazi Jewish (AJ)<br>"
+            "<b>Source (Human Origins):</b> Lazaridis et al. 2016, Nature 536, 419-424<br>"
+            "URL: <a href='https://reich.hms.harvard.edu/datasets'>https://reich.hms.harvard.edu/datasets</a><br>"
+            "<b>Source (1000G):</b> 1000 Genomes Phase 3, The International Genome Sample Resource<br>"
+            "<b>License:</b> Public Domain (scientific data)<br><br>"
+            "<b>Usage:</b> Place in <code>reference/human_origins/</code>. The subcontinental "
+            "PCA classifier (<code>subcontinental_pca.py</code>) automatically detects and "
+            "uses this extended reference when available."
+        ),
+        "subject": [
+            "genomics", "ancestry", "Ashkenazi Jewish", "European", "PCA",
+            "population genetics", "1000 Genomes", "Human Origins",
+        ],
+        "creator": "BlueGen Pipeline / Reich Lab (Harvard Medical School)",
+        "date": "2026-06-26",
+        "licenseurl": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "mediatype": "data",
+        "collection": "opensource",
+        "source_paths": [
+            ("human_origins", "European + AJ reference panel (~150 MB)"),
+        ],
+    },
     "bluegen-pgs-cache": {
         "title": "BlueGen — PGS Catalog Scoring Files (56 polygenic scores)",
         "description": (
@@ -512,8 +551,8 @@ def main():
         help="Validate files and metadata without uploading anything."
     )
     parser.add_argument(
-        "--only", choices=("ref", "pgs", "archaic", "vindija"), default=None,
-        help="Upload only reference data, PGS cache, archaic panel, or Vindija."
+        "--only", choices=("ref", "pgs", "archaic", "vindija", "european"), default=None,
+        help="Upload only reference data, PGS cache, archaic panel, Vindija, or European reference."
     )
     parser.add_argument(
         "--parallel", "-j", type=int, default=4,
@@ -554,6 +593,15 @@ def main():
             "bluegen-reference-data",
             ITEMS["bluegen-reference-data"],
             REFERENCE_DIR,
+            dry_run=args.dry_run,
+            parallel=args.parallel,
+        )
+
+    if args.only is None or args.only == "european":
+        upload_item(
+            "bluegen-european-reference",
+            ITEMS["bluegen-european-reference"],
+            REFERENCE_DIR / "human_origins",
             dry_run=args.dry_run,
             parallel=args.parallel,
         )
