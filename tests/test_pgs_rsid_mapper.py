@@ -1,6 +1,9 @@
 """Unit tests for rsID → chr:pos mapper."""
 
-import sys, os, json, tempfile
+import sys
+import os
+import json
+import tempfile
 from pathlib import Path
 import pytest
 
