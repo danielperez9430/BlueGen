@@ -2593,14 +2593,44 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
 
         # Sub-continental populations
         if subcont:
-            assigned = subcont.get("assigned_super_population", "EUR")
-            subs = subcont.get("sub_populations_available", [])
-            deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Reference Populations ({assigned})</h4>"
-            deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
-            for p in subs[:5]:
-                deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
-            deep_html += "</div>"
-            deep_html += f"<p style='font-size:0.72rem;color:var(--color-text-secondary);margin-top:0.3rem'>{subcont.get('note','')}</p>"
+            assigned_sub = subcont.get("assigned_sub_population", "")
+            if assigned_sub:
+                # Real sub-continental classification available
+                sub_name = subcont.get("sub_population_name", assigned_sub)
+                confidence = subcont.get("confidence", "MODERATE")
+                conf_color = {"HIGH": "#27ae60", "MODERATE": "#f39c12", "LOW": "#e74c3c"}.get(confidence, "#7f8c8d")
+                deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Ancestry</h4>"
+                deep_html += "<div class='info-grid' style='grid-template-columns:1fr 1fr'>"
+                deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Assigned Population</h4><div class='big-stat' style='font-size:1.3rem'>{assigned_sub}</div><div class='stat-sub'>{sub_name}</div></div>"
+                deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Confidence</h4><div class='big-stat' style='font-size:1.3rem;color:{conf_color}'>{confidence}</div><div class='stat-sub'>Max probability: {subcont.get('max_probability', 0):.0%}</div></div>"
+                deep_html += "</div>"
+                # Show probabilities per sub-population
+                probs = subcont.get("posterior_probabilities", {})
+                if probs:
+                    deep_html += "<h4>Sub-Population Probabilities</h4>"
+                    prob_rows = ""
+                    for pop, prob in sorted(probs.items(), key=lambda x: -x[1]):
+                        pct = prob * 100
+                        prob_rows += f"<tr><td><strong>{pop}</strong></td><td>{pct:.1f}%</td><td><div style='height:6px;background:#e9ecef;border-radius:3px;overflow:hidden'><div style='width:{pct:.0f}%;height:100%;background:#3498db;border-radius:3px'></div></div></td></tr>"
+                    deep_html += f"<table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead><tbody>{prob_rows}</tbody></table>"
+                # Still show available reference populations
+                subs = subcont.get("sub_populations_available", [])
+                if subs:
+                    deep_html += "<h4 style='margin-top:0.5rem'>Reference Populations</h4>"
+                    deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
+                    for p in subs[:5]:
+                        deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
+                    deep_html += "</div>"
+            else:
+                # Fallback: informational listing only
+                assigned = subcont.get("assigned_super_population", "EUR")
+                subs = subcont.get("sub_populations_available", [])
+                deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Reference Populations ({assigned})</h4>"
+                deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
+                for p in subs[:5]:
+                    deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
+                deep_html += "</div>"
+                deep_html += f"<p style='font-size:0.72rem;color:var(--color-text-secondary);margin-top:0.3rem'>{subcont.get('note','')}</p>"
 
         sections_html += collapsible_section("deep_ancestry", "🧬 Deep Ancestry — Haplogroups & Sub-Continental", deep_html)
 
@@ -2826,6 +2856,16 @@ def main():
     data["clinvar"] = load_json("clinvar/clinvar_pathogenic_variants.json")
     data["pharmgkb"] = load_json("pharmgkb/pharmgkb_drug_report.json")
     data["deep_ancestry"] = load_json("ancestry/deep_ancestry.json")
+
+    # NEW: Load subcontinental assignment if available
+    subc_data = load_json("pca/subcontinental_assignment.json")
+    if subc_data and subc_data.get("assigned_sub_population"):
+        # Merge into deep_ancestry for display
+        if data["deep_ancestry"]:
+            data["deep_ancestry"]["sub_continental"] = subc_data
+        else:
+            data["deep_ancestry"] = {"sub_continental": subc_data}
+        logger.info(f"  ✅ Subcontinental assignment: {subc_data.get('assigned_sub_population')}")
 
     # NEW: Load calibration validation data per trait (for confidence scores)
     data["calibration_validation"] = load_json("benchmark/calibration_validation.json")

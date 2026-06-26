@@ -1018,10 +1018,35 @@ def run_subcontinental_ancestry(pipeline_root: Path) -> Dict:
     """
     Provide sub-continental context for the ancestry assignment.
     Uses existing ancestry inference and enriches with 1000G sub-population info.
+    If subcontinental_assignment.json exists, returns real classification.
     """
     logger.info("── Sub-Continental Ancestry ──")
 
-    # Load existing ancestry inference
+    # Check for real subcontinental classification first
+    subc_path = pipeline_root / "pca" / "subcontinental_assignment.json"
+    if subc_path.exists():
+        try:
+            with open(subc_path) as fh:
+                subc_data = json.load(fh)
+            assigned_sub = subc_data.get("assigned_sub_population", "EUR")
+            sub_name = subc_data.get("sub_population_name", assigned_sub)
+            confidence = subc_data.get("confidence", "MODERATE")
+            logger.info(f"  ✅ Sub-continental assignment found: {assigned_sub} ({sub_name}) — {confidence}")
+            return {
+                "assigned_super_population": "EUR",
+                "assigned_sub_population": assigned_sub,
+                "sub_population_name": sub_name,
+                "confidence": confidence,
+                "max_probability": subc_data.get("max_probability", 0),
+                "posterior_probabilities": subc_data.get("posterior_probabilities", {}),
+                "sub_populations_available": subc_data.get("sub_populations_available", []),
+                "method": subc_data.get("method", "PCA ensemble on EUR-only 1000G subset"),
+                "note": "",
+            }
+        except Exception as e:
+            logger.warning(f"  Subcontinental data read error: {e}")
+
+    # Fallback: load existing ancestry inference for informational listing
     anc_path = pipeline_root / "pca" / "ancestry_inference.json"
     if not anc_path.exists():
         logger.info("  Ancestry inference not found — run PCA stages first")
