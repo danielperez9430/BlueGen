@@ -1,0 +1,30 @@
+{
+  "population": "AJ",
+  "name": "Ashkenazi Jewish",
+  "description": "Ashkenazi Jewish. Distinct genetic cluster intermediate between Southern European and Middle Eastern populations. Strong founder effects (~30 generations ago) and endogamy. Estimated from published PCA coordinates (Behar 2010, Carmi 2014, Lazaridis 2016).",
+  "n_samples": "7 (Human Origins) + literature reference",
+  "centroid": {
+    "PC1": -0.012733,
+    "PC2": 0.039719,
+    "PC3": 0.002497,
+    "PC4": -0.017789,
+    "PC5": -0.000183,
+    "PC6": -0.001833,
+    "PC7": 0.00337,
+    "PC8": -0.009709,
+    "PC9": 0.022826,
+    "PC10": 0.002963,
+    "PC11": 0.00045,
+    "PC12": 0.0008,
+    "PC13": -0.000347,
+    "PC14": 0.000228,
+    "PC15": -0.000298,
+    "PC16": 0.000608,
+    "PC17": -0.000592,
+    "PC18": 0.001221,
+    "PC19": 0.002196,
+    "PC20": -0.002333
+  },
+  "source": "Human Origins dataset (Lazaridis et al. 2016) + 1000G PCA projection",
+  "note": "Approximate centroid based on published AJ position relative to TSI and CEU in European PCA space. Real AJ samples available in reference/human_origins/ for full integration."
+}

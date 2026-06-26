@@ -90,9 +90,12 @@ def load_data(ref_pcs_path: str, target_pcs_path: str, pop_panel_path: str):
     x_target = target[pc_cols].values[0].astype(np.float64)
     y_ref = ref_eur["sub_pop"].values
 
-    # ── Try loading extended reference (Human Origins) ──────────────────────
+    # ── Try loading extended reference (Human Origins AJ centroid) ──────────
     extended_pops = EUR_SUB_POPS.copy()
+    aj_centroid = None
     ho_dir = Path("reference/human_origins")
+
+    # First try PLINK binary (if full conversion was done)
     ho_fam = ho_dir / "european_aj_subset.fam"
     if ho_fam.exists():
         try:
@@ -103,27 +106,48 @@ def load_data(ref_pcs_path: str, target_pcs_path: str, pop_panel_path: str):
                 ho_pops = pd.read_csv(ho_labels, sep=r"\s+", dtype=str, header=None)
                 ho_pop_map = {}
                 for _, r in ho_pops.iterrows():
-                    ho_pop_map[str(r.iloc[0])] = str(r.iloc[1])  # IID -> pop
+                    ho_pop_map[str(r.iloc[0])] = str(r.iloc[1])
                 ho_ref["sub_pop"] = ho_ref["IID"].astype(str).map(ho_pop_map)
                 aj_count = len(ho_ref[ho_ref["sub_pop"] == "AJ"])
                 if aj_count > 0:
-                    logger.info(f"  Extended reference: {len(ho_ref)} samples from Human Origins including {aj_count} AJ")
+                    logger.info(f"  Extended reference: {len(ho_ref)} samples including {aj_count} AJ")
                     extended_pops = EUR_SUB_POPS + ["AJ"]
-                    logger.info(f"  Using extended pops: {extended_pops}")
         except Exception as e:
-            logger.debug(f"  Extended reference not loaded: {e}")
+            logger.debug(f"  PLINK reference not loaded: {e}")
 
-    return X_ref, x_target, y_ref, pc_cols, extended_pops
+    # Fallback: use literature-based AJ centroid
+    aj_centroid_path = ho_dir / "aj_centroid.json"
+    if aj_centroid_path.exists():
+        try:
+            with open(aj_centroid_path) as fh:
+                import json
+                aj_data = json.load(fh)
+            aj_centroid = aj_data.get("centroid", {})
+            if aj_centroid and "AJ" not in extended_pops:
+                extended_pops.append("AJ")
+                logger.info(f"  AJ centroid loaded from literature (PC1={aj_centroid.get('PC1', '?')})")
+        except Exception as e:
+            logger.debug(f"  AJ centroid not loaded: {e}")
+
+    return X_ref, x_target, y_ref, pc_cols, extended_pops, aj_centroid
 
 
 def classify_centroid(X_ref: np.ndarray, x_target: np.ndarray, y_ref: np.ndarray,
-                      pops: list) -> Dict:
+                      pops: list, aj_centroid: dict = None) -> Dict:
     """Classify by nearest population centroid (Euclidean distance in PCA space)."""
     centroids = {}
     for pop in pops:
         mask = y_ref == pop
         if mask.sum() > 0:
             centroids[pop] = X_ref[mask].mean(axis=0)
+
+    # Add AJ synthetic centroid if available
+    if aj_centroid:
+        pc_order = ["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10",
+                     "PC11", "PC12", "PC13", "PC14", "PC15", "PC16", "PC17", "PC18", "PC19", "PC20"]
+        aj_vec = np.array([aj_centroid.get(pc, 0.0) for pc in pc_order[:len(pc_order)]])
+        if len(aj_vec) > 0:
+            centroids["AJ"] = aj_vec
 
     distances = {}
     for pop, centroid in centroids.items():
@@ -236,11 +260,11 @@ def main():
     logger.info("═══ Sub-Continental Ancestry Classifier ═══")
 
     # Load data
-    X_ref, x_target, y_ref, pc_cols, active_pops = load_data(args.ref_pcs, args.target_pcs, args.pop_panel)
+    X_ref, x_target, y_ref, pc_cols, active_pops, aj_centroid = load_data(args.ref_pcs, args.target_pcs, args.pop_panel)
 
     # Classify
     knn_result = classify_knn(X_ref, x_target, y_ref, k=15)
-    centroid_result = classify_centroid(X_ref, x_target, y_ref, active_pops)
+    centroid_result = classify_centroid(X_ref, x_target, y_ref, active_pops, aj_centroid)
     result = ensemble(knn_result, centroid_result)
 
     logger.info(f"  Assigned: {result['assigned_population']} ({SUB_POP_NAMES.get(result['assigned_population'], '?')})")
