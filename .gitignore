@@ -54,6 +54,7 @@ prs_research_pipeline/.checkpoints/
 !prs_research_pipeline/plink/.gitkeep
 !prs_research_pipeline/reference/.gitkeep
 !prs_research_pipeline/reference/population_distributions/
+!prs_research_pipeline/reference/human_origins/.gitkeep
 
 # ── Virtual Environment ──
 venv/
