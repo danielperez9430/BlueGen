@@ -217,7 +217,8 @@ ITEMS = {
         "mediatype": "data",
         "collection": "opensource",
         "source_paths": [
-            ("human_origins", "European + AJ reference panel (~150 MB)"),
+            ("aj_centroid.json", "Ashkenazi Jewish PCA centroid (literature-based)"),
+            (".gitkeep", "Directory structure marker"),
         ],
     },
     "bluegen-pgs-cache": {
