@@ -21,7 +21,7 @@ from comprehensive_report import (
     trait_limitations_badges,
     safe_float,
     risk_color,
-    build_radar_chart_svg,
+    build_radar_chart_js,
     trust_tier_legend,
     portability_banner,
 )
@@ -367,68 +367,60 @@ class TestTraitLimitationsBadges:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestRadarChart:
-    """Tests for the SVG radar chart."""
+    """Tests for the Chart.js interactive radar chart."""
 
     def _make_entries(self, n=9):
         traits = ["Bitter taste", "Blood pressure", "Caffeine", "Folate", "Glucose",
                   "Hair color", "Lactose", "Lipid", "Vitamin D"]
         return [{"trait": traits[i], "population_zscore": (i - 4) * 0.5,
                  "raw_score": (i - 4) * 0.5, "risk_category": "high" if abs(i - 4) > 2 else "medium",
-                 "n_snps_used": 2, "n_snps_total": 4, "uncertainty_score": 0.5}
+                 "n_snps_used": 2, "n_snps_total": 4, "uncertainty_score": 0.5,
+                 "population_percentile": 50.0}
                 for i in range(n)]
 
-    def test_renders_svg(self):
+    def test_renders_canvas(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        assert "<svg" in html
-        assert "viewBox" in html
-        assert "</svg>" in html
+        html = build_radar_chart_js(entries, {})
+        assert "<canvas" in html
+        assert "radarChart" in html
 
-    def test_has_9_axes(self):
+    def test_has_chart_js_config(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        # Each axis has a line element
-        assert html.count("<line") >= 9
+        html = build_radar_chart_js(entries, {})
+        assert "new Chart(" in html
+        assert "type: 'radar'" in html
+        assert "<script>" in html
 
-    def test_has_data_points(self):
+    def test_has_data_embedded(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        assert "<circle" in html
-        # 9 data points + 3 legend dots + 3 ring circles
-        assert html.count("<circle") >= 12
-
-    def test_has_polygon_fill(self):
-        entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        assert "<polygon" in html
-
-    def test_has_legend(self):
-        entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        assert "High risk" in html or "z ≥" in html
+        html = build_radar_chart_js(entries, {})
+        assert "zScores" in html
+        assert "fullNames" in html
+        assert "tierLabels" in html
 
     def test_fallback_too_few_traits(self):
         entries = self._make_entries(2)
-        html = build_radar_chart_svg(entries, {})
+        html = build_radar_chart_js(entries, {})
         assert "Insufficient data" in html
-        assert "<svg" not in html
+        assert "<canvas" not in html
 
-    def test_risk_colors(self):
+    def test_onclick_navigation(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        # Should have both red and green points
-        assert "#e74c3c" in html or "#f39c12" in html or "#27ae60" in html
+        html = build_radar_chart_js(entries, {})
+        assert "onClick" in html
+        assert "scrollIntoView" in html
 
-    def test_zscore_labels(self):
+    def test_tooltips(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        assert "z=" in html
+        html = build_radar_chart_js(entries, {})
+        assert "Percentile" in html
+        assert "Trust" in html
 
-    def test_trait_labels(self):
+    def test_animation(self):
         entries = self._make_entries(9)
-        html = build_radar_chart_svg(entries, {})
-        for trait in ["Caffeine", "Lipid", "Glucose"]:
-            assert trait in html
+        html = build_radar_chart_js(entries, {})
+        assert "animation" in html
+        assert "duration" in html
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

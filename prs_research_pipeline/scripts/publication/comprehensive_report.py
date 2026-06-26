@@ -440,18 +440,14 @@ def trust_tier_legend():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RADAR CHART
+# RADAR CHART (Chart.js — interactive)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_radar_chart_svg(entries, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None):
-    """Build a pure SVG radar/spider chart showing PRS profile across all traits.
+def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None):
+    """Build an interactive radar chart using Chart.js.
 
-    Returns SVG HTML string (400x400 viewBox). Shows:
-    - 9 axes for each PRS trait, spaced 40° apart
-    - Data points at distance proportional to abs(z_score), capped at z=3.0
-    - Risk-colored polygon fill
-    - 3 concentric reference rings (z=0.5, 1.0, 2.0)
-    - Trust tier indicators per axis
+    Features: tooltips (z-score + percentile + trust tier), animation on load,
+    click-to-scroll to PRS table row, tier highlighting via legend.
     """
     if cal_lookup is None:
         cal_lookup = {}
@@ -462,119 +458,138 @@ def build_radar_chart_svg(entries, ui, cal_lookup=None, uncert_lookup=None, evid
 
     traits = [(e.get("trait", ""),
                safe_float(e.get("population_zscore", e.get("raw_score", 0))),
-               e.get("risk_category", "medium"))
+               e.get("risk_category", "medium"),
+               safe_float(e.get("population_percentile", 50)))
               for e in (entries or [])]
 
     if len(traits) < 3:
         return ('<div style="text-align:center;padding:2rem;color:var(--color-text-secondary)">'
                 '<p>Insufficient data for radar visualization</p></div>')
 
-    import math
+    # Short labels for radar axes
+    short_labels = [(t[:12] + ("…" if len(t) > 12 else "")) for t, _, _, _ in traits]
+    z_scores = [z for _, z, _, _ in traits]
+    pctls = [p for _, _, _, p in traits]
+    full_names = [t for t, _, _, _ in traits]
+    risk_cats = [r for _, _, r, _ in traits]
 
-    n = len(traits)
-    cx, cy, r = 200, 200, 155
-    angle_step = 360.0 / n
-
-    svg_parts = [
-        f'<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" '
-        f'style="max-width:420px;width:100%;height:auto;font-family:system-ui,sans-serif">',
-        # Background rings
-    ]
-
-    # Concentric rings for z=0.5, 1.0, 2.0
-    for z_ref, opacity in [(0.5, 0.08), (1.0, 0.12), (2.0, 0.15)]:
-        ring_r = r * (z_ref / 3.0)
-        svg_parts.append(
-            f'<circle cx="{cx}" cy="{cy}" r="{ring_r:.1f}" '
-            f'fill="none" stroke="#bdc3c7" stroke-width="0.8" opacity="{opacity}"/>'
-        )
-
-    # Axis lines and labels
-    points = []
-    for i, (trait, z, risk) in enumerate(traits):
-        angle_deg = angle_step * i - 90  # Start from top
-        angle_rad = angle_deg * 3.14159 / 180.0
-
-        # Axis line using cos/sin
-        ax_x = cx + r * math.cos(angle_rad)
-        ax_y = cy + r * math.sin(angle_rad)
-
-        svg_parts.append(
-            f'<line x1="{cx}" y1="{cy}" x2="{ax_x:.1f}" y2="{ax_y:.1f}" '
-            f'stroke="#dee2e6" stroke-width="0.8" opacity="0.5"/>'
-        )
-
-        # Data point and label
-        abs_z = min(abs(z), 3.0)
-        dist = r * (abs_z / 3.0)
-        px = cx + dist * math.cos(angle_rad)
-        py = cy + dist * math.sin(angle_rad)
-        points.append((px, py))
-
+    # Compute per-trait colors and tiers
+    point_colors = []
+    tier_labels = []
+    for i, (trait_name, z, risk, pctl) in enumerate(traits):
         color = risk_color(z)
-        tier_color = "#27ae60" if abs_z < 1.0 else ("#f39c12" if abs_z < 2.0 else "#e74c3c")
+        point_colors.append(color)
+        n_used = entries[i].get("n_snps_used", 0)
+        n_total = entries[i].get("n_snps_total", 0)
+        snp_ratio = n_used / max(n_total, 1)
+        uncertainty = safe_float(entries[i].get("uncertainty_score", 1.0))
+        cal_entry = cal_lookup.get(trait_name.lower())
+        uncert_entry = uncert_lookup.get(trait_name.lower()) if uncert_lookup else None
+        ev_scores = evidence_lookup.get(trait_name.lower(), [])
+        conf = compute_per_trait_confidence(entries[i], cal_entry, uncert_entry, ev_scores)
+        tier = trust_tier(conf, cal_entry, snp_ratio, uncertainty)
+        tier_labels.append(tier)
 
-        # Data point dot
-        svg_parts.append(
-            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{color}" stroke="#fff" stroke-width="1.2"/>'
-        )
+    # Serialize data as JSON for Chart.js
+    import json as _json
+    chart_data = _json.dumps({
+        "labels": short_labels,
+        "zScores": z_scores,
+        "fullNames": full_names,
+        "pctls": pctls,
+        "riskCats": risk_cats,
+        "pointColors": point_colors,
+        "tierLabels": tier_labels,
+    })
 
-        # Axis label (rotated for readability)
-        label_r = r + 18
-        lx = cx + label_r * math.cos(angle_rad)
-        ly = cy + label_r * math.sin(angle_rad)
-        # Truncate long trait names
-        short_name = trait[:14] + ("…" if len(trait) > 14 else "")
-        anchor = "middle"
-        if angle_deg < -150 or angle_deg > 150:
-            anchor = "start"
-        elif -30 < angle_deg < 30:
-            anchor = "end"
+    return f"""
+    <div style="max-width:500px;margin:0 auto">
+        <canvas id="radarChart" style="max-height:450px"></canvas>
+    </div>
+    <script>
+    (function() {{
+        var d = {chart_data};
+        var ctx = document.getElementById('radarChart').getContext('2d');
+        var riskColorMap = {{'high': '#e74c3c', 'medium': '#f39c12', 'low': '#27ae60'}};
+        var maxAbsZ = Math.max.apply(null, d.zScores.map(Math.abs));
+        var fillColor = maxAbsZ >= 2 ? '#e74c3c' : (maxAbsZ >= 1 ? '#f39c12' : '#27ae60');
 
-        svg_parts.append(
-            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" '
-            f'font-size="7" fill="#7f8c8d" font-weight="500">{short_name}</text>'
-        )
-
-        # Z-score annotation near point
-        z_label_r = dist + 10
-        zx = cx + z_label_r * math.cos(angle_rad)
-        zy = cy + z_label_r * math.sin(angle_rad)
-        svg_parts.append(
-            f'<text x="{zx:.1f}" y="{zy:.1f}" text-anchor="middle" '
-            f'font-size="6.5" fill="{color}" font-weight="700">z={z:+.1f}</text>'
-        )
-
-    # Filled polygon for data points
-    if len(points) >= 3:
-        pts_str = " ".join(f"{px:.1f},{py:.1f}" for px, py in points)
-        main_color = "#3498db"
-
-        # Use the highest risk color for the fill
-        max_abs_z = max(abs(z) for _, z, _ in traits)
-        fill_color = "#e74c3c" if max_abs_z >= 2.0 else ("#f39c12" if max_abs_z >= 1.0 else "#27ae60")
-        svg_parts.append(
-            f'<polygon points="{pts_str}" fill="{fill_color}" fill-opacity="0.12" '
-            f'stroke="{fill_color}" stroke-width="1.5" stroke-opacity="0.5"/>'
-        )
-
-    # Legend box (bottom-right)
-    lx, ly = 280, 320
-    legend_items = [
-        ("z ≥ 2.0", "#e74c3c", "High risk"),
-        ("z 1.0–2.0", "#f39c12", "Elevated"),
-        ("z < 1.0", "#27ae60", "Average"),
-    ]
-    for j, (label, lcolor, desc) in enumerate(legend_items):
-        svg_parts.append(
-            f'<rect x="{lx}" y="{ly + j*14}" width="8" height="8" fill="{lcolor}" rx="1"/>'
-        )
-        svg_parts.append(
-            f'<text x="{lx + 11}" y="{ly + j*14 + 7.5}" font-size="7" fill="#7f8c8d">{label} — {desc}</text>'
-        )
-
-    svg_parts.append('</svg>')
-    return "\n".join(svg_parts)
+        new Chart(ctx, {{
+            type: 'radar',
+            data: {{
+                labels: d.labels,
+                datasets: [{{
+                    label: 'PRS Profile',
+                    data: d.zScores,
+                    backgroundColor: fillColor.replace(')', ',0.12)').replace('rgb', 'rgba'),
+                    borderColor: fillColor,
+                    borderWidth: 2,
+                    pointBackgroundColor: d.pointColors,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                }}]
+            }},
+            options: {{
+                responsive: true,
+                maintainAspectRatio: true,
+                animation: {{ duration: 800, easing: 'easeOutQuart' }},
+                plugins: {{
+                    legend: {{ display: true, position: 'bottom', labels: {{ font: {{ size: 11 }} }} }},
+                    tooltip: {{
+                        callbacks: {{
+                            label: function(ctx) {{
+                                var i = ctx.dataIndex;
+                                var z = d.zScores[i];
+                                var p = d.pctls[i];
+                                var tier = d.tierLabels[i];
+                                return [
+                                    d.fullNames[i],
+                                    'z-score: ' + (z >= 0 ? '+' : '') + z.toFixed(2),
+                                    'Percentile: ' + p.toFixed(1) + '%',
+                                    'Trust: ' + tier
+                                ];
+                            }}
+                        }}
+                    }}
+                }},
+                onClick: function(e, elements) {{
+                    if (elements.length > 0) {{
+                        var i = elements[0].index;
+                        var trait = d.fullNames[i];
+                        // Find and scroll to the PRS table row
+                        var table = document.querySelector('#prs table');
+                        if (table) {{
+                            var rows = table.querySelectorAll('tbody tr');
+                            rows.forEach(function(row) {{
+                                var cell = row.querySelector('td:first-child strong');
+                                if (cell && cell.textContent.trim() === trait) {{
+                                    row.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                                    row.style.transition = 'background 0.5s';
+                                    row.style.background = '#fef9e7';
+                                    setTimeout(function() {{ row.style.background = ''; }}, 1500);
+                                }}
+                            }});
+                        }}
+                    }}
+                }},
+                scales: {{
+                    r: {{
+                        beginAtZero: true,
+                        min: -3,
+                        max: 3,
+                        ticks: {{ stepSize: 1, backdropColor: 'transparent', font: {{ size: 10 }} }},
+                        grid: {{ color: '#dee2e6' }},
+                        angleLines: {{ color: '#dee2e6' }},
+                        pointLabels: {{ font: {{ size: 10, weight: '600' }} }}
+                    }}
+                }}
+            }}
+        }});
+    }})();
+    </script>
+    """
 
 
 def collapsible_section(section_id, title, content, open_by_default=False):
@@ -698,7 +713,6 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_loo
             <div class="card-label">Low Trust (T3)</div>
         </div>
     </div>
-    <div class="radar-container">{build_radar_chart_svg(entries, ui, cal_lookup, uncert_lookup, evidence_lookup)}</div>
     <div class="summary-grid" style="grid-template-columns:repeat(2,1fr)">
         <div class="summary-card" style="border-left-color:#3498db">
             <div class="card-number" style="font-size:1.2rem">{pop_name}</div>
@@ -2674,6 +2688,13 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     sections_html += collapsible_section("integrity", f"🏅 {s['integrity']}",
         build_integrity_section(data["integrity"], ui))
 
+    # 15b. PRS Profile Radar (interactive Chart.js)
+    sections_html += collapsible_section("radar", "🕸️ PRS Profile Radar",
+        build_radar_chart_js(data["prs_result"].get("prs_entries", []), ui,
+                             cal_lookup=data.get("_cal_lookup"),
+                             uncert_lookup=data.get("_uncert_lookup"),
+                             evidence_lookup=data.get("_evidence_lookup")))
+
     # 16. Reproducibility
     sections_html += collapsible_section("reproducibility", f"🔁 {s['reproducibility']}",
         build_reproducibility_section(data.get("reproducibility", {})))
@@ -2729,6 +2750,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{ui['title']} — {sample_id}</title>
     <style>{CSS}</style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <header class="report-header">
