@@ -2,6 +2,61 @@
 
 All notable changes to BlueGen.
 
+## [1.2.1] — 2026-06-26
+
+### Changed
+- **Calibration Stability score recalculated** from actual per-trait data (mean_r²=0.995, was stale 0.887) — score corrected from 55.3 → 99.4
+- **Population Portability now computed dynamically** from `reference_distributions.json` (56 traits × 5 populations, 2504 samples) instead of using hardcoded literature estimates — score improved from 54.5 → 71.5
+- **Final Scientific Integrity Score: 80.2 → 88.0/100** (RESEARCH_GRADE, approaching PUBLICATION_READY threshold of 90)
+
+### Fixed
+- `calibration_validation.json`: aggregate `mean_slope` and `mean_r²` were stale (0.9982/0.8865) — corrected to 1.0015/0.9952 from per-trait values
+- `26_population_portability_test.py`: eliminated hardcoded `reference_bias` dict; now computes shift/drift/instability dynamically using Cohen's d with pooled SD
+
+## [1.2.0] — 2026-06-26
+
+### Added
+- **Radar chart (SVG)** in Executive Summary showing PRS profile across 9 traits with risk colors, z-scores, and concentric reference rings
+- **Confidence indicators for PGS Catalog section**: reliability badges (✓ Reliable / ⚠ Unreliable), SNP coverage bars, risk bars, and summary bar
+- **Clinical Actionability Summary** (new section): cross-references ClinVar pathogenic variants + PharmGKB drug findings + high-risk PRS traits into 3 subsections (High-Confidence Findings, PRS-Gene Convergence, Drug-Gene-PRS Intersections)
+- **rsID → chr:pos mapper** (`pgs_rsid_mapper.py`): converts rsID-based PGS variants to chr:pos format for PLINK scoring compatibility. Integrated into `pgs_catalog_integration.py`
+- **47 new unit tests** (9 radar chart + 1 legend + 2 portability + 8 rsID mapper + 14 uncertainty propagation + 13 existing extensions) — total 109 tests
+
+### Changed
+- **Uncertainty saturation fixed** in `14_uncertainty_propagation.py`:
+  - Denominator changed from `abs(prs_val) * 0.5` (individual) to `population_sd * 2.0` (population-based)
+  - E[G²] now computed from MAF under HWE instead of hardcoded 1.0
+  - Evidence SE ratios reduced: A=0.10, B=0.20, C=0.35, D=0.55 (was A=0.20, B=0.33, C=0.50, D=0.75)
+- **Calibration validation sign bug fixed** in `27_real_world_calibration.py`: `abs(z_pop)` removed from slope denominator
+- **PGS Catalog section** now loads and displays coverage data from `pgs_results.csv`
+- **Executive Summary** restructured with radar chart between risk counts and ancestry/integrity cards
+
+### Fixed
+- Calibration slope sign bug for below-median traits (Bitter taste, Lactose intolerance)
+- 8/9 traits no longer have saturated uncertainty scores
+
+## [1.1.1] — 2026-06-25
+
+### Added
+- **Per-trait confidence scores (0-100% with star ratings)** in the comprehensive PRS report, combining SNP coverage, calibration quality, evidence level, and uncertainty
+- **Calibration quality flags** (GOOD/FAIR/POOR/INVERTED) per trait based on R² and slope from `calibration_validation.json`
+- **Trust tier classification** (T1 High Trust / T2 Moderate / T3 Low Trust) for each PRS trait
+- **Multi-layer uncertainty mini-bars** replacing the single "Uncert." column with genotype/ancestry/effect variance decomposition
+- **SNP coverage visual bars** replacing plain text ratios
+- **Population portability warning banner** at the top of the PRS results section
+- **Per-trait limitation badges** (Low SNPs, Inverted cal., High uncert.) in the PRS table
+- **Trait-specific limitation notes** in the expanded limitations section
+- **Executive summary confidence overview**: Avg Confidence, High Trust (T1), Low Trust (T3) counts, Strongest/Weakest finding
+- **Trust tier legend** above the PRS results table
+- **`tests/test_comprehensive_report.py`:** 47 new unit tests for confidence helper functions
+
+### Changed
+- **`comprehensive_report.py`:** PRS table expanded from 7 to 11 columns with confidence indicators
+- **`comprehensive_report.py`:** Now loads `benchmark/calibration_validation.json` for per-trait calibration quality data
+- **`comprehensive_report.py`:** Evidence levels loaded from SNP database for confidence scoring
+- **`comprehensive_report.py`:** Executive summary restructured with 2-row grid layout
+- **`comprehensive_report.py`:** Limitations section now includes per-trait breakdown
+
 ## [1.1.0] — 2026-06-12
 
 ### Added

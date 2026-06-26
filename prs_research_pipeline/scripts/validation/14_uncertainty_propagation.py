@@ -113,11 +113,12 @@ class UncertaintyPropagationEngine:
     """
 
     # Evidence level → approximate SE/|β| ratio
+    # Calibrated for modern GWAS precision (v1.2.0 — reduced conservatism)
     EVIDENCE_SE_RATIO = {
-        "A": 0.20,    # GWAS p < 5e-8: tight CI
-        "B": 0.33,    # Replicated: moderate
-        "C": 0.50,    # Single study: wide
-        "D": 0.75,    # Mechanistic: very wide
+        "A": 0.10,    # GWAS p < 5e-8, n>50k: tight CI (SE ≈ |β|/10)
+        "B": 0.20,    # Replicated: good precision (SE ≈ |β|/5)
+        "C": 0.35,    # Single study: moderate (SE ≈ |β|/3)
+        "D": 0.55,    # Mechanistic: wide but bounded (SE ≈ |β|/2)
     }
 
     # GQ → genotype uncertainty mapping
@@ -144,6 +145,7 @@ class UncertaintyPropagationEngine:
         snp_database_path: str,
         output_dir: str,
         consistency_check_path: Optional[str] = None,
+        reference_distributions_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Propagate uncertainty through all layers.
@@ -154,6 +156,7 @@ class UncertaintyPropagationEngine:
             snp_database_path: Position-annotated SNP database CSV.
             output_dir: Output directory.
             consistency_check_path: GWAS consistency check JSON (optional).
+            reference_distributions_path: Population reference distributions JSON (for population SD).
 
         Returns:
             Dict with uncertainty-quantified PRS and report.
@@ -162,6 +165,25 @@ class UncertaintyPropagationEngine:
 
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        # ── Load population SD per trait for uncertainty denominator ────────
+        trait_population_sd = {}
+        if reference_distributions_path is None:
+            reference_distributions_path = "reference/population_distributions/reference_distributions.json"
+        if os.path.exists(reference_distributions_path):
+            try:
+                with open(reference_distributions_path) as fh:
+                    ref_dists = json.load(fh)
+                for trait, pops in ref_dists.get("distributions", {}).items():
+                    eur = pops.get("EUR", {})
+                    sd = eur.get("std", 0)
+                    if sd and sd > 0:
+                        trait_population_sd[trait.lower()] = sd
+                logger.info(f"  Population SD loaded for {len(trait_population_sd)} traits")
+            except Exception as e:
+                logger.warning(f"  Could not load population distributions: {e}")
+        else:
+            logger.info(f"  No population distributions at {reference_distributions_path}")
 
         # ── Layer 1: Genotype uncertainty ────────────────────────────────
         geno_uncertainty = self._compute_genotype_uncertainty(snp_database_path)
@@ -222,7 +244,10 @@ class UncertaintyPropagationEngine:
             ci_68 = (prs_val - total_se, prs_val + total_se)
 
             # Uncertainty score (0–1)
-            max_plausible_se = abs(prs_val) * 0.5 if abs(prs_val) > 0.1 else 0.3
+            # Denominator: population-based (SD × 2 captures ~95% of population range)
+            # Much more stable than the old abs(prs_val) * 0.5 which saturated for low-PRS individuals
+            population_sd = trait_population_sd.get(trait.lower(), 0.25)
+            max_plausible_se = max(population_sd * 2.0, 0.1)
             uncertainty_score = min(total_se / max(max_plausible_se, 1e-6), 1.0)
 
             # Decomposition
@@ -495,15 +520,31 @@ class UncertaintyPropagationEngine:
         effect_uncertainty: Dict[str, float],
     ) -> float:
         """Var_effect(PRS) = Σ G² × Var(β).
-        Uses expected G² ≈ 1.0 (HWE approximation) for missing dosages."""
+        Uses HWE-based E[G²] from MAF instead of hardcoded 1.0."""
         total = 0.0
         for _, snp in trait_snps.iterrows():
             rsid = snp["rsid"]
             var_beta = effect_uncertainty.get(rsid, 0.01)
-            # Expected G² ≈ 1.0 for dosage 0/1/2 with MAF ~ 0.25-0.50
-            expected_g2 = 1.0
+            # E[G²] = Var(G) + E[G]² = 2·MAF·(1-MAF) + 4·MAF² under HWE
+            maf = self._get_maf(snp)
+            expected_g2 = 2 * maf * (1 - maf) + 4 * maf**2
             total += expected_g2 * var_beta
         return total
+
+    @staticmethod
+    def _get_maf(snp: pd.Series) -> float:
+        """Get minor allele frequency for a SNP, falling back to 0.25."""
+        # Try explicit MAF column first
+        for col in ["maf", "alt_freq", "allele_frequency", "MAF"]:
+            if col in snp.index and not pd.isna(snp.get(col)):
+                try:
+                    val = float(snp[col])
+                    if 0 < val < 1:
+                        return val
+                except (ValueError, TypeError):
+                    pass
+        # Default: MAF=0.25 → E[G²] = 2*0.25*0.75 + 4*0.0625 = 0.625
+        return 0.25
 
 
 # ── CLI Entry Point ──────────────────────────────────────────────────────────

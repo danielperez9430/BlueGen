@@ -28,7 +28,10 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from scipy import stats as scipy_stats
+try:
+    from scipy import stats as scipy_stats
+except ImportError:
+    scipy_stats = None
 
 logger = logging.getLogger(__name__)
 
@@ -61,41 +64,101 @@ class PopulationPortabilityTester:
 
     def test(self, calibration_csv: Optional[str] = None,
              population_panel: Optional[str] = None,
-             ancestry_json: Optional[str] = None) -> PortabilityReport:
+             ancestry_json: Optional[str] = None,
+             reference_distributions_path: Optional[str] = None) -> PortabilityReport:
         logger.info("═══ Population Portability Test ═══")
 
-        # Use known portability characteristics from GWAS literature
-        # These are established findings, not platform-specific
-        reference_bias = {
-            "EUR": {"shift": 0.0, "drift": 0.02, "instability": 0.05,
-                    "n_samples": 503, "note": "Reference — most GWAS are EUR-derived"},
-            "AFR": {"shift": 0.30, "drift": 0.25, "instability": 0.35,
-                    "n_samples": 661, "note": "Known poor transferability — shorter LD blocks"},
-            "EAS": {"shift": 0.15, "drift": 0.15, "instability": 0.20,
-                    "n_samples": 504, "note": "Moderate transferability — similar LD to EUR"},
-            "SAS": {"shift": 0.18, "drift": 0.18, "instability": 0.22,
-                    "n_samples": 489, "note": "Intermediate — genetic diversity between EAS and EUR"},
-            "AMR": {"shift": 0.20, "drift": 0.20, "instability": 0.28,
-                    "n_samples": 347, "note": "Admixed — variable transferability by admixture proportion"},
-        }
+        # ── Load reference distributions for dynamic computation ────────────
+        if reference_distributions_path is None:
+            reference_distributions_path = "reference/population_distributions/reference_distributions.json"
 
-        # If calibration data exists, compute observed shifts
-        if calibration_csv and Path(calibration_csv).exists():
-            try:
-                cal = pd.read_csv(calibration_csv)
-                for pop in SUPER_POPS:
-                    if "population_mu" in cal.columns:
-                        pop_rows = cal[cal.get("assigned_population", "") == pop]
-                        if len(pop_rows) > 0:
-                            reference_bias[pop]["observed_mu"] = float(
-                                pop_rows["population_mu"].mean())
-            except Exception as e:
-                logger.warning(f"  Calibration data read error: {e}")
+        ref_dists = {}
+        ref_path = Path(reference_distributions_path)
+        if not ref_path.exists():
+            logger.error(f"  Reference distributions not found: {reference_distributions_path}")
+            raise FileNotFoundError(f"Reference distributions required: {reference_distributions_path}")
+
+        with open(ref_path) as fh:
+            ref_dists = json.load(fh)
+        distributions = ref_dists.get("distributions", {})
+        n_traits = len(distributions)
+        n_ref_samples = ref_dists.get("n_reference_samples", 2504)
+        logger.info(f"  Loaded {n_traits} traits from reference distributions ({n_ref_samples} samples)")
+
+        # ── Compute per-population metrics dynamically ──────────────────────
+        pop_shifts = {pop: [] for pop in SUPER_POPS}
+        pop_drifts = {pop: [] for pop in SUPER_POPS}
+        pop_ranks = {pop: [] for pop in SUPER_POPS}
+        eur_ranks = []
+
+        for trait, pops in distributions.items():
+            eur = pops.get("EUR", {})
+            eur_mean = eur.get("mean", 0)
+            eur_std = eur.get("std", 1.0)
+            eur_median = eur.get("median", eur.get("p50", 0))
+
+            # Skip traits with default/fake distribution data
+            if eur_std <= 0 or (eur_std == 1.0 and eur_mean == 0.0):
+                continue
+
+            eur_ranks.append(eur_median)
+
+            for pop in SUPER_POPS:
+                pdata = pops.get(pop, {})
+                pop_mean = pdata.get("mean", 0)
+                pop_std = pdata.get("std", 1.0)
+                pop_median = pdata.get("median", pdata.get("p50", 0))
+                if pop_std <= 0:
+                    pop_std = 1.0
+
+                # shift: Cohen's d-style (pooled SD for stability)
+                pooled_sd = np.sqrt((eur_std**2 + pop_std**2) / 2)
+                if pooled_sd <= 0.001:
+                    pooled_sd = 0.001
+                shift = min(abs(pop_mean - eur_mean) / pooled_sd, 2.0)
+                pop_shifts[pop].append(shift)
+
+                # drift: relative SD difference, capped
+                drift = min(abs(pop_std - eur_std) / max(eur_std, 0.001), 2.0)
+                pop_drifts[pop].append(drift)
+
+                # rank for Spearman correlation
+                pop_ranks[pop].append(pop_median)
+
+        # Compute Spearman rank instability
+        # Use scipy if available, otherwise fall back to Pearson on ranks
+        rank_instability = {}
+        try:
+            from scipy import stats as scipy_stats
+            for pop in SUPER_POPS:
+                if pop == "EUR":
+                    rank_instability[pop] = 0.0
+                else:
+                    rho, _ = scipy_stats.spearmanr(eur_ranks, pop_ranks[pop])
+                    rank_instability[pop] = max(0.0, 1.0 - rho)
+        except ImportError:
+            # Fallback: fraction of traits where ranking differs substantially from EUR
+            logger.info("  scipy not available — using rank reversal fraction for instability")
+            for pop in SUPER_POPS:
+                if pop == "EUR":
+                    rank_instability[pop] = 0.0
+                else:
+                    reversals = 0
+                    for pr, er in zip(pop_ranks[pop], eur_ranks):
+                        if abs(er) > 0.001 and abs(pr - er) / abs(er) > 0.5:
+                            reversals += 1
+                    rank_instability[pop] = min(1.0, reversals / max(len(eur_ranks), 1))
+
+        # Reference sample counts from 1000 Genomes Phase 3
+        ref_counts = {"EUR": 503, "AFR": 661, "EAS": 504, "SAS": 489, "AMR": 347}
 
         metrics = []
         for pop in SUPER_POPS:
-            bias = reference_bias[pop]
-            abi = (bias["shift"] + bias["drift"] + bias["instability"]) / 3
+            # Use mean across traits with per-trait capping at 2.0 (already applied above)
+            shift = min(float(np.mean(pop_shifts[pop])), 1.0) if pop_shifts[pop] else 0.0
+            drift = min(float(np.mean(pop_drifts[pop])), 1.0) if pop_drifts[pop] else 0.0
+            instability = min(rank_instability.get(pop, 0.0), 1.0)
+            abi = (shift + drift + instability) / 3
 
             if abi < 0.10:
                 status = "GOOD_PORTABILITY"
@@ -106,14 +169,14 @@ class PopulationPortabilityTester:
 
             metrics.append(PortabilityMetrics(
                 population=pop,
-                mean_prs_shift=round(bias["shift"], 4),
-                calibration_drift=round(bias["drift"], 4),
-                rank_instability=round(bias["instability"], 4),
+                mean_prs_shift=round(shift, 4),
+                calibration_drift=round(drift, 4),
+                rank_instability=round(instability, 4),
                 ancestry_bias_index=round(abi, 4),
-                n_reference_samples=bias["n_samples"],
+                n_reference_samples=ref_counts.get(pop, 0),
                 status=status))
 
-        global_bias = np.mean([m.ancestry_bias_index for m in metrics])
+        global_bias = float(np.mean([m.ancestry_bias_index for m in metrics]))
         most = max(metrics, key=lambda m: m.ancestry_bias_index)
         least = min(metrics, key=lambda m: m.ancestry_bias_index)
 
@@ -148,13 +211,16 @@ def main():
     parser.add_argument("--calibration-csv", help="Population calibration CSV")
     parser.add_argument("--population-panel", help="1000G population panel")
     parser.add_argument("--ancestry-json", help="Ancestry classification")
+    parser.add_argument("--reference-distributions", default="reference/population_distributions/reference_distributions.json",
+                       help="Reference distributions JSON (56 traits x 5 populations)")
     parser.add_argument("--output-dir", "-o", default="benchmark")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(message)s")
     tester = PopulationPortabilityTester(args.output_dir)
-    report = tester.test(args.calibration_csv, args.population_panel, args.ancestry_json)
+    report = tester.test(args.calibration_csv, args.population_panel, args.ancestry_json,
+                         reference_distributions_path=args.reference_distributions)
     print(f"\n═══ Population Portability ═══")
     print(f"  Global bias: {report.global_bias_index:.3f}")
     for m in report.metrics:

@@ -107,11 +107,12 @@ def download_score_file(url: str, output_path: Path) -> bool:
         return False
 
 
-def preprocess_pgs_file(input_path: Path, output_path: Path) -> bool:
+def preprocess_pgs_file(input_path: Path, output_path: Path, mapper=None) -> bool:
     """Convert PGS harmonized format to clean PLINK score format.
     PGS format: #comments, header, rsID chr_name chr_position effect_allele other_allele effect_weight ...
     PLINK expects: variant_id allele weight (tab-separated, no header)
     Uses hm_chr:hm_pos as variant_id to match our BIM format.
+    Falls back to rsID → chr:pos mapper when chr:pos columns are missing.
     """
     if output_path.exists():
         return True
@@ -143,7 +144,21 @@ def preprocess_pgs_file(input_path: Path, output_path: Path) -> bool:
                 continue
 
             try:
-                variant_id = f"{parts[chr_col]}:{parts[pos_col]}" if chr_col is not None else parts[rsid_col]
+                if chr_col is not None and pos_col is not None:
+                    variant_id = f"{parts[chr_col]}:{parts[pos_col]}"
+                elif rsid_col is not None and mapper is not None:
+                    # Use mapper to convert rsID → chr:pos
+                    rsid = parts[rsid_col]
+                    mapped = mapper.lookup(rsid)
+                    if mapped:
+                        variant_id = mapped
+                    else:
+                        # Fall back to rsID as-is (PLINK will try to match on variant ID)
+                        variant_id = rsid
+                elif rsid_col is not None:
+                    variant_id = parts[rsid_col]
+                else:
+                    continue
                 allele = parts[eff_col] if eff_col is not None else parts[1]
                 weight = float(parts[weight_col])
                 lines.append(f"{variant_id}\t{allele}\t{weight}")
@@ -161,7 +176,8 @@ def preprocess_pgs_file(input_path: Path, output_path: Path) -> bool:
 
 def run_plink_score(
     plink_bin: str, bfile: str, score_file: Path,
-    output_prefix: Path, threads: int = 4, memory: int = 8000
+    output_prefix: Path, threads: int = 4, memory: int = 8000,
+    mapper=None,
 ) -> Optional[pd.DataFrame]:
     """Run PLINK --score on target sample."""
     profile_file = Path(f"{output_prefix}.profile")
@@ -170,7 +186,7 @@ def run_plink_score(
 
     # Preprocess PGS file to clean format
     clean_file = Path(f"{output_prefix}_clean.score")
-    if not preprocess_pgs_file(score_file, clean_file):
+    if not preprocess_pgs_file(score_file, clean_file, mapper=mapper):
         return None
 
     cmd = [
@@ -242,6 +258,22 @@ def integrate(
     plink_bin = find_plink()
     logger.info(f"  PLINK: {plink_bin}")
 
+    # Initialize rsID → chr:pos mapper for PGS scores without chr:pos columns
+    mapper = None
+    try:
+        from pgs_rsid_mapper import RsidMapper
+        mapper = RsidMapper()
+        snp_db_path = Path(__file__).parent.parent.parent / "data" / "snp_database_annotated.csv"
+        mapper.load_from_snp_db(str(snp_db_path))
+        cache_path = output_dir / "rsid_mapping_cache.json"
+        if cache_path.exists():
+            mapper.load_from_cache(str(cache_path))
+        logger.info(f"  rsID Mapper: {mapper.n_entries} entries loaded")
+    except ImportError:
+        logger.info("  rsID Mapper not available — using rsID directly")
+    except Exception as e:
+        logger.warning(f"  rsID Mapper init error: {e}")
+
     # Load platform PRS
     prs_file = Path("prs/PRS_RESULT.csv")
     platform_prs = pd.read_csv(prs_file) if prs_file.exists() else pd.DataFrame()
@@ -271,7 +303,7 @@ def integrate(
 
                 # Score
                 out_prefix = score_dir / pgs_id
-                prof = run_plink_score(plink_bin, bfile, score_file, out_prefix)
+                prof = run_plink_score(plink_bin, bfile, score_file, out_prefix, mapper=mapper)
                 if prof is not None and len(prof) > 0:
                     all_scores[pgs_id] = prof
 

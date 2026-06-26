@@ -84,7 +84,12 @@ class CalibrationValidator:
                 # Expected: z-score of 0 means 50th percentile
                 # Calibration slope: how observed z maps to expected z
                 expected_z = scipy_stats.norm.ppf(pctl_pop / 100.0)
-                slope = expected_z / max(abs(z_pop), 0.01)
+                # Preserve sign of z_pop for correct slope direction
+                # (abs() was a bug: it inverted slopes for below-median traits)
+                denom = max(abs(z_pop), 0.01)
+                if z_pop < 0:
+                    denom = -denom
+                slope = expected_z / denom
 
                 # Deviation from ideal slope of 1.0
                 intercept_dev = abs(slope - 1.0)

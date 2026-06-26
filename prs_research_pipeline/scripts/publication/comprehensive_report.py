@@ -168,6 +168,415 @@ def risk_bar(pct, z_score):
         f'</div>'
     )
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIDENCE & TRUST HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def compute_per_trait_confidence(trait_entry, cal_entry, uncert_entry, evidence_scores=None):
+    """Compute a composite 0-100 confidence score for a trait.
+
+    Components (equal weight):
+      - snp_coverage_score: fraction of expected SNPs found
+      - calibration_score: based on R² and slope correctness
+      - evidence_score: average evidence level (A=100, B=75, C=50, D=25)
+      - uncertainty_score: inverted (1.0 - uncertainty_score) scaled to 0-100
+    """
+    n_used = trait_entry.get("n_snps_used", 0)
+    n_total = trait_entry.get("n_snps_total", 1)
+    snp_ratio = n_used / max(n_total, 1)
+
+    # SNP coverage: linear scaling
+    snp_score = snp_ratio * 100
+
+    # Calibration quality: based on R² and slope
+    if cal_entry:
+        r2 = safe_float(cal_entry.get("r_squared", 0))
+        slope = safe_float(cal_entry.get("calibration_slope", 1.0))
+        if slope < 0:
+            cal_score = 0  # Inverted calibration = zero confidence
+        elif r2 >= 0.8 and 0.85 <= slope <= 1.15:
+            cal_score = 100
+        elif r2 >= 0.5 and 0.5 <= slope <= 1.5:
+            cal_score = 60
+        else:
+            cal_score = max(0, r2 * 100)
+    else:
+        cal_score = 50  # No calibration data available
+
+    # Evidence level: average across all SNPs
+    if evidence_scores:
+        ev_score = sum(evidence_scores) / max(len(evidence_scores), 1)
+    else:
+        ev_score = 50  # Unknown evidence
+
+    # Uncertainty: inverted
+    uncertainty = safe_float(trait_entry.get("uncertainty_score", 1.0))
+    if uncertainty >= 1.0:
+        uncert_score = 0
+    elif uncertainty <= 0.5:
+        uncert_score = 100
+    else:
+        uncert_score = (1.0 - uncertainty) * 200
+
+    # Composite with equal weights
+    confidence = 0.25 * snp_score + 0.25 * cal_score + 0.25 * ev_score + 0.25 * uncert_score
+    return round(max(0, min(100, confidence)))
+
+
+def confidence_stars(score):
+    """Render 0-5 star confidence indicator."""
+    stars = score / 20  # 0-100 -> 0-5
+    full = int(stars)
+    half = 1 if (stars - full) >= 0.5 else 0
+    empty = 5 - full - half
+    color = "#27ae60" if score >= 75 else ("#f39c12" if score >= 50 else "#e74c3c")
+    return (
+        f'<div style="display:flex;align-items:center;gap:4px;min-width:110px">'
+        f'<span style="color:{color};font-weight:700;font-size:0.85rem;min-width:2.5em">{score:.0f}%</span>'
+        f'<span style="color:#f1c40f;font-size:0.75rem">{"★" * full}{"⯨" if half else ""}{"☆" * empty}</span>'
+        f'</div>'
+    )
+
+
+def calibration_flag(cal_entry):
+    """Render calibration quality badge for a trait."""
+    if not cal_entry:
+        return '<span style="color:#95a5a6;font-size:0.7rem">N/A</span>'
+    slope = safe_float(cal_entry.get("calibration_slope", 1.0))
+    r2 = safe_float(cal_entry.get("r_squared", 0.0))
+    if slope < 0:
+        return (
+            f'<span style="background:#fadbd8;color:#c0392b;padding:2px 6px;border-radius:3px;'
+            f'font-size:0.65rem;font-weight:700" '
+            f'title="Direction reversed! Slope={slope:.2f}">INVERTED</span>'
+        )
+    if r2 >= 0.8 and 0.85 <= slope <= 1.15:
+        return (
+            f'<span style="background:#d5f5e3;color:#1e8449;padding:2px 6px;border-radius:3px;'
+            f'font-size:0.65rem;font-weight:700" '
+            f'title="R²={r2:.3f}, slope={slope:.2f}">GOOD</span>'
+        )
+    if r2 >= 0.5:
+        return (
+            f'<span style="background:#fdebd0;color:#b7950b;padding:2px 6px;border-radius:3px;'
+            f'font-size:0.65rem;font-weight:700" '
+            f'title="R²={r2:.3f}, slope={slope:.2f}">FAIR</span>'
+        )
+    return (
+        f'<span style="background:#fadbd8;color:#c0392b;padding:2px 6px;border-radius:3px;'
+        f'font-size:0.65rem;font-weight:700" '
+        f'title="R²={r2:.3f}, slope={slope:.2f}">POOR</span>'
+    )
+
+
+def trust_tier(confidence_score, cal_entry, snp_ratio, uncertainty):
+    """Classify a trait into TIER 1 (High), TIER 2 (Moderate), or TIER 3 (Low) trust.
+
+    Thresholds are calibrated for the current data reality:
+    - Most traits have 50% SNP coverage (1-2 of 2-4 SNPs available)
+    - Uncertainty is often saturated at 1.0 (effect SE dominates)
+    - TIER 1: good calibration + reasonable confidence despite data limitations
+    - TIER 2: acceptable calibration (not inverted) + moderate confidence
+    - TIER 3: inverted calibration or very low confidence
+    """
+    # TIER 1: >=50% SNPs, good calibration, confidence >= 60
+    if (snp_ratio >= 0.5 and
+            cal_entry and cal_entry.get("is_well_calibrated", False) and
+            safe_float(cal_entry.get("calibration_slope", 1.0)) >= 0 and
+            confidence_score >= 60):
+        return "TIER 1"
+    # TIER 2: >=50% SNPs, NOT inverted calibration, confidence >= 40
+    if (snp_ratio >= 0.5 and
+            cal_entry and
+            safe_float(cal_entry.get("calibration_slope", 0)) >= 0 and
+            confidence_score >= 40):
+        return "TIER 2"
+    return "TIER 3"
+
+
+def trust_badge(tier):
+    """Render a trust tier badge."""
+    styles = {
+        "TIER 1": ("#27ae60", "#d5f5e3", "High Trust"),
+        "TIER 2": ("#f39c12", "#fdebd0", "Moderate Trust"),
+        "TIER 3": ("#e74c3c", "#fadbd8", "Low Trust"),
+    }
+    fg, bg, label = styles.get(tier, ("#95a5a6", "#eaecee", "Unknown"))
+    return (
+        f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;'
+        f'font-size:0.65rem;font-weight:700;white-space:nowrap" '
+        f'title="{tier}: {label}">{tier}</span>'
+    )
+
+
+def mini_decomp_bar(decomp):
+    """Render a compact 3-layer stacked uncertainty bar."""
+    if not decomp:
+        return '<span style="color:#95a5a6;font-size:0.7rem">—</span>'
+    g = max(safe_float(decomp.get("genotype_fraction", 0)) * 100, 1)
+    a = max(safe_float(decomp.get("ancestry_fraction", 0)) * 100, 1)
+    e = max(safe_float(decomp.get("effect_fraction", 0)) * 100, 1)
+    # Dominant component indicator
+    if e > 50:
+        dot_color, dot_title = "#e74c3c", "Effect SE dominates uncertainty"
+    elif g > 50:
+        dot_color, dot_title = "#3498db", "Genotype quality drives uncertainty"
+    else:
+        dot_color, dot_title = "#f39c12", "Ancestry ambiguity drives uncertainty"
+
+    return (
+        f'<div style="display:flex;flex-direction:column;gap:2px;min-width:80px">'
+        f'<div style="display:flex;height:8px;border-radius:3px;overflow:hidden;background:#e9ecef">'
+        f'<div style="width:{g:.0f}%;background:#3498db" title="Genotype: {g:.0f}%"></div>'
+        f'<div style="width:{a:.0f}%;background:#e74c3c" title="Ancestry: {a:.0f}%"></div>'
+        f'<div style="width:{e:.0f}%;background:#f39c12" title="Effect: {e:.0f}%"></div>'
+        f'</div>'
+        f'<div style="display:flex;justify-content:space-between;font-size:0.55rem;color:#7f8c8d">'
+        f'<span>Gen</span><span style="color:{dot_color};font-weight:700" title="{dot_title}">●</span><span>Eff</span>'
+        f'</div>'
+        f'</div>'
+    )
+
+
+def snp_coverage_bar(n_used, n_total):
+    """Render a compact SNP coverage bar with ratio."""
+    ratio = n_used / max(n_total, 1) * 100
+    color = "#27ae60" if ratio >= 75 else ("#f39c12" if ratio >= 50 else "#e74c3c")
+    return (
+        f'<div style="display:flex;align-items:center;gap:4px;min-width:70px">'
+        f'<div style="flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden">'
+        f'<div style="width:{ratio:.0f}%;height:100%;background:{color};border-radius:3px"></div>'
+        f'</div>'
+        f'<span style="font-size:0.7rem;font-weight:600;color:{color};white-space:nowrap">{n_used}/{n_total}</span>'
+        f'</div>'
+    )
+
+
+def portability_banner(portability_data):
+    """Build a portability warning banner for the PRS section."""
+    if not portability_data:
+        return ""
+    global_bias = safe_float(portability_data.get("global_bias_index", 0))
+    pops = portability_data.get("populations", [])
+
+    pop_chips = ""
+    for p in pops:
+        pop = p.get("population", "")
+        status = p.get("status", "")
+        colors = {
+            "GOOD_PORTABILITY": ("#d5f5e3", "#1e8449"),
+            "MODERATE_PORTABILITY": ("#fdebd0", "#b7950b"),
+            "LIMITED_PORTABILITY": ("#fadbd8", "#c0392b"),
+        }
+        bg, fg = colors.get(status, ("#eaecee", "#7f8c8d"))
+        label = status.replace("_PORTABILITY", "").title() if status else "?"
+        pop_chips += (
+            f'<span style="background:{bg};color:{fg};padding:1px 6px;border-radius:3px;'
+            f'font-size:0.65rem;font-weight:700">{pop}: {label}</span> '
+        )
+
+    return (
+        f'<div style="background:#fef9e7;border:2px solid #f39c12;border-radius:8px;'
+        f'padding:0.8rem 1.2rem;margin-bottom:1rem">'
+        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+        f'<span style="font-size:1.2rem">⚠️</span>'
+        f'<div>'
+        f'<strong style="color:#b7950b">Population Portability Notice:</strong>'
+        f'<p style="font-size:0.8rem;margin:4px 0 0;color:#7d6608">'
+        f'PRS scores are calibrated for EUR populations. Cross-population portability is '
+        f'<strong>LIMITED</strong> for non-EUR ancestries '
+        f'(Global Bias Index: {global_bias:.3f}). '
+        f'AFR shows the highest bias due to differing LD structure and allele frequencies. '
+        f'Results should be interpreted with caution for non-European samples.'
+        f'</p>'
+        f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">{pop_chips}</div>'
+        f'</div></div></div>'
+    )
+
+
+def trait_limitations_badges(trait_entry, cal_entry):
+    """Generate per-trait limitation badges for the PRS table."""
+    issues = []
+    n_used = trait_entry.get("n_snps_used", 0)
+    n_total = trait_entry.get("n_snps_total", 0)
+    uncertainty = safe_float(trait_entry.get("uncertainty_score", 1.0))
+
+    if n_total > 0 and n_used / n_total < 0.5:
+        issues.append(("Low SNPs", "#fadbd8", "#c0392b"))
+    if cal_entry and safe_float(cal_entry.get("calibration_slope", 1.0)) < 0:
+        issues.append(("Inverted cal.", "#fdebd0", "#b7950b"))
+    if uncertainty >= 0.8:
+        issues.append(("High uncert.", "#fdebd0", "#b7950b"))
+
+    if not issues:
+        return '<span style="color:#27ae60;font-size:0.65rem">—</span>'
+
+    badges = ""
+    for text, bg, fg in issues:
+        badges += (
+            f'<span style="background:{bg};color:{fg};padding:1px 5px;border-radius:3px;'
+            f'font-size:0.6rem;font-weight:700;margin-right:2px;white-space:nowrap">{text}</span>'
+        )
+    return badges
+
+
+def trust_tier_legend():
+    """Render a legend box explaining the trust tiers."""
+    return (
+        '<div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;'
+        'padding:0.6rem 1rem;margin-bottom:0.8rem;font-size:0.72rem">'
+        '<strong style="margin-right:8px">Trust Tiers:</strong>'
+        '<span style="background:#d5f5e3;color:#1e8449;padding:2px 6px;border-radius:3px;'
+        'font-weight:700;margin-right:4px">T1 High Trust</span> '
+        'Good calibration + ≥50% SNPs + confidence ≥60% | '
+        '<span style="background:#fdebd0;color:#b7950b;padding:2px 6px;border-radius:3px;'
+        'font-weight:700;margin-right:4px">T2 Moderate</span> '
+        '≥50% SNPs + not inverted + confidence ≥40% | '
+        '<span style="background:#fadbd8;color:#c0392b;padding:2px 6px;border-radius:3px;'
+        'font-weight:700;margin-right:4px">T3 Low Trust</span> '
+        'Inverted calibration or very low confidence'
+        '</div>'
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RADAR CHART
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def build_radar_chart_svg(entries, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None):
+    """Build a pure SVG radar/spider chart showing PRS profile across all traits.
+
+    Returns SVG HTML string (400x400 viewBox). Shows:
+    - 9 axes for each PRS trait, spaced 40° apart
+    - Data points at distance proportional to abs(z_score), capped at z=3.0
+    - Risk-colored polygon fill
+    - 3 concentric reference rings (z=0.5, 1.0, 2.0)
+    - Trust tier indicators per axis
+    """
+    if cal_lookup is None:
+        cal_lookup = {}
+    if uncert_lookup is None:
+        uncert_lookup = {}
+    if evidence_lookup is None:
+        evidence_lookup = {}
+
+    traits = [(e.get("trait", ""),
+               safe_float(e.get("population_zscore", e.get("raw_score", 0))),
+               e.get("risk_category", "medium"))
+              for e in (entries or [])]
+
+    if len(traits) < 3:
+        return ('<div style="text-align:center;padding:2rem;color:var(--color-text-secondary)">'
+                '<p>Insufficient data for radar visualization</p></div>')
+
+    import math
+
+    n = len(traits)
+    cx, cy, r = 200, 200, 155
+    angle_step = 360.0 / n
+
+    svg_parts = [
+        f'<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" '
+        f'style="max-width:420px;width:100%;height:auto;font-family:system-ui,sans-serif">',
+        # Background rings
+    ]
+
+    # Concentric rings for z=0.5, 1.0, 2.0
+    for z_ref, opacity in [(0.5, 0.08), (1.0, 0.12), (2.0, 0.15)]:
+        ring_r = r * (z_ref / 3.0)
+        svg_parts.append(
+            f'<circle cx="{cx}" cy="{cy}" r="{ring_r:.1f}" '
+            f'fill="none" stroke="#bdc3c7" stroke-width="0.8" opacity="{opacity}"/>'
+        )
+
+    # Axis lines and labels
+    points = []
+    for i, (trait, z, risk) in enumerate(traits):
+        angle_deg = angle_step * i - 90  # Start from top
+        angle_rad = angle_deg * 3.14159 / 180.0
+
+        # Axis line using cos/sin
+        ax_x = cx + r * math.cos(angle_rad)
+        ax_y = cy + r * math.sin(angle_rad)
+
+        svg_parts.append(
+            f'<line x1="{cx}" y1="{cy}" x2="{ax_x:.1f}" y2="{ax_y:.1f}" '
+            f'stroke="#dee2e6" stroke-width="0.8" opacity="0.5"/>'
+        )
+
+        # Data point and label
+        abs_z = min(abs(z), 3.0)
+        dist = r * (abs_z / 3.0)
+        px = cx + dist * math.cos(angle_rad)
+        py = cy + dist * math.sin(angle_rad)
+        points.append((px, py))
+
+        color = risk_color(z)
+        tier_color = "#27ae60" if abs_z < 1.0 else ("#f39c12" if abs_z < 2.0 else "#e74c3c")
+
+        # Data point dot
+        svg_parts.append(
+            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{color}" stroke="#fff" stroke-width="1.2"/>'
+        )
+
+        # Axis label (rotated for readability)
+        label_r = r + 18
+        lx = cx + label_r * math.cos(angle_rad)
+        ly = cy + label_r * math.sin(angle_rad)
+        # Truncate long trait names
+        short_name = trait[:14] + ("…" if len(trait) > 14 else "")
+        anchor = "middle"
+        if angle_deg < -150 or angle_deg > 150:
+            anchor = "start"
+        elif -30 < angle_deg < 30:
+            anchor = "end"
+
+        svg_parts.append(
+            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" '
+            f'font-size="7" fill="#7f8c8d" font-weight="500">{short_name}</text>'
+        )
+
+        # Z-score annotation near point
+        z_label_r = dist + 10
+        zx = cx + z_label_r * math.cos(angle_rad)
+        zy = cy + z_label_r * math.sin(angle_rad)
+        svg_parts.append(
+            f'<text x="{zx:.1f}" y="{zy:.1f}" text-anchor="middle" '
+            f'font-size="6.5" fill="{color}" font-weight="700">z={z:+.1f}</text>'
+        )
+
+    # Filled polygon for data points
+    if len(points) >= 3:
+        pts_str = " ".join(f"{px:.1f},{py:.1f}" for px, py in points)
+        main_color = "#3498db"
+
+        # Use the highest risk color for the fill
+        max_abs_z = max(abs(z) for _, z, _ in traits)
+        fill_color = "#e74c3c" if max_abs_z >= 2.0 else ("#f39c12" if max_abs_z >= 1.0 else "#27ae60")
+        svg_parts.append(
+            f'<polygon points="{pts_str}" fill="{fill_color}" fill-opacity="0.12" '
+            f'stroke="{fill_color}" stroke-width="1.5" stroke-opacity="0.5"/>'
+        )
+
+    # Legend box (bottom-right)
+    lx, ly = 280, 320
+    legend_items = [
+        ("z ≥ 2.0", "#e74c3c", "High risk"),
+        ("z 1.0–2.0", "#f39c12", "Elevated"),
+        ("z < 1.0", "#27ae60", "Average"),
+    ]
+    for j, (label, lcolor, desc) in enumerate(legend_items):
+        svg_parts.append(
+            f'<rect x="{lx}" y="{ly + j*14}" width="8" height="8" fill="{lcolor}" rx="1"/>'
+        )
+        svg_parts.append(
+            f'<text x="{lx + 11}" y="{ly + j*14 + 7.5}" font-size="7" fill="#7f8c8d">{label} — {desc}</text>'
+        )
+
+    svg_parts.append('</svg>')
+    return "\n".join(svg_parts)
+
+
 def collapsible_section(section_id, title, content, open_by_default=False):
     """Generate a collapsible HTML section."""
     display = "block" if open_by_default else "none"
@@ -188,8 +597,15 @@ def collapsible_section(section_id, title, content, open_by_default=False):
 # SECTION BUILDERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_summary_cards(prs_result, ancestry, integrity, validation, ui):
-    """Executive summary cards."""
+def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, portability=None):
+    """Executive summary cards with confidence overview."""
+    if cal_lookup is None:
+        cal_lookup = {}
+    if uncert_lookup is None:
+        uncert_lookup = {}
+    if evidence_lookup is None:
+        evidence_lookup = {}
+
     entries = prs_result.get("prs_entries", [])
     n_high = sum(1 for e in entries if e.get("risk_category") == "high")
     n_medium = sum(1 for e in entries if e.get("risk_category") == "medium")
@@ -206,6 +622,55 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui):
     # Find top risk trait
     top_trait = max(entries, key=lambda e: abs(safe_float(e.get("raw_score", 0)))) if entries else None
 
+    # ── Confidence overview ──
+    confidences = []
+    tier_counts = {"TIER 1": 0, "TIER 2": 0, "TIER 3": 0}
+    for e in entries:
+        trait = e.get("trait", "")
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+        snp_ratio = n_used / max(n_total, 1)
+        cal_entry = cal_lookup.get(trait.lower())
+        uncert_entry = uncert_lookup.get(trait.lower())
+        ev_scores = evidence_lookup.get(trait.lower(), [])
+
+        conf = compute_per_trait_confidence(e, cal_entry, uncert_entry, ev_scores)
+        confidences.append(conf)
+        tier = trust_tier(conf, cal_entry, snp_ratio, uncertainty)
+        tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+    avg_conf = sum(confidences) / max(len(confidences), 1) if confidences else 0
+    conf_color = "#27ae60" if avg_conf >= 75 else ("#f39c12" if avg_conf >= 50 else "#e74c3c")
+
+    # Find strongest and weakest findings
+    if entries and confidences:
+        best_idx = max(range(len(confidences)), key=lambda i: confidences[i])
+        worst_idx = min(range(len(confidences)), key=lambda i: confidences[i])
+        strongest = entries[best_idx]
+        weakest = entries[worst_idx]
+        best_trait = strongest.get("trait", "?")
+        worst_trait = weakest.get("trait", "?")
+        best_conf = confidences[best_idx]
+        worst_conf = confidences[worst_idx]
+    else:
+        best_trait, best_conf = "N/A", 0
+        worst_trait, worst_conf = "N/A", 0
+
+    # Portability summary note
+    port_note = ""
+    if portability:
+        global_bias = safe_float(portability.get("global_bias_index", 0))
+        most_biased = portability.get("most_biased", "AFR")
+        if global_bias > 0.15:
+            port_note = (
+                f'<div class="highlight-box" style="background:#fef9e7;border:1px solid #f39c12;margin-top:0.5rem">'
+                f'⚠️ <strong>Portability:</strong> Cross-population bias index: {global_bias:.3f}. '
+                f'Results are least reliable for <strong>{most_biased}</strong> populations. '
+                f'See Population Portability section for details.'
+                f'</div>'
+            )
+
     return f"""
     <div class="summary-grid">
         <div class="summary-card" style="border-left-color:#e74c3c">
@@ -220,6 +685,21 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui):
             <div class="card-number">{n_low}</div>
             <div class="card-label">{ui['risk_low']}</div>
         </div>
+        <div class="summary-card" style="border-left-color:{conf_color}">
+            <div class="card-number" style="color:{conf_color}">{avg_conf:.0f}%</div>
+            <div class="card-label">Avg Confidence</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#27ae60">
+            <div class="card-number" style="color:#27ae60">{tier_counts.get('TIER 1', 0)}</div>
+            <div class="card-label">High Trust (T1)</div>
+        </div>
+        <div class="summary-card" style="border-left-color:#e74c3c">
+            <div class="card-number" style="color:#e74c3c">{tier_counts.get('TIER 3', 0)}</div>
+            <div class="card-label">Low Trust (T3)</div>
+        </div>
+    </div>
+    <div class="radar-container">{build_radar_chart_svg(entries, ui, cal_lookup, uncert_lookup, evidence_lookup)}</div>
+    <div class="summary-grid" style="grid-template-columns:repeat(2,1fr)">
         <div class="summary-card" style="border-left-color:#3498db">
             <div class="card-number" style="font-size:1.2rem">{pop_name}</div>
             <div class="card-label">Ancestry ({confidence})</div>
@@ -228,13 +708,11 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui):
             <div class="card-number">{integrity_score:.0f}</div>
             <div class="card-label">Integrity / 100</div>
         </div>
-        <div class="summary-card" style="border-left-color:#1abc9c">
-            <div class="card-number">{val_status.replace('_', ' ').title()}</div>
-            <div class="card-label">Validation ({val_score:.0f}/100)</div>
-        </div>
     </div>
     {f'<div class="highlight-box"><strong>Top Risk:</strong> {top_trait["trait"]} — raw score {safe_float(top_trait.get("raw_score", 0)):.2f}, {top_trait.get("n_snps_used", 0)}/{top_trait.get("n_snps_total", 0)} SNPs used</div>' if top_trait else ''}
     <div class="highlight-box"><strong>Integrity:</strong> {integrity_cat} — {integrity.get("category_description", "")}</div>
+    <div class="highlight-box"><strong>Strongest Finding:</strong> {best_trait} — {best_conf:.0f}% confidence | <strong>Weakest:</strong> {worst_trait} — {worst_conf:.0f}% confidence</div>
+    {port_note}
     """
 
 
@@ -318,9 +796,19 @@ def build_ancestry_section(ancestry, pca_data, ui):
     """
 
 
-def build_prs_table(entries, ui):
-    """Full PRS results table with risk bars."""
+def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portability=None, evidence_lookup=None):
+    """Full PRS results table with risk bars and confidence metrics."""
+    if cal_lookup is None:
+        cal_lookup = {}
+    if uncert_lookup is None:
+        uncert_lookup = {}
+    if evidence_lookup is None:
+        evidence_lookup = {}
+
     rows = ""
+    confidences = []
+    tier_counts = {"TIER 1": 0, "TIER 2": 0, "TIER 3": 0}
+
     for e in entries:
         trait = e.get("trait", "")
         z = safe_float(e.get("population_zscore", e.get("raw_score", 0)))
@@ -331,6 +819,21 @@ def build_prs_table(entries, ui):
         ci_low = safe_float(e.get("ci_95_lower", 0))
         ci_high = safe_float(e.get("ci_95_upper", 0))
         uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+        snp_ratio = n_used / max(n_total, 1)
+
+        # Look up calibration and uncertainty data
+        cal_entry = cal_lookup.get(trait.lower())
+        uncert_entry = uncert_lookup.get(trait.lower())
+        decomp = uncert_entry.get("decomposition", {}) if uncert_entry else {}
+
+        # Evidence scores from lookup
+        ev_scores = evidence_lookup.get(trait.lower(), [])
+
+        # Compute confidence and tier
+        conf_score = compute_per_trait_confidence(e, cal_entry, uncert_entry, ev_scores)
+        confidences.append(conf_score)
+        tier = trust_tier(conf_score, cal_entry, snp_ratio, uncertainty)
+        tier_counts[tier] = tier_counts.get(tier, 0) + 1
 
         bar_pct = max(5, min(95, pctl))
         color = risk_color(z)
@@ -341,20 +844,52 @@ def build_prs_table(entries, ui):
             <td style="color:{color};font-weight:700">{z:+.2f}</td>
             <td>{pctl:.1f}%</td>
             <td>{risk_badge(risk, ui)}</td>
-            <td>{n_used}/{n_total}</td>
-            <td>[{ci_low:.2f}, {ci_high:.2f}]</td>
-            <td>{uncertainty:.2f}</td>
-            <td style="min-width:140px">{risk_bar(bar_pct, z)}</td>
+            <td>{confidence_stars(conf_score)}</td>
+            <td>{calibration_flag(cal_entry)}</td>
+            <td>{trust_badge(tier)}</td>
+            <td>{snp_coverage_bar(n_used, n_total)}</td>
+            <td>{mini_decomp_bar(decomp)}</td>
+            <td>{trait_limitations_badges(e, cal_entry)}</td>
+            <td style="min-width:120px">{risk_bar(bar_pct, z)}</td>
         </tr>"""
 
+    # Portability banner
+    port_banner = portability_banner(portability) if portability else ""
+
+    # Average confidence
+    avg_conf = sum(confidences) / max(len(confidences), 1) if confidences else 0
+    conf_color = "#27ae60" if avg_conf >= 75 else ("#f39c12" if avg_conf >= 50 else "#e74c3c")
+
+    # Summary bar
+    summary_bar = (
+        f'<div style="display:flex;gap:1rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap">'
+        f'<div style="display:flex;align-items:center;gap:6px">'
+        f'<span style="font-size:0.8rem;font-weight:600">Avg Confidence:</span>'
+        f'<span style="color:{conf_color};font-weight:700;font-size:0.9rem">{avg_conf:.0f}%</span>'
+        f'</div>'
+        f'<span style="color:#7f8c8d">|</span>'
+        f'<span style="font-size:0.75rem">'
+        f'<span style="color:#27ae60;font-weight:700">T1: {tier_counts.get("TIER 1", 0)}</span> / '
+        f'<span style="color:#f39c12;font-weight:700">T2: {tier_counts.get("TIER 2", 0)}</span> / '
+        f'<span style="color:#e74c3c;font-weight:700">T3: {tier_counts.get("TIER 3", 0)}</span>'
+        f'</span>'
+        f'</div>'
+    )
+
     return f"""
+    {port_banner}
+    {trust_tier_legend()}
+    {summary_bar}
+    <div style="overflow-x:auto">
     <table>
         <thead><tr>
-            <th>Trait</th><th>Z-Score</th><th>Percentile</th><th>Risk</th>
-            <th>SNPs Used</th><th>95% CI</th><th>Uncert.</th><th>Risk Bar</th>
+            <th>Trait</th><th>Z</th><th>%ile</th><th>Risk</th>
+            <th>Confidence</th><th>Cal.</th><th>Trust</th>
+            <th>SNPs</th><th>Uncertainty</th><th>Limitations</th><th>Risk Bar</th>
         </tr></thead>
         <tbody>{rows}</tbody>
     </table>
+    </div>
     <p style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:0.75rem;line-height:1.5">
     ⚠️ <strong>Limitations:</strong> PRS estimates <em>relative</em> genetic predisposition — it does <strong>not</strong> predict absolute disease risk.
     Effect sizes are derived primarily from European-ancestry GWAS and may have reduced accuracy in other populations.
@@ -1024,8 +1559,14 @@ def build_methodology_section(prs_result, ancestry):
     """
 
 
-def build_pgs_calibration_section(pgs_data):
-    """PGS Catalog population-calibrated results with clinical interpretation."""
+def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
+    """PGS Catalog population-calibrated results with clinical interpretation.
+
+    Args:
+        pgs_data: PGS calibration report JSON data.
+        ui: Bilingual UI dictionary (optional, for labels).
+        pgs_coverage: {pgs_id: {"n_used": int, "n_total": int}} lookup.
+    """
     summary = pgs_data.get("summary", {})
     high_risk = pgs_data.get("high_risk_traits", [])
     elevated = pgs_data.get("elevated_risk_traits", [])
@@ -1065,20 +1606,54 @@ def build_pgs_calibration_section(pgs_data):
             ctx = f"Genetic predisposition score. Z={z:+.1f} means this individual is at the {pctl:.0f}th percentile of the EUR population for this trait."
         return ctx
 
+    def reliable_badge(reliable):
+        if reliable:
+            return '<span style="background:#d5f5e3;color:#1e8449;padding:2px 6px;border-radius:3px;font-size:0.65rem;font-weight:700">✓ Reliable</span>'
+        return '<span style="background:#fadbd8;color:#c0392b;padding:2px 6px;border-radius:3px;font-size:0.65rem;font-weight:700">⚠ Unreliable</span>'
+
     def row(e):
         r = "🔴" if e.get("z_score",0)>2 else ("🟠" if e.get("z_score",0)>1 else ("🟢" if e.get("z_score",0)<-1 else "🟡"))
         pctl = round(e.get("percentile",50), 1)
         z = e.get("z_score", 0)
+        reliable = e.get("reliable", True)
+        pgs_id = e.get("pgs_id", "")
         significance = "High risk" if z>2 else ("Elevated" if z>1 else ("Low/Protective" if z<-1 else "Population average"))
+
+        # SNP coverage bar
+        cov = pgs_coverage.get(pgs_id, {}) if pgs_coverage else {}
+        n_used = cov.get("n_used", 0)
+        n_total = cov.get("n_total", 0)
+        snp_bar = snp_coverage_bar(n_used, n_total) if n_total > 0 else '<span style="color:#95a5a6;font-size:0.7rem">—</span>'
+
+        # Risk bar
+        bar_pct = max(5, min(95, pctl))
+        risk_bar_html = risk_bar(bar_pct, z)
+
         return f"""<tr>
             <td>{r}</td><td><strong>{e['trait']}</strong></td><td>{e['pgs_id']}</td>
+            <td>{reliable_badge(reliable)}</td>
+            <td>{snp_bar}</td>
             <td style="font-weight:700;color:{'#e74c3c' if z>2 else ('#f39c12' if z>1 else ('#27ae60' if z<-1 else '#2c3e50'))}">{z:+.1f}</td>
             <td>{pctl}%</td><td>{significance}</td><td>{e.get('n_snps',0):,}</td>
+            <td style="min-width:120px">{risk_bar_html}</td>
         </tr>"""
 
-    high_rows = "".join(row(e) for e in high_risk) or "<tr><td colspan='7' style='color:#7f8c8d'>None — no traits at elevated risk</td></tr>"
-    elev_rows = "".join(row(e) for e in elevated) or "<tr><td colspan='7' style='color:#7f8c8d'>None</td></tr>"
-    low_rows = "".join(row(e) for e in low_risk) or "<tr><td colspan='7' style='color:#7f8c8d'>None</td></tr>"
+    # Summary bar
+    all_entries = pgs_data.get("all_entries", [])
+    n_reliable = sum(1 for e in all_entries if e.get("reliable", True))
+    n_total_scores = len(all_entries)
+    summary_html = (
+        f'<div style="display:flex;gap:1rem;align-items:center;margin:0.75rem 0;flex-wrap:wrap;font-size:0.78rem">'
+        f'<span>📊 <strong>PGS Summary:</strong></span>'
+        f'<span style="color:#27ae60;font-weight:700">{n_reliable} reliable</span> / '
+        f'<span style="color:#e74c3c;font-weight:700">{n_total_scores - n_reliable} unreliable</span>'
+        f'<span>of {n_total_scores} scores</span>'
+        f'</div>'
+    )
+
+    high_rows = "".join(row(e) for e in high_risk) or "<tr><td colspan='10' style='color:#7f8c8d'>None — no traits at elevated risk</td></tr>"
+    elev_rows = "".join(row(e) for e in elevated) or "<tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>"
+    low_rows = "".join(row(e) for e in low_risk) or "<tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>"
 
     # Build detailed interpretations
     detail_parts = []
@@ -1113,11 +1688,18 @@ def build_pgs_calibration_section(pgs_data):
     • <strong>Clinical significance</strong>: Z > 2 = notable deviation. Z > 3 = clinically relevant. But <em>genetics is NOT destiny</em> — lifestyle, environment, and medical care often override genetic predisposition.
     </p>
     <h4>🔴 Elevated Risk ({len(high_risk)})</h4>
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{high_rows}</tbody></table>
+    {summary_html}
+    <div style="overflow-x:auto">
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{high_rows}</tbody></table>
+    </div>
     <h4>🟠 Moderate Risk ({len(elevated)})</h4>
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{elev_rows}</tbody></table>
+    <div style="overflow-x:auto">
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{elev_rows}</tbody></table>
+    </div>
     <h4>🟢 Protective / Low Risk ({len(low_risk)})</h4>
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th></tr></thead><tbody>{low_rows}</tbody></table>
+    <div style="overflow-x:auto">
+    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{low_rows}</tbody></table>
+    </div>
 
     {"<h4 style='margin-top:1.5rem'>📋 Detailed Clinical Interpretation</h4>" + ''.join(detail_parts) if detail_parts else ""}
 
@@ -1575,6 +2157,207 @@ def build_pharmgkb_section(pharmgkb_data: dict, ui: dict) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# CLINICAL ACTIONABILITY SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Mapping of PRS high-risk traits to supporting ClinVar genes and PharmGKB genes
+# Based on known biological pathways (verified against actual ClinVar/PharmGKB data)
+CLINICAL_CONVERGENCE_MAP = {
+    "Lipid metabolism": {
+        "clinvar_genes": ["NOS3"], "pharmgkb_genes": ["SLCO1B1"],
+        "context_en": "NOS3 (eNOS) regulates vascular tone and lipid metabolism; SLCO1B1 mediates statin transport. Statin pharmacogenetics may be clinically relevant.",
+        "context_es": "NOS3 (eNOS) regula el tono vascular y el metabolismo lipídico; SLCO1B1 media el transporte de estatinas. La farmacogenética de estatinas puede ser clínicamente relevante.",
+    },
+    "Glucose metabolism": {
+        "clinvar_genes": ["TCF7L2", "CAPN10"], "pharmgkb_genes": [],
+        "context_en": "TCF7L2 is the strongest T2D GWAS hit; CAPN10 was the first T2D locus identified via positional cloning. Both support the polygenic signal.",
+        "context_es": "TCF7L2 es el hit GWAS más fuerte para diabetes tipo 2; CAPN10 fue el primer locus T2D identificado por clonación posicional. Ambos apoyan la señal poligénica.",
+    },
+    "Blood pressure": {
+        "clinvar_genes": ["ECE1"], "pharmgkb_genes": ["CYP2C9"],
+        "context_en": "ECE1 converts big endothelin to active endothelin-1 (vasoconstrictor). CYP2C9 metabolizes NSAIDs and warfarin — may affect drug response in hypertension context.",
+        "context_es": "ECE1 convierte big endotelina en endotelina-1 activa (vasoconstrictor). CYP2C9 metaboliza AINEs y warfarina — puede afectar la respuesta a fármacos en contexto de hipertensión.",
+    },
+    "Folate & methylation": {
+        "clinvar_genes": ["MTHFR"], "pharmgkb_genes": [],
+        "context_en": "MTHFR is central to folate/homocysteine metabolism. Variants affect cardiovascular risk and methylation capacity.",
+        "context_es": "MTHFR es central en el metabolismo de folato/homocisteína. Las variantes afectan el riesgo cardiovascular y la capacidad de metilación.",
+    },
+}
+
+DRUG_PRS_INTERSECTIONS = [
+    {"drug_class": "Statins", "drugs": "atorvastatin, fluvastatin, lovastatin, pitavastatin, simvastatin",
+     "gene": "SLCO1B1", "prs_trait": "Lipid metabolism",
+     "interaction_en": "SLCO1B1 variant reduces statin hepatic uptake → higher plasma levels → increased myopathy risk",
+     "interaction_es": "La variante SLCO1B1 reduce la captación hepática de estatinas → niveles plasmáticos más altos → mayor riesgo de miopatía",
+     "recommendation_en": "Consider lower statin dose or alternative (rosuvastatin, pravastatin). Genetic testing for SLCO1B1 recommended before high-dose simvastatin.",
+     "recommendation_es": "Considerar dosis más baja de estatina o alternativa (rosuvastatina, pravastatina). Prueba genética de SLCO1B1 recomendada antes de simvastatina a dosis altas."},
+    {"drug_class": "Warfarin", "drugs": "warfarin",
+     "gene": "CYP2C9 / VKORC1", "prs_trait": "Blood pressure",
+     "interaction_en": "CYP2C9 reduced-function variant slows warfarin metabolism; VKORC1 variant affects warfarin sensitivity",
+     "interaction_es": "La variante de función reducida de CYP2C9 ralentiza el metabolismo de warfarina; la variante VKORC1 afecta la sensibilidad a warfarina",
+     "recommendation_en": "Start with lower warfarin dose (2-3 mg/day). Monitor INR closely. Consider direct oral anticoagulants as alternative.",
+     "recommendation_es": "Comenzar con dosis más baja de warfarina (2-3 mg/día). Monitorizar INR de cerca. Considerar anticoagulantes orales directos como alternativa."},
+    {"drug_class": "NSAIDs", "drugs": "celecoxib, meloxicam",
+     "gene": "CYP2C9", "prs_trait": "Blood pressure",
+     "interaction_en": "CYP2C9 reduced-function variant slows NSAID clearance. NSAIDs can increase blood pressure via COX-2 mediated sodium retention.",
+     "interaction_es": "La variante de función reducida de CYP2C9 ralentiza la eliminación de AINEs. Los AINEs pueden aumentar la presión arterial por retención de sodio mediada por COX-2.",
+     "recommendation_en": "Monitor blood pressure if NSAID therapy is needed. Consider celecoxib dose reduction in CYP2C9 intermediate metabolizers.",
+     "recommendation_es": "Monitorizar presión arterial si se necesita terapia con AINEs. Considerar reducción de dosis de celecoxib en metabolizadores intermedios de CYP2C9."},
+]
+
+def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entries, ui):
+    """Cross-reference ClinVar + PharmGKB + high-risk PRS into a unified clinical summary.
+
+    Three subsections:
+    (a) High-Confidence Clinical Findings (ClinVar tier≥moderate + PharmGKB actionable)
+    (b) PRS-Gene Convergence (per-trait supporting gene evidence)
+    (c) Drug-Gene-PRS Intersections
+    """
+    lang = ui.get("_lang", "en")
+    is_en = lang == "en"
+
+    T = {
+        "en": {
+            "title": "Clinical Actionability Summary",
+            "desc": "Cross-references ClinVar pathogenic variants, pharmacogenomic findings, and elevated polygenic risk scores to identify clinically relevant intersections. <strong>Research use only — confirm all findings with a healthcare professional.</strong>",
+            "subsection_a": "High-Confidence Clinical Findings",
+            "subsection_b": "PRS-Gene Convergence",
+            "subsection_c": "Drug-Gene-PRS Intersections",
+            "no_data": "No clinical convergence findings identified.",
+            "clinvar_count": "ClinVar High-Confidence",
+            "pharmgkb_count": "PharmGKB Actionable",
+            "prs_high_count": "PRS High-Risk Traits",
+            "findings_total": "Total Convergent Findings",
+            "trait": "PRS Trait",
+            "z_score": "Z-Score",
+            "risk": "Risk",
+            "clinvar_genes": "ClinVar Genes",
+            "pharmgkb_genes": "PharmGKB Genes",
+            "context": "Biological Context",
+            "drug_class": "Drug Class",
+            "drugs": "Drugs",
+            "gene": "Gene",
+            "interaction": "Interaction",
+            "recommendation": "Recommendation",
+        },
+        "es": {
+            "title": "Resumen de Accionabilidad Clínica",
+            "desc": "Cruza variantes patogénicas de ClinVar, hallazgos farmacogenómicos y puntajes de riesgo poligénico elevados para identificar intersecciones clínicamente relevantes. <strong>Solo para investigación — confirma todos los hallazgos con un profesional de la salud.</strong>",
+            "subsection_a": "Hallazgos Clínicos de Alta Confianza",
+            "subsection_b": "Convergencia PRS-Gen",
+            "subsection_c": "Intersecciones Fármaco-Gen-PRS",
+            "no_data": "No se identificaron hallazgos de convergencia clínica.",
+            "clinvar_count": "ClinVar Alta Confianza",
+            "pharmgkb_count": "PharmGKB Accionable",
+            "prs_high_count": "PRS Rasgos Alto Riesgo",
+            "findings_total": "Total Hallazgos Convergentes",
+            "trait": "Rasgo PRS",
+            "z_score": "Z-Score",
+            "risk": "Riesgo",
+            "clinvar_genes": "Genes ClinVar",
+            "pharmgkb_genes": "Genes PharmGKB",
+            "context": "Contexto Biológico",
+            "drug_class": "Clase de Fármaco",
+            "drugs": "Fármacos",
+            "gene": "Gen",
+            "interaction": "Interacción",
+            "recommendation": "Recomendación",
+        },
+    }
+    t = T.get(lang, T["en"])
+
+    # ── Gather data ──
+    variants = clinvar_data.get("pathogenic_variants", []) if clinvar_data else []
+    high_conf_variants = [v for v in variants if v.get("confidence_tier") in ("high", "moderate")]
+    pharm_findings = pharmgkb_data.get("pharmacogenomic_findings", []) if pharmgkb_data else []
+    actionable_pharm = [f for f in pharm_findings if f.get("actionability") in ("critical", "important", "informative")]
+    high_risk_traits = [e for e in (prs_entries or []) if e.get("risk_category") == "high"]
+
+    if not high_conf_variants and not actionable_pharm and not high_risk_traits:
+        return f'<div class="info-card" style="text-align:center;padding:1.5rem"><p style="color:var(--color-text-secondary)">{t["no_data"]}</p></div>'
+
+    # ── (a) High-Confidence Clinical Findings ──
+    total_findings = len(high_conf_variants) + len(actionable_pharm)
+    subsection_a = (
+        f'<div class="info-grid" style="grid-template-columns:repeat(4,1fr)">'
+        f'<div class="info-card" style="border-left:3px solid #27ae60"><h4>{t["clinvar_count"]}</h4><div class="big-stat" style="color:#27ae60">{len(high_conf_variants)}</div></div>'
+        f'<div class="info-card" style="border-left:3px solid #3498db"><h4>{t["pharmgkb_count"]}</h4><div class="big-stat" style="color:#3498db">{len(actionable_pharm)}</div></div>'
+        f'<div class="info-card" style="border-left:3px solid #e74c3c"><h4>{t["prs_high_count"]}</h4><div class="big-stat" style="color:#e74c3c">{len(high_risk_traits)}</div></div>'
+        f'<div class="info-card" style="border-left:3px solid #9b59b6"><h4>{t["findings_total"]}</h4><div class="big-stat" style="color:#9b59b6">{total_findings}</div></div>'
+        f'</div>'
+    )
+
+    # ── (b) PRS-Gene Convergence ──
+    conv_rows = ""
+    for e in high_risk_traits:
+        trait = e.get("trait", "")
+        z = safe_float(e.get("population_zscore", e.get("raw_score", 0)))
+        mapping = CLINICAL_CONVERGENCE_MAP.get(trait, {"clinvar_genes": [], "pharmgkb_genes": [], "context_en": "", "context_es": ""})
+
+        cv_genes_html = ", ".join(
+            f'<span class="clinical-convergence-gene">{g}</span>' for g in mapping.get("clinvar_genes", []))
+        pg_genes_html = ", ".join(
+            f'<span class="clinical-convergence-gene">{g}</span>' for g in mapping.get("pharmgkb_genes", []))
+        ctx = mapping.get("context_en" if is_en else "context_es", "")
+
+        z_color = risk_color(z)
+        risk_label = "HIGHER RISK" if is_en else "RIESGO ELEVADO"
+
+        conv_rows += (
+            f'<tr><td><strong>{trait}</strong></td>'
+            f'<td style="color:{z_color};font-weight:700">{z:+.2f}</td>'
+            f'<td><span style="background:#fadbd8;color:#c0392b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{risk_label}</span></td>'
+            f'<td>{cv_genes_html or "—"}</td>'
+            f'<td>{pg_genes_html or "—"}</td>'
+            f'<td style="font-size:0.78rem;color:var(--color-text-secondary)">{ctx}</td></tr>'
+        )
+
+    subsection_b = (
+        f'<div style="overflow-x:auto"><table>'
+        f'<thead><tr><th>{t["trait"]}</th><th>{t["z_score"]}</th><th>{t["risk"]}</th>'
+        f'<th>{t["clinvar_genes"]}</th><th>{t["pharmgkb_genes"]}</th><th>{t["context"]}</th></tr></thead>'
+        f'<tbody>{conv_rows}</tbody></table></div>'
+    ) if high_risk_traits else f'<p style="color:var(--color-text-secondary)">No elevated PRS traits to cross-reference.</p>'
+
+    # ── (c) Drug-Gene-PRS Intersections ──
+    drug_rows = ""
+    for d in DRUG_PRS_INTERSECTIONS:
+        interaction = d["interaction_en"] if is_en else d["interaction_es"]
+        recommendation = d["recommendation_en"] if is_en else d["recommendation_es"]
+        drug_rows += (
+            f'<tr><td><strong>{d["drug_class"]}</strong><br><span style="font-size:0.72rem;color:var(--color-text-secondary)">{d["drugs"]}</span></td>'
+            f'<td><span class="clinical-convergence-gene">{d["gene"]}</span></td>'
+            f'<td><strong>{d["prs_trait"]}</strong></td>'
+            f'<td style="font-size:0.78rem">{interaction}</td>'
+            f'<td style="font-size:0.78rem;color:#b7950b">{recommendation}</td></tr>'
+        )
+
+    subsection_c = (
+        f'<div style="overflow-x:auto"><table>'
+        f'<thead><tr><th>{t["drug_class"]}</th><th>{t["gene"]}</th><th>{t["trait"]}</th>'
+        f'<th>{t["interaction"]}</th><th>{t["recommendation"]}</th></tr></thead>'
+        f'<tbody>{drug_rows}</tbody></table></div>'
+    )
+
+    return f"""
+    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem">
+        <p style="font-size:0.9rem;margin:0">{t["desc"]}</p>
+    </div>
+    {subsection_a}
+    <h4 style="margin-top:1.5rem">📊 {t["subsection_b"]}</h4>
+    {subsection_b}
+    <h4 style="margin-top:1.5rem">💊 {t["subsection_c"]}</h4>
+    {subsection_c}
+    <div class="disclaimer-box" style="margin-top:1.5rem">
+        <p style="font-size:0.82rem;margin:0;white-space:pre-line">⚠️ RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS. NO PARA DIAGNÓSTICO CLÍNICO.
+These findings are computational intersections of public databases. They do NOT constitute medical advice.
+Always consult a qualified healthcare professional before making any medical decisions.</p>
+    </div>
+    """
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN REPORT BUILDER
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1683,6 +2466,31 @@ tr:hover { background: #f8f9fa; }
     .section-body { display: block !important; }
     .btn-row { display: none; }
 }
+
+/* Confidence & trust tier elements */
+.confidence-stars { display: flex; align-items: center; gap: 4px; min-width: 110px; }
+.tier-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
+.tier-1 { background: #d5f5e3; color: #1e8449; }
+.tier-2 { background: #fdebd0; color: #b7950b; }
+.tier-3 { background: #fadbd8; color: #c0392b; }
+.decomp-bar { display: flex; height: 8px; border-radius: 3px; overflow: hidden; }
+.decomp-bar-gen { background: #3498db; }
+.decomp-bar-anc { background: #e74c3c; }
+.decomp-bar-eff { background: #f39c12; }
+.snp-coverage-bar { height: 6px; border-radius: 3px; overflow: hidden; flex: 1; }
+.confidence-bar { height: 6px; border-radius: 3px; overflow: hidden; min-width: 50px; }
+.confidence-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+.portability-banner { background: #fef9e7; border: 2px solid #f39c12; border-radius: 8px; }
+.cal-badge { padding: 2px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
+.limit-badge { padding: 1px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: 700; margin-right: 2px; white-space: nowrap; }
+.trust-legend { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.8rem; font-size: 0.72rem; }
+.radar-container { display: flex; justify-content: center; margin: 1rem 0; }
+.radar-svg { max-width: 420px; height: auto; }
+
+/* Clinical actionability */
+.clinical-convergence-card { background: var(--color-surface); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); margin: 0.5rem 0; }
+.clinical-convergence-gene { display: inline-block; padding: 1px 6px; background: #eaf2f8; border-radius: 3px; font-size: 0.72rem; font-weight: 600; margin: 1px; }
+.clinical-convergence-drug { display: inline-block; padding: 1px 6px; background: #fef9e7; border-radius: 3px; font-size: 0.72rem; font-weight: 600; margin: 1px; }
 """
 
 JS = """
@@ -1720,7 +2528,11 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     # 1. Summary (always open)
     sections_html += collapsible_section("summary", f"📊 {s['summary']}",
         build_summary_cards(data["prs_result"], data["ancestry"],
-                           data["integrity"], data["validation"], ui),
+                           data["integrity"], data["validation"], ui,
+                           cal_lookup=data.get("_cal_lookup", {}),
+                           uncert_lookup=data.get("_uncert_lookup", {}),
+                           evidence_lookup=data.get("_evidence_lookup", {}),
+                           portability=data.get("portability", {})),
         open_by_default=True)
 
     # 2. Ancestry
@@ -1780,7 +2592,11 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
 
     # 3. PRS Results (always open)
     sections_html += collapsible_section("prs", f"📈 {s['prs']}",
-        build_prs_table(data["prs_result"].get("prs_entries", []), ui),
+        build_prs_table(data["prs_result"].get("prs_entries", []), ui,
+                       cal_lookup=data.get("_cal_lookup", {}),
+                       uncert_lookup=data.get("_uncert_lookup", {}),
+                       portability=data.get("portability", {}),
+                       evidence_lookup=data.get("_evidence_lookup", {})),
         open_by_default=True)
 
     # 4. Uncertainty Decomposition
@@ -1799,7 +2615,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     pgs_data = data.get("pgs_calibration", {})
     if pgs_data and pgs_data.get("all_entries"):
         sections_html += collapsible_section("pgs_calibration", f"🧬 {s.get('pgs_calibration', 'PGS Catalog Calibration')}",
-            build_pgs_calibration_section(pgs_data))
+            build_pgs_calibration_section(pgs_data, ui=ui,
+                                         pgs_coverage=data.get("_pgs_coverage_lookup", {})))
 
     # 6c. ClinVar Pathogenic Variants
     clinvar_data = data.get("clinvar", {})
@@ -1812,6 +2629,14 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     if pharmgkb_findings:
         sections_html += collapsible_section("pharmgkb", "💊 Pharmacogenomics — Drug Response",
             build_pharmgkb_section(pharmgkb_data, ui))
+
+    # 6e. Clinical Actionability Summary (cross-references ClinVar + PharmGKB + PRS)
+    sections_html += collapsible_section("clinical_actionability", "🏥 Clinical Actionability Summary",
+        build_clinical_actionability_section(
+            data.get("clinvar", {}),
+            data.get("pharmgkb", {}),
+            data["prs_result"].get("prs_entries", []),
+            ui))
 
     # 7. Population Portability
     sections_html += collapsible_section("portability", f"🌐 {s['portability']}",
@@ -1858,8 +2683,39 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         build_methodology_section(data["prs_result"], data["ancestry"]))
 
     # 18. Limitations (always open)
+    # Build per-trait limitation notes
+    entries = data["prs_result"].get("prs_entries", [])
+    cal_lookup = data.get("_cal_lookup", {})
+    trait_notes = ""
+    for e in entries:
+        trait = e.get("trait", "")
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+        cal_entry = cal_lookup.get(trait.lower(), {})
+        issues = []
+        if n_total > 0 and n_used / n_total < 0.5:
+            issues.append(f"Only {n_used} of {n_total} SNPs available — result may not capture full genetic risk")
+        if cal_entry and safe_float(cal_entry.get("calibration_slope", 1.0)) < 0:
+            slope = safe_float(cal_entry.get("calibration_slope", 0))
+            issues.append(f"Calibration direction is reversed (slope={slope:.2f}) — percentile may be unreliable")
+        if uncertainty >= 0.8:
+            issues.append("Effect size uncertainty dominates — use with caution")
+        if issues:
+            trait_notes += f"<li><strong>{trait}:</strong> {'; '.join(issues)}</li>"
+        else:
+            trait_notes += f"<li><strong>{trait}:</strong> No significant limitations detected</li>"
+
+    limitations_html = (
+        f'<h4>Per-Trait Confidence Notes</h4>'
+        f'<ul style="font-size:0.82rem;line-height:1.6;margin-bottom:1.5rem">{trait_notes}</ul>'
+        f'<div class="disclaimer-box">'
+        f'<h3>⚠️ Important Disclaimer</h3>'
+        f'<p style="white-space:pre-line">{ui["disclaimer"]}</p>'
+        f'</div>'
+    )
     sections_html += collapsible_section("limitations", f"⚠️ {s['limitations']}",
-        f'<div class="disclaimer-box"><h3>⚠️ Important Disclaimer</h3><p style="white-space:pre-line">{ui["disclaimer"]}</p></div>',
+        limitations_html,
         open_by_default=True)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -1948,6 +2804,62 @@ def main():
     data["clinvar"] = load_json("clinvar/clinvar_pathogenic_variants.json")
     data["pharmgkb"] = load_json("pharmgkb/pharmgkb_drug_report.json")
     data["deep_ancestry"] = load_json("ancestry/deep_ancestry.json")
+
+    # NEW: Load calibration validation data per trait (for confidence scores)
+    data["calibration_validation"] = load_json("benchmark/calibration_validation.json")
+
+    # Build per-trait calibration lookup
+    cal_lookup = {}
+    for v in data["calibration_validation"].get("validations", []):
+        cal_lookup[v["trait"].lower()] = v
+    data["_cal_lookup"] = cal_lookup
+
+    # Build per-trait uncertainty decomposition lookup
+    uncert_lookup = {}
+    for r in data.get("uncertainty_report", {}).get("results", []):
+        uncert_lookup[r["trait"].lower()] = r
+    data["_uncert_lookup"] = uncert_lookup
+
+    # Build per-trait evidence level lookup from SNP database
+    evidence_lookup = {}
+    snp_db_path = args.snp_db
+    if os.path.exists(snp_db_path):
+        try:
+            snp_db = pd.read_csv(snp_db_path, dtype=str)
+            for col in ["trait_category", "trait", "Trait", "trait_name"]:
+                if col in snp_db.columns:
+                    trait_col = col
+                    break
+            else:
+                trait_col = None
+            if trait_col:
+                ev_map = {"A": 100, "B": 75, "C": 50, "D": 25}
+                for _, row in snp_db.iterrows():
+                    trait = str(row.get(trait_col, "")).strip().lower()
+                    ev = str(row.get("evidence_level", row.get("evidence", "C"))).strip().upper()
+                    ev_score = ev_map.get(ev, 50)
+                    if trait not in evidence_lookup:
+                        evidence_lookup[trait] = []
+                    evidence_lookup[trait].append(ev_score)
+        except Exception:
+            pass
+    data["_evidence_lookup"] = evidence_lookup
+
+    # Build PGS coverage lookup from pgs_results.csv
+    pgs_coverage_lookup = {}
+    pgs_results_path = "prs/pgs_scores/pgs_results.csv"
+    if os.path.exists(pgs_results_path):
+        try:
+            pgs_results = pd.read_csv(pgs_results_path, dtype=str)
+            for _, row in pgs_results.iterrows():
+                pgs_id = str(row.get("pgs_id", "")).strip()
+                n_used = safe_float(row.get("n_snps_used", 0))
+                n_total = safe_float(row.get("n_snps_in_score", 0))
+                if pgs_id:
+                    pgs_coverage_lookup[pgs_id] = {"n_used": n_used, "n_total": n_total}
+        except Exception:
+            pass
+    data["_pgs_coverage_lookup"] = pgs_coverage_lookup
 
     # Log what was found
     for name, d in data.items():

@@ -178,3 +178,15 @@ rs2808630,CRP,Inflammation (CRP levels),C,T,C/C,+,0.20,B,18385763,CRP; C-reactiv
 rs2075650,TOMM40,Longevity & aging,A,G,G/G,+,0.22,B,19654922,TOMM40/APOE region; longevity and healthy aging,,,,chr19,45395619
 rs7689424,TERT,Telomere length,T,C,T/T,+,0.18,C,23337216,TERT; telomerase; telomere length and cellular aging,,,,chr5,1254653
 rs10224002,FOXO3,Longevity & lifespan,G,T,G/G,+,0.20,B,19654922,FOXO3; additional variant; lifespan regulation,,,,chr6,108960955
+rs11547464,MC1R,Hair color (red),T,C,T/T,+,0.30,A,23579845,MC1R red hair variant R151C; strongest red hair predictor after rs1805007,,,EUR,chr16,89985861
+rs1110400,MC1R,Hair color (red),C,T,C/C,+,0.20,A,23579845,MC1R red hair variant I155T; contributes to RHC phenotype,,,EUR,chr16,89986154
+rs1393350,TYR,Hair color (blonde),A,G,A/A,+,0.25,A,17999355,TYR variant associated with blonde vs brown hair in Europeans,,,EUR,chr11,89011094
+rs12203592,IRF4,Hair color (blonde),T,C,T/T,+,0.20,A,27182965,IRF4 variant; associated with lighter hair (blonde) in Europeans,,,EUR,chr6,396321
+rs12913832,HERC2,Hair color (blonde),C,T,C/C,+,0.25,A,18483556,HERC2/OCA2; C allele associated with lighter hair and blue eyes,,,EUR,chr15,28365618
+rs12913832,HERC2,Hair color (brown),T,C,T/T,+,0.30,A,18483556,HERC2/OCA2; T allele associated with brown hair and brown eyes,,,EUR,chr15,28365618
+rs16891982,SLC45A2,Hair color (brown),C,G,C/C,+,0.25,A,18483556,SLC45A2; C allele associated with darker hair (brown vs blonde) in Europeans,,,EUR,chr5,33952685
+rs12203592,IRF4,Hair color (brown),C,T,C/C,+,0.20,A,27182965,IRF4; C allele associated with darker hair (brown) in Europeans,,,EUR,chr6,396321
+rs16891982,SLC45A2,Hair color (black),G,C,G/G,+,0.30,A,18483556,SLC45A2; G allele near-fixed in Africans; darkest hair/skin pigmentation,,,Global,chr5,33952685
+rs1426654,SLC24A5,Hair color (black),G,A,G/G,+,0.35,A,16357253,SLC24A5; G allele near-fixed in Africans; strongest pigmentation SNP,,,Global,chr15,48426484
+rs1834640,SLC24A5,Hair color (black),G,A,G/G,+,0.25,A,24045820,SLC24A5 additional variant; dark pigmentation in African and South Asian populations,,,Global,chr15,48426380
+rs12203592,IRF4,Hair graying (early),T,C,T/T,+,0.30,A,27182965,IRF4; strongest GWAS hit for early hair graying; T allele increases risk ~2x per copy,2.0,2.0,EUR,chr6,396321
