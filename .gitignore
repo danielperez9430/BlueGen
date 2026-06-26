@@ -32,7 +32,8 @@ prs_research_pipeline/prs/
 prs_research_pipeline/ancestry/
 prs_research_pipeline/interpretations/
 prs_research_pipeline/reproducibility/
-prs_research_pipeline/science/
+prs_research_pipeline/science/*
+!prs_research_pipeline/science/gwas_classification.json
 prs_research_pipeline/validation/
 prs_research_pipeline/benchmark/
 prs_research_pipeline/reports/

@@ -1,0 +1,55 @@
+{
+  "description": "GWAS study type classification and quality tiers for BlueGen",
+  "generated_date": "2026-06-26",
+  "gwas_population_map": {
+    "Global Lipids Genetics Consortium": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS", "SAS"]},
+    "GIANT": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR"]},
+    "MAGIC": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS"]},
+    "DIAGRAM": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS", "SAS"]},
+    "Coffee and Caffeine Genetics Consortium": {"primary": "EUR", "type": "discovery", "includes": ["EUR"]},
+    "CHARGE": {"primary": "EUR", "type": "discovery", "includes": ["EUR"]},
+    "SUNLIGHT": {"primary": "EUR", "type": "discovery", "includes": ["EUR"]},
+    "Lipid metabolism": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS", "SAS"]},
+    "Glucose metabolism": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS", "SAS", "AFR"]},
+    "Obesity predisposition": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS", "AFR"]},
+    "Caffeine metabolism": {"primary": "EUR", "type": "discovery", "includes": ["EUR"]},
+    "Lactose intolerance": {"primary": "EUR", "type": "multi_population", "includes": ["EUR", "AFR", "SAS"]},
+    "Vitamin D metabolism": {"primary": "EUR", "type": "meta_analysis", "includes": ["EUR", "EAS"]},
+    "Omega-3 metabolism": {"primary": "EUR", "type": "discovery", "includes": ["EUR"]},
+    "Folate & methylation": {"primary": "EUR", "type": "candidate_gene", "includes": ["EUR", "EAS"]},
+    "Dopamine regulation": {"primary": "EUR", "type": "candidate_gene", "includes": ["EUR", "EAS"]},
+    "Detoxification": {"primary": "EUR", "type": "candidate_gene", "includes": ["EUR", "EAS"]}
+  },
+  "evidence_to_type": {
+    "A": "meta_analysis",
+    "B": "replicated",
+    "C": "single_study",
+    "D": "mechanistic"
+  },
+  "type_quality_scores": {
+    "meta_analysis": 1.0,
+    "multi_population": 0.9,
+    "discovery": 0.7,
+    "replicated": 0.6,
+    "single_study": 0.4,
+    "candidate_gene": 0.3,
+    "mendelian": 0.5,
+    "mechanistic": 0.2,
+    "pharmgkb": 0.2,
+    "proxy": 0.1,
+    "unknown": 0.0
+  },
+  "type_descriptions": {
+    "meta_analysis": "Large multi-cohort meta-analysis (n > 50K, p < 5×10⁻⁸). Highest evidence quality.",
+    "multi_population": "Multi-ancestry study covering 2+ continental populations. Good cross-population portability.",
+    "discovery": "Well-powered single-ancestry GWAS with independent replication.",
+    "replicated": "Candidate gene replicated across multiple independent studies.",
+    "single_study": "Single study with suggestive association (p < 10⁻³). Requires replication.",
+    "candidate_gene": "Hypothesis-driven candidate gene study. Limited genome-wide coverage.",
+    "mendelian": "Mendelian trait with known causal variant(s). Non-GWAS evidence.",
+    "mechanistic": "Mechanistic or functional annotation-based. No formal GWAS evidence.",
+    "pharmgkb": "Pharmacogenomic annotation from PharmGKB/CPIC guidelines.",
+    "proxy": "Proxy or indirect evidence from related traits or populations.",
+    "unknown": "No GWAS type classification available."
+  }
+}

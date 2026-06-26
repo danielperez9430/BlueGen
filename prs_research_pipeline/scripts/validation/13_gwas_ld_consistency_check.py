@@ -89,31 +89,78 @@ class TraitConsistencyCheck:
     trait: str
     gwas_population: str
     gwas_type: str
-    target_population: str
-    target_probability: float
-    is_match: bool
-    risk_level: str                       # "ok", "warning", "critical"
-    note: str
+    gwas_quality_score: float = 0.0      # 0.0–1.0 quality tier
+    target_population: str = "EUR"
+    target_probability: float = 1.0
+    is_match: bool = True
+    risk_level: str = "ok"               # "ok", "warning", "critical"
+    note: str = ""
 
 
 class GWASLDConsistencyChecker:
-    """
-    Validates GWAS + LD + ancestry consistency before PRS computation.
 
-    Fail condition: If BOTH GWAS mismatch AND LD mismatch are detected,
-    the pipeline MUST STOP. This prevents scientifically invalid PRS
-    from being computed with mismatched reference data.
+    # ── GWAS Classification Config ────────────────────────────────────────
 
-    Usage:
-        checker = GWASLDConsistencyChecker(ancestry_json_path)
-        result = checker.check_all(
-            gwas_metadata={"source": "Global Lipids Genetics Consortium"},
-            ld_panel_ancestry="EUR",
-            curated_db_path="data/snp_database_annotated.csv",
-        )
-        if not result.passed:
-            raise SystemExit("Consistency check failed — see report")
-    """
+    _gwas_config = None  # Lazy-loaded from JSON
+
+    @classmethod
+    def _load_gwas_config(cls) -> dict:
+        """Load GWAS classification config from JSON (with hardcoded fallback)."""
+        if cls._gwas_config is not None:
+            return cls._gwas_config
+        config_path = Path("science/gwas_classification.json")
+        if config_path.exists():
+            try:
+                cls._gwas_config = json.loads(config_path.read_text())
+                return cls._gwas_config
+            except Exception:
+                pass
+        # Fallback: build from hardcoded constants
+        cls._gwas_config = {
+            "gwas_population_map": GWAS_POPULATION_MAP,
+            "evidence_to_type": EVIDENCE_POPULATION_MAP,
+            "type_quality_scores": {
+                "meta_analysis": 1.0, "multi_population": 0.9, "discovery": 0.7,
+                "replicated": 0.6, "single_study": 0.4, "candidate_gene": 0.3,
+                "mendelian": 0.5, "mechanistic": 0.2, "pharmgkb": 0.2,
+                "proxy": 0.1, "unknown": 0.0,
+            },
+        }
+        return cls._gwas_config
+
+    @staticmethod
+    def _infer_gwas_type(trait: str, trait_snps: pd.DataFrame,
+                         config: dict) -> tuple[str, float]:
+        """Infer GWAS type from trait's SNP evidence levels.
+
+        Uses the dominant evidence level among the trait's SNPs and maps it
+        through evidence_to_type. Returns (gwas_type, quality_score).
+        """
+        evidence_to_type = config.get("evidence_to_type", EVIDENCE_POPULATION_MAP)
+        quality = config.get("type_quality_scores", {})
+
+        if trait_snps is None or len(trait_snps) == 0:
+            return "unknown", 0.0
+
+        # Get evidence levels for this trait's SNPs
+        if "evidence_level" in trait_snps.columns:
+            levels = trait_snps["evidence_level"].dropna().str.strip().str.upper()
+            if len(levels) == 0:
+                return "unknown", 0.0
+            # Use the highest-quality (lowest letter) evidence level
+            # A > B > C > D
+            for level in ["A", "B", "C", "D"]:
+                if level in levels.values:
+                    gwas_type = evidence_to_type.get(level, "unknown")
+                    return gwas_type, quality.get(gwas_type, 0.0)
+            # Fallback: most common level
+            dominant = levels.value_counts().index[0]
+            gwas_type = evidence_to_type.get(dominant, "unknown")
+            return gwas_type, quality.get(gwas_type, 0.0)
+
+        return "unknown", 0.0
+
+    # ── Main class body ───────────────────────────────────────────────────
 
     # Thresholds
     ANCESTRY_MISMATCH_THRESHOLD = 0.5       # P(pop) above this = dominant
@@ -319,7 +366,18 @@ class GWASLDConsistencyChecker:
             for trait in sorted(db["trait_category"].dropna().unique()):
                 trait_info = GWAS_POPULATION_MAP.get(trait, {})
                 gwas_pop = trait_info.get("primary", "EUR")
-                gwas_type = trait_info.get("type", "unknown")
+                gwas_type = trait_info.get("type", "")
+
+                # If not in hardcoded map, infer from evidence levels
+                quality_score = 0.0
+                if not gwas_type:
+                    trait_snps = db[db["trait_category"] == trait]
+                    config = self._load_gwas_config()
+                    gwas_type, quality_score = self._infer_gwas_type(trait, trait_snps, config)
+                else:
+                    config = self._load_gwas_config()
+                    quality_scores = config.get("type_quality_scores", {})
+                    quality_score = quality_scores.get(gwas_type, 0.0)
 
                 is_match = self._population_matches(gwas_pop)
                 target_p = self.target_probs.get(self.target_pop, 1.0)
@@ -339,6 +397,7 @@ class GWASLDConsistencyChecker:
                     trait=trait,
                     gwas_population=gwas_pop,
                     gwas_type=gwas_type,
+                    gwas_quality_score=quality_score,
                     target_population=self.target_pop,
                     target_probability=target_p,
                     is_match=is_match,

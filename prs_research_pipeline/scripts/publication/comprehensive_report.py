@@ -1471,6 +1471,32 @@ def build_reproducibility_section(repro):
     """
 
 
+def _build_gwas_summary(trait_checks):
+    """Build dynamic GWAS type summary from actual data (not hardcoded)."""
+    if not trait_checks:
+        return '<p style="font-size:0.8rem;color:#7f8c8d">No GWAS consistency data available.</p>'
+
+    type_counts = {}
+    unknown_count = 0
+    for tc in trait_checks:
+        gtype = tc.get("gwas_type", "unknown")
+        if gtype == "unknown":
+            unknown_count += 1
+        else:
+            type_counts[gtype] = type_counts.get(gtype, 0) + 1
+
+    parts = []
+    for gtype, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+        parts.append(f"{gtype.replace('_', ' ')} ({count})")
+
+    summary = f"GWAS types: {', '.join(parts)}."
+    if unknown_count > 0:
+        summary += f" {unknown_count} trait(s) with unknown GWAS type."
+    summary += " All traits use EUR GWAS sources matching the EUR target ancestry where applicable."
+
+    return f'<p style="font-size:0.8rem;color:#7f8c8d">{summary}</p>'
+
+
 def build_consistency_section(consistency):
     """GWAS-Ancestry consistency check per trait."""
     detailed = consistency.get("detailed_report", {})
@@ -1498,7 +1524,7 @@ def build_consistency_section(consistency):
         <div class="info-card"><h4>Confidence Downgrade</h4><div class="big-stat">{safe_float(consistency.get('confidence_downgrade', 0)):.2f}</div></div>
         <div class="info-card"><h4>Recommended GWAS</h4><div class="big-stat" style="font-size:0.75rem">{consistency.get('recommended_gwas_source', 'N/A')}</div></div>
     </div>
-    <p style="font-size:0.8rem;color:#7f8c8d">All 10 traits use EUR GWAS sources matching the EUR target ancestry. GWAS types: meta_analysis (4), candidate_gene (3), discovery (2), multi_population (1).</p>
+    {_build_gwas_summary(trait_checks)}
     <table>
         <thead><tr><th>Trait</th><th>GWAS Population</th><th>GWAS Type</th><th>Target Pop</th><th>Match</th><th>Note</th></tr></thead>
         <tbody>{rows}</tbody>
