@@ -1,102 +1,101 @@
 rsid,gene,trait_category,effect_allele,reference_allele,risk_genotype,effect_direction,weight,evidence_level,pmid,notes,effect_size,odds_ratio,population,chrom,pos
 rs762551,CYP1A2,Caffeine metabolism,C,A,A/A,+,0.35,B,16522833,Slow metabolizer; increased caffeine half-life,,,,chr15,75041917
-rs2069514,CYP1A2,Caffeine metabolism,G,A,G/G,+,0.20,C,19451879,Altered enzyme inducibility,,,,chr15,75042703
-rs35694136,CYP1A2,Caffeine metabolism,del,T,del/del,+,0.15,D,,Promoter deletion variant affecting expression,,,,chr15,75042610
-rs4410790,AHR,Caffeine metabolism,C,T,C/C,+,0.30,A,21273500,GWAS hit for caffeine consumption,,,,chr7,17338269
-rs6968865,AHR,Caffeine metabolism,T,G,T/T,+,0.18,C,23744108,AHR pathway modulation,,,,chr7,17355913
-rs2472297,CYP1A2,Caffeine metabolism,T,C,T/T,+,0.22,A,21273500,Linked to coffee consumption (GWAS),,,,chr15,75027730
-rs1378942,CYP1A2,Caffeine metabolism,C,A,C/C,+,0.12,D,,Near CYP1A2-CSK region,,,,chr15,75035457
-rs2470893,CYP1A2,Caffeine metabolism,T,C,T/T,+,0.14,C,21273500,Associated with caffeine metabolite ratio,,,,chr15,75027562
+rs2069514,CYP1A2,Caffeine metabolism,G,A,G/G,+,0.20,C,19451879,Altered enzyme inducibility,,,,chr15,75038220
+rs35694136,CYP1A2,Caffeine metabolism,del,T,del/del,+,0.15,D,,Promoter deletion variant affecting expression,,,,chr15,75039613
+rs4410790,AHR,Caffeine metabolism,C,T,C/C,+,0.30,A,21273500,GWAS hit for caffeine consumption,,,,chr7,17284577
+rs6968865,AHR,Caffeine metabolism,T,G,T/T,+,0.18,C,23744108,AHR pathway modulation,,,,chr7,17287269
+rs2472297,CYP1A2,Caffeine metabolism,T,C,T/T,+,0.22,A,21273500,Linked to coffee consumption (GWAS),,,,chr15,75027880
+rs1378942,CYP1A2,Caffeine metabolism,C,A,C/C,+,0.12,D,,Near CYP1A2-CSK region,,,,chr15,75077367
+rs2470893,CYP1A2,Caffeine metabolism,T,C,T/T,+,0.14,C,21273500,Associated with caffeine metabolite ratio,,,,chr15,75019449
 rs429358,APOE,Lipid metabolism,C,T,C/C,+,0.40,A,23833277,APOE ε4 allele; elevated LDL-C,,,,chr19,45411941
 rs7412,APOE,Lipid metabolism,T,C,T/T,+,0.35,A,23833277,APOE ε2 effect on triglycerides,,,,chr19,45412079
 rs688,LDLR,Lipid metabolism,T,C,T/T,+,0.25,A,24097068,LDLR gene; elevated LDL cholesterol (GWAS),,,,chr19,11227602
-rs11206510,PCSK9,Lipid metabolism,T,C,T/T,+,0.30,A,24097068,PCSK9 variant; LDL-C levels (GWAS),,,,chr1,55518467
+rs11206510,PCSK9,Lipid metabolism,T,C,T/T,+,0.30,A,24097068,PCSK9 variant; LDL-C levels (GWAS),,,,chr1,55496039
 rs2479409,PCSK9,Lipid metabolism,G,A,G/G,+,0.22,A,24097068,LDL-C associated variant,,,,chr1,55504650
 rs1367117,APOB,Lipid metabolism,A,G,A/A,+,0.28,A,24097068,APOB; LDL-C and total cholesterol,,,,chr2,21263900
-rs1042034,APOB,Lipid metabolism,T,C,T/T,+,0.20,B,20657596,APOB polymorphism; lipid profile,,,,chr2,21264321
+rs1042034,APOB,Lipid metabolism,T,C,T/T,+,0.20,B,20657596,APOB polymorphism; lipid profile,,,,chr2,21225281
 rs328,LPL,Lipid metabolism,G,C,C/C,+,0.25,A,24097068,LPL S447X; HDL-C and triglycerides,,,,chr8,19819724
 rs12678919,LPL,Lipid metabolism,A,G,A/A,+,0.22,A,24097068,LPL region; triglycerides (GWAS),,,,chr8,19844222
-rs1801177,LPL,Lipid metabolism,A,G,A/A,+,0.18,B,9380775,LPL D9N variant,,,,chr8,19822690
-rs3135506,APOA5,Lipid metabolism,C,G,C/C,+,0.30,A,24097068,APOA5; triglycerides (GWAS),,,,chr11,116648917
+rs1801177,LPL,Lipid metabolism,A,G,A/A,+,0.18,B,9380775,LPL D9N variant,,,,chr8,19805708
+rs3135506,APOA5,Lipid metabolism,C,G,C/C,+,0.30,A,24097068,APOA5; triglycerides (GWAS),,,,chr11,116662407
 rs662799,APOA5,Lipid metabolism,G,A,G/G,+,0.28,A,24097068,APOA5 promoter variant; TG levels,,,,chr11,116663707
 rs646776,CELSR2,Lipid metabolism,C,T,C/C,+,0.26,A,24097068,CELSR2-PSRC1-SORT1 locus; LDL-C,,,,chr1,109818530
 rs6511720,LDLR,Lipid metabolism,T,G,G/G,+,0.24,A,24097068,LDLR intronic variant; LDL-C levels,,,,chr19,11202306
 rs964184,APOA1,Lipid metabolism,G,C,G/G,+,0.26,A,24097068,APOA1/C3/A4/A5 cluster; lipid regulation,,,,chr11,116648917
-rs174546,FADS1,Omega-3 metabolism,T,C,T/T,+,0.30,A,21829377,FADS1; reduced desaturase activity → lower LC-PUFA,,,,chr11,61560830
-rs174547,FADS1,Omega-3 metabolism,T,C,T/T,+,0.28,A,21829377,FADS1; phospholipid fatty acid levels,,,,chr11,61561793
-rs174548,FADS1,Omega-3 metabolism,G,C,G/G,+,0.22,A,21829377,FADS1; correlated with FADS haplotypes,,,,chr11,61563105
+rs174546,FADS1,Omega-3 metabolism,T,C,T/T,+,0.30,A,21829377,FADS1; reduced desaturase activity → lower LC-PUFA,,,,chr11,61569830
+rs174547,FADS1,Omega-3 metabolism,T,C,T/T,+,0.28,A,21829377,FADS1; phospholipid fatty acid levels,,,,chr11,61570783
+rs174548,FADS1,Omega-3 metabolism,G,C,G/G,+,0.22,A,21829377,FADS1; correlated with FADS haplotypes,,,,chr11,61571348
 rs1535,FADS2,Omega-3 metabolism,A,G,A/A,+,0.25,A,21829377,FADS2; key desaturase for ALA→EPA conversion,,,,chr11,61597972
-rs174575,FADS2,Omega-3 metabolism,G,C,G/G,+,0.20,B,21900093,FADS2; fatty acid desaturase cluster,,,,chr11,61610035
+rs174575,FADS2,Omega-3 metabolism,G,C,G/G,+,0.20,B,21900093,FADS2; fatty acid desaturase cluster,,,,chr11,61602003
 rs174570,FADS2,Omega-3 metabolism,T,C,T/T,+,0.18,C,21829377,FADS2 cluster; additional desaturase marker,,,,chr11,61597212
-rs3734398,ELOVL2,Omega-3 metabolism,C,T,C/C,+,0.22,A,23833277,ELOVL2; elongase activity for LC-PUFA synthesis,,,,chr6,11091587
-rs2236212,ELOVL2,Omega-3 metabolism,G,C,G/G,+,0.16,C,23833277,ELOVL2; additional elongase marker,,,,chr6,11091800
-rs953413,ELOVL2,Omega-3 metabolism,A,G,A/A,+,0.14,C,,ELOVL2; fatty acid elongation,,,,chr6,11084457
-rs174556,FADS1,Omega-3 metabolism,T,C,T/T,+,0.15,D,,FADS1 cluster; additional marker,,,,chr11,61599654
+rs3734398,ELOVL2,Omega-3 metabolism,C,T,C/C,+,0.22,A,23833277,ELOVL2; elongase activity for LC-PUFA synthesis,,,,chr6,10982973
+rs2236212,ELOVL2,Omega-3 metabolism,G,C,G/G,+,0.16,C,23833277,ELOVL2; additional elongase marker,,,,chr6,10995015
+rs953413,ELOVL2,Omega-3 metabolism,A,G,A/A,+,0.14,C,,ELOVL2; fatty acid elongation,,,,chr6,11012859
+rs174556,FADS1,Omega-3 metabolism,T,C,T/T,+,0.15,D,,FADS1 cluster; additional marker,,,,chr11,61580635
 rs1801133,MTHFR,Folate & methylation,T,C,T/T,+,0.40,A,22891605,"C677T; reduced enzyme activity (~35% het, ~70% hom)",,,,chr1,11856378
 rs1801131,MTHFR,Folate & methylation,G,A,G/G,+,0.30,A,22891605,A1298C; reduced MTHFR activity,,,,chr1,11854476
-rs1801394,MTRR,Folate & methylation,G,A,G/G,+,0.25,B,19189260,MTRR A66G; B12 recycling impairment,,,,chr5,7892530
+rs1801394,MTRR,Folate & methylation,G,A,G/G,+,0.25,B,19189260,MTRR A66G; B12 recycling impairment,,,,chr5,7870973
 rs1805087,MTR,Folate & methylation,G,A,G/G,+,0.22,B,14671159,MTR A2756G; methionine synthase variant,,,,chr1,237048500
-rs651852,BHMT,Folate & methylation,T,C,T/T,+,0.18,C,14576077,BHMT; betaine-homocysteine pathway,,,,chr5,79079340
-rs3733890,BHMT,Folate & methylation,A,G,A/A,+,0.16,C,14576077,BHMT R239Q; altered enzyme activity,,,,chr5,79079393
-rs1979277,SHMT1,Folate & methylation,T,C,T/T,+,0.20,B,15890098,SHMT1 C1420T; serine hydroxymethyltransferase,,,,chr17,18231890
-rs1476413,MTHFR,Folate & methylation,A,G,A/A,+,0.14,D,,MTHFR intronic; potential regulatory effect,,,,chr1,11850960
-rs4846049,MTHFR,Folate & methylation,T,G,T/T,+,0.10,D,,MTHFR 3'UTR variant,,,,chr1,11862938
-rs7946,PEMT,Folate & methylation,A,G,A/A,+,0.18,C,17090703,PEMT V175M; phosphatidylethanolamine methylation,,,,chr17,17412072
+rs651852,BHMT,Folate & methylation,T,C,T/T,+,0.18,C,14576077,BHMT; betaine-homocysteine pathway,,,,chr5,78409060
+rs3733890,BHMT,Folate & methylation,A,G,A/A,+,0.16,C,14576077,BHMT R239Q; altered enzyme activity,,,,chr5,78421959
+rs1979277,SHMT1,Folate & methylation,T,C,T/T,+,0.20,B,15890098,SHMT1 C1420T; serine hydroxymethyltransferase,,,,chr17,18232096
+rs1476413,MTHFR,Folate & methylation,A,G,A/A,+,0.14,D,,MTHFR intronic; potential regulatory effect,,,,chr1,11852300
+rs4846049,MTHFR,Folate & methylation,T,G,T/T,+,0.10,D,,MTHFR 3'UTR variant,,,,chr1,11850365
+rs7946,PEMT,Folate & methylation,A,G,A/A,+,0.18,C,17090703,PEMT V175M; phosphatidylethanolamine methylation,,,,chr17,17409560
 rs4988235,MCM6,Lactose intolerance,T,C,C/C,+,0.50,A,11788828,LCT −13910C>T; lactase persistence (T=persistent),,,,chr2,136608646
 rs182549,MCM6,Lactose intolerance,T,C,C/C,+,0.40,A,11788828,LCT −22018G>A; linked to −13910,,,,chr2,136616754
-rs145946881,LCT,Lactose intolerance,G,C,G/G,+,0.20,C,24026706,LCT exonic variant; rare,,,,chr2,136592243
-rs41380247,LCT,Lactose intolerance,T,C,T/T,+,0.15,D,,LCT; additional regulatory variant,,,,chr2,136593551
-rs41525747,LCT,Lactose intolerance,G,C,G/G,+,0.12,D,,LCT; additional regulatory variant,,,,chr2,136594200
-rs9939609,FTO,Obesity predisposition,A,T,A/A,+,0.40,A,17434869,FTO; strongest obesity GWAS hit; +0.39 kg/m² per A,,,,chr16,53799977
+rs145946881,LCT,Lactose intolerance,G,C,G/G,+,0.20,C,24026706,LCT exonic variant; rare,,,,chr2,136608746
+rs41525747,LCT,Lactose intolerance,G,C,G/G,+,0.12,D,,LCT; additional regulatory variant,,,,chr2,136608643
+rs9939609,FTO,Obesity predisposition,A,T,A/A,+,0.40,A,17434869,FTO; strongest obesity GWAS hit; +0.39 kg/m² per A,,,,chr16,53820527
 rs1558902,FTO,Obesity predisposition,A,T,A/A,+,0.35,A,25673413,FTO; BMI association (GIANT consortium),,,,chr16,53803574
 rs1121980,FTO,Obesity predisposition,A,G,A/A,+,0.30,A,17434869,FTO intron 1; obesity risk,,,,chr16,53809247
 rs17782313,MC4R,Obesity predisposition,C,T,C/C,+,0.32,A,19079260,MC4R; appetite regulation; +0.22 kg/m²,,,,chr18,57851097
-rs571312,MC4R,Obesity predisposition,C,A,C/C,+,0.28,A,25673413,MC4R; additional BMI-associated SNP,,,,chr18,57829103
+rs571312,MC4R,Obesity predisposition,C,A,C/C,+,0.28,A,25673413,MC4R; additional BMI-associated SNP,,,,chr18,57839769
 rs2867125,TMEM18,Obesity predisposition,C,T,C/C,+,0.26,A,25673413,TMEM18; BMI GWAS hit,,,,chr2,622827
 rs6265,BDNF,Obesity predisposition,A,G,A/A,+,0.22,A,25673413,BDNF Val66Met; eating behavior,,,,chr11,27679916
-rs10767664,BDNF,Obesity predisposition,A,T,A/A,+,0.18,B,25673413,BDNF region; BMI association,,,,chr11,27721315
-rs10150332,NRXN3,Obesity predisposition,C,T,C/C,+,0.20,A,25673413,NRXN3; waist circumference,,,,chr14,79950816
-rs543874,SEC16B,Obesity predisposition,G,A,G/G,+,0.24,A,25673413,SEC16B; BMI GWAS hit,,,,chr1,17798552
+rs10767664,BDNF,Obesity predisposition,A,T,A/A,+,0.18,B,25673413,BDNF region; BMI association,,,,chr11,27725986
+rs10150332,NRXN3,Obesity predisposition,C,T,C/C,+,0.20,A,25673413,NRXN3; waist circumference,,,,chr14,79936964
+rs543874,SEC16B,Obesity predisposition,G,A,G/G,+,0.24,A,25673413,SEC16B; BMI GWAS hit,,,,chr1,177889480
 rs1421085,FTO,Obesity predisposition,C,T,C/C,+,0.30,A,25673413,FTO; IRX3/IRX5 regulatory element,,,,chr16,53800954
-rs6567160,MC4R,Obesity predisposition,C,T,C/C,+,0.20,B,25673413,MC4R region; body fat distribution,,,,chr18,57829103
+rs6567160,MC4R,Obesity predisposition,C,T,C/C,+,0.20,B,25673413,MC4R region; body fat distribution,,,,chr18,57829135
 rs4680,COMT,Dopamine regulation,G,A,G/G,+,0.35,A,17029632,COMT Val158Met; high activity = lower prefrontal dopamine,,,,chr22,19951271
 rs4633,COMT,Dopamine regulation,T,C,T/T,+,0.22,B,17029632,COMT synonymous; linked to Val158Met,,,,chr22,19950235
-rs4818,COMT,Dopamine regulation,G,C,G/G,+,0.18,C,17029632,COMT; additional activity marker,,,,chr22,19950207
+rs4818,COMT,Dopamine regulation,G,C,G/G,+,0.18,C,17029632,COMT; additional activity marker,,,,chr22,19951207
 rs1800497,ANKK1,Dopamine regulation,A1,A2,A1/A1,+,0.30,A,22796506,DRD2/ANKK1 Taq1A; reduced D2 receptor density (~30%),,,,chr11,113270828
-rs6277,DRD2,Dopamine regulation,T,C,T/T,+,0.22,B,22796506,DRD2 C957T; D2 receptor availability,,,,chr11,113283688
-rs1799732,DRD2,Dopamine regulation,del,C,del/del,+,0.20,B,22796506,DRD2 −141C Ins/Del; promoter activity,,,,chr11,113346025
-rs2283265,DRD2,Dopamine regulation,T,G,T/T,+,0.16,C,,DRD2 intronic variant,,,,chr11,113285550
-rs1076560,DRD2,Dopamine regulation,A,C,A/A,+,0.18,C,22796506,DRD2; splicing variant affecting D2S/D2L ratio,,,,chr11,113286986
-rs4532,DRD1,Dopamine regulation,G,A,G/G,+,0.15,C,,DRD1; D1 receptor variant,,,,chr5,174868799
-rs6280,DRD3,Dopamine regulation,C,T,C/C,+,0.20,B,19480904,DRD3 Ser9Gly; D3 receptor affinity,,,,chr3,114127622
-rs1051740,EPHX1,Detoxification,C,T,C/C,+,0.25,B,15054559,EPHX1 Y113H; microsomal epoxide hydrolase activity,,,,chr1,225995582
+rs6277,DRD2,Dopamine regulation,T,C,T/T,+,0.22,B,22796506,DRD2 C957T; D2 receptor availability,,,,chr11,113283459
+rs1799732,DRD2,Dopamine regulation,del,C,del/del,+,0.20,B,22796506,DRD2 −141C Ins/Del; promoter activity,,,,chr11,113346252
+rs2283265,DRD2,Dopamine regulation,T,G,T/T,+,0.16,C,,DRD2 intronic variant,,,,chr11,113285536
+rs1076560,DRD2,Dopamine regulation,A,C,A/A,+,0.18,C,22796506,DRD2; splicing variant affecting D2S/D2L ratio,,,,chr11,113283688
+rs4532,DRD1,Dopamine regulation,G,A,G/G,+,0.15,C,,DRD1; D1 receptor variant,,,,chr5,174870150
+rs6280,DRD3,Dopamine regulation,C,T,C/C,+,0.20,B,19480904,DRD3 Ser9Gly; D3 receptor affinity,,,,chr3,113890815
+rs1051740,EPHX1,Detoxification,C,T,C/C,+,0.25,B,15054559,EPHX1 Y113H; microsomal epoxide hydrolase activity,,,,chr1,226019633
 rs1800566,NQO1,Detoxification,T,C,T/T,+,0.30,A,15735007,NQO1 P187S; null activity in homozygotes,,,,chr16,69745145
-rs4880,SOD2,Detoxification,C,T,C/C,+,0.22,A,17885939,SOD2 Ala16Val; altered mitochondrial targeting,,,,chr6,160033862
+rs4880,SOD2,Detoxification,C,T,C/C,+,0.22,A,17885939,SOD2 Ala16Val; altered mitochondrial targeting,,,,chr6,160113872
 rs1695,GSTP1,Detoxification,G,A,G/G,+,0.25,A,11502833,GSTP1 Ile105Val; reduced glutathione conjugation,,,,chr11,67352689
 rs1138272,GSTP1,Detoxification,T,C,T/T,+,0.18,B,11502833,GSTP1 Ala114Val; additional activity variant,,,,chr11,67353579
-rs1048943,CYP1A1,Detoxification,G,A,G/G,+,0.20,B,15081107,CYP1A1 Ile462Val; phase I metabolism,,,,chr15,75012920
-rs4646903,CYP1A1,Detoxification,C,T,C/C,+,0.16,C,15081107,CYP1A1 MSP1; T3801C,,,,chr15,75012021
-rs1799930,NAT2,Detoxification,A,G,A/A,+,0.28,A,11505333,NAT2*6; slow acetylator phenotype,,,,chr8,18257781
-rs1799931,NAT2,Detoxification,A,G,A/A,+,0.24,A,11505333,NAT2*7; slow acetylator phenotype,,,,chr8,18257891
-rs1208,NAT2,Detoxification,G,A,G/G,+,0.22,A,11505333,NAT2 K268R; acetylator status marker,,,,chr8,18258188
-rs1042522,TP53,Detoxification,C,G,C/C,+,0.20,B,17311302,TP53 Arg72Pro; apoptosis efficiency,,,,chr17,7676154
-rs2910164,MIR146A,Detoxification,C,G,C/C,+,0.15,C,,miR-146a; inflammatory regulation,,,,chr5,159844916
-rs2228570,VDR,Vitamin D metabolism,G,A,G/G,+,0.28,A,20427223,VDR FokI; altered transcription start → shorter VDR,,,,chr12,48238895
+rs1048943,CYP1A1,Detoxification,G,A,G/G,+,0.20,B,15081107,CYP1A1 Ile462Val; phase I metabolism,,,,chr15,75012985
+rs4646903,CYP1A1,Detoxification,C,T,C/C,+,0.16,C,15081107,CYP1A1 MSP1; T3801C,,,,chr15,75011641
+rs1799930,NAT2,Detoxification,A,G,A/A,+,0.28,A,11505333,NAT2*6; slow acetylator phenotype,,,,chr8,18258103
+rs1799931,NAT2,Detoxification,A,G,A/A,+,0.24,A,11505333,NAT2*7; slow acetylator phenotype,,,,chr8,18258370
+rs1208,NAT2,Detoxification,G,A,G/G,+,0.22,A,11505333,NAT2 K268R; acetylator status marker,,,,chr8,18258316
+rs1042522,TP53,Detoxification,C,G,C/C,+,0.20,B,17311302,TP53 Arg72Pro; apoptosis efficiency,,,,chr17,7579472
+rs2910164,MIR146A,Detoxification,C,G,C/C,+,0.15,C,,miR-146a; inflammatory regulation,,,,chr5,159912418
+rs2228570,VDR,Vitamin D metabolism,G,A,G/G,+,0.28,A,20427223,VDR FokI; altered transcription start → shorter VDR,,,,chr12,48272895
 rs1544410,VDR,Vitamin D metabolism,A,G,A/A,+,0.25,A,20427223,VDR BsmI; 3'UTR regulatory variant,,,,chr12,48239835
 rs7975232,VDR,Vitamin D metabolism,C,A,C/C,+,0.25,A,20427223,VDR ApaI; intronic regulatory variant,,,,chr12,48238837
 rs731236,VDR,Vitamin D metabolism,A,G,A/A,+,0.22,A,20427223,VDR TaqI; synonymous variant in exon 9,,,,chr12,48238757
-rs2282679,GC,Vitamin D metabolism,G,T,G/G,+,0.32,A,20427223,GC (DBP); vitamin D binding protein; 25(OH)D levels (GWAS),,,,chr4,72608388
+rs2282679,GC,Vitamin D metabolism,G,T,G/G,+,0.32,A,20427223,GC (DBP); vitamin D binding protein; 25(OH)D levels (GWAS),,,,chr4,72608383
 rs4588,GC,Vitamin D metabolism,A,C,A/A,+,0.26,A,20427223,GC Thr436Lys; DBP isoform affecting binding affinity,,,,chr4,72618323
 rs7041,GC,Vitamin D metabolism,T,G,T/T,+,0.24,A,20427223,GC Asp432Glu; DBP isoform; 25(OH)D transport,,,,chr4,72618334
-rs10741657,CYP2R1,Vitamin D metabolism,G,A,G/G,+,0.30,A,20427223,CYP2R1; vitamin D 25-hydroxylase; 25(OH)D levels (GWAS),,,,chr11,14900178
-rs2060793,CYP2R1,Vitamin D metabolism,A,G,A/A,+,0.22,A,20427223,CYP2R1; additional 25(OH)D GWAS hit,,,,chr11,14900720
+rs10741657,CYP2R1,Vitamin D metabolism,G,A,G/G,+,0.30,A,20427223,CYP2R1; vitamin D 25-hydroxylase; 25(OH)D levels (GWAS),,,,chr11,14914878
+rs2060793,CYP2R1,Vitamin D metabolism,A,G,A/A,+,0.22,A,20427223,CYP2R1; additional 25(OH)D GWAS hit,,,,chr11,14915310
 rs12785878,DHCR7,Vitamin D metabolism,T,G,T/T,+,0.28,A,20427223,DHCR7; 7-dehydrocholesterol reductase; 25(OH)D GWAS,,,,chr11,71167449
-rs1790349,DHCR7,Vitamin D metabolism,G,A,G/G,+,0.18,C,,DHCR7; additional synthesis pathway marker,,,,chr11,71169839
-rs6013897,CYP24A1,Vitamin D metabolism,A,T,A/A,+,0.20,B,20427223,CYP24A1; vitamin D catabolism; 25(OH)D levels,,,,chr20,52742402
+rs1790349,DHCR7,Vitamin D metabolism,G,A,G/G,+,0.18,C,,DHCR7; additional synthesis pathway marker,,,,chr11,71142350
+rs6013897,CYP24A1,Vitamin D metabolism,A,T,A/A,+,0.20,B,20427223,CYP24A1; vitamin D catabolism; 25(OH)D levels,,,,chr20,52742479
 rs7903146,TCF7L2,Glucose metabolism,T,C,T/T,+,0.40,A,16732285,TCF7L2; strongest T2D GWAS hit; OR ~1.37 per T,,,,chr10,114758349
 rs12255372,TCF7L2,Glucose metabolism,T,G,T/T,+,0.32,A,16732285,TCF7L2; second T2D signal (GWAS),,,,chr10,114808902
 rs4506565,TCF7L2,Glucose metabolism,T,A,T/T,+,0.28,A,16732285,TCF7L2; additional T2D association,,,,chr10,114756041
-rs780094,GCKR,Glucose metabolism,C,T,C/C,+,0.26,A,22885922,GCKR; fasting glucose and triglycerides (GWAS),,,,chr2,27742603
+rs780094,GCKR,Glucose metabolism,C,T,C/C,+,0.26,A,22885922,GCKR; fasting glucose and triglycerides (GWAS),,,,chr2,27741237
 rs1260326,GCKR,Glucose metabolism,T,C,T/T,+,0.24,A,22885922,GCKR P446L; glucokinase regulator; fasting glucose,,,,chr2,27730940
 rs13266634,SLC30A8,Glucose metabolism,C,T,C/C,+,0.30,A,22885922,SLC30A8 R325W; zinc transporter; T2D (GWAS),,,,chr8,118184783
 rs11558471,SLC30A8,Glucose metabolism,A,G,A/A,+,0.20,B,22885922,SLC30A8; additional marker,,,,chr8,118185733
@@ -107,86 +106,84 @@ rs2191349,DGKB,Glucose metabolism,T,G,T/T,+,0.20,A,22885922,DGKB; fasting glucos
 rs1799884,GCK,Glucose metabolism,A,G,A/A,+,0.24,A,22885922,GCK −30G>A; glucokinase promoter; fasting glucose,,,,chr7,44229068
 rs5219,KCNJ11,Glucose metabolism,T,C,T/T,+,0.26,A,22885922,KCNJ11 E23K; K-ATP channel; T2D risk,,,,chr11,17409572
 rs340874,PROX1,Glucose metabolism,C,T,C/C,+,0.20,A,22885922,PROX1; fasting glucose (GWAS),,,,chr1,214159256
-rs11605924,SLC2A2,Glucose metabolism,T,C,T/T,+,0.18,B,22885922,SLC2A2 (GLUT2); glucose sensing and transport,,,,chr3,170733088
-rs1815739,ACTN3,Muscle performance,T,C,C/C,+,0.35,A,11792807,ACTN3 R577X; alpha-actinin-3 deficiency; endurance vs sprint,,,,chr11,66320595
-rs17602729,AMPD1,Muscle performance,T,C,T/T,+,0.25,B,8423771,AMPD1 C34T; exercise-induced fatigue and recovery,,,,chr1,115230037
-rs8192678,PPARGC1A,Muscle performance,G,A,G/G,+,0.20,B,15781777,PPARGC1A Gly482Ser; mitochondrial biogenesis and endurance,,,,chr4,23787700
-rs12722,COL5A1,Tendinopathy risk,T,C,T/T,+,0.22,B,16113833,COL5A1 BstUI RFLP; Achilles tendinopathy and ligament injury,,,,chr9,137534034
-rs679620,MMP3,Tendinopathy risk,A,G,G/G,+,0.20,C,19042922,MMP3; tendon matrix remodeling and injury risk,,,,chr11,102834650
-rs3736228,LRP5,Bone density,C,T,C/C,+,0.25,A,18455228,LRP5 Ala1330Val; bone mineral density and osteoporosis risk,,,,chr11,68191186
-rs4355801,TNFRSF11B,Bone density,A,G,G/G,+,0.20,B,18455228,RANKL pathway; osteoclast regulation and bone density,,,,chr8,119914988
-rs5065,NPPA,Blood pressure,A,G,A/A,+,0.22,B,24667765,NPPA; atrial natriuretic peptide; salt-sensitive hypertension,,,,chr1,11907431
+rs5400,SLC2A2,Glucose metabolism,A,G,A/A,+,0.18,B,22885922,"Corrected 2026-07-14: rsid was corrupted (rs11605924 maps to CRY2, chr11:45873091 GRCh37) - replaced with rs5400 (SLC2A2 Thr110Ile, PMID 18349384), the established GLUT2 sugar-intake variant, confirmed within SLC2A2 (chr3:170,714,137-170,744,539 GRCh37). Effect allele reoriented to GRCh37 forward strand (A = minor/risk allele per Ensembl, matches literature T-allele-carriers-eat-more-sugar reported on coding strand of this minus-strand gene).",,,,chr3,170732300
+rs1815739,ACTN3,Muscle performance,T,C,C/C,+,0.35,A,11792807,ACTN3 R577X; alpha-actinin-3 deficiency; endurance vs sprint,,,,chr11,66328095
+rs17602729,AMPD1,Muscle performance,T,C,T/T,+,0.25,B,8423771,AMPD1 C34T; exercise-induced fatigue and recovery,,,,chr1,115236057
+rs8192678,PPARGC1A,Muscle performance,G,A,G/G,+,0.20,B,15781777,PPARGC1A Gly482Ser; mitochondrial biogenesis and endurance,,,,chr4,23815662
+rs12722,COL5A1,Tendinopathy risk,T,C,T/T,+,0.22,B,16113833,COL5A1 BstUI RFLP; Achilles tendinopathy and ligament injury,,,,chr9,137734416
+rs679620,MMP3,Tendinopathy risk,A,G,G/G,+,0.20,C,19042922,MMP3; tendon matrix remodeling and injury risk,,,,chr11,102713620
+rs3736228,LRP5,Bone density,C,T,C/C,+,0.25,A,18455228,LRP5 Ala1330Val; bone mineral density and osteoporosis risk,,,,chr11,68201295
+rs4355801,TNFRSF11B,Bone density,A,G,G/G,+,0.20,B,18455228,RANKL pathway; osteoclast regulation and bone density,,,,chr8,119923873
+rs5065,NPPA,Blood pressure,A,G,A/A,+,0.22,B,24667765,NPPA; atrial natriuretic peptide; salt-sensitive hypertension,,,,chr1,11906068
 rs699,AGT,Blood pressure,G,A,G/G,+,0.25,A,15326293,AGT M235T; angiotensinogen; essential hypertension risk,,,,chr1,230845794
 rs1801253,ADRB1,Blood pressure,G,C,G/G,+,0.20,B,10195961,ADRB1 Arg389Gly; beta-1 adrenergic receptor; cardiac response,,,,chr10,115805056
-rs6564851,BCMO1,Vitamin A (beta-carotene),T,G,T/T,+,0.25,B,18362332,BCMO1; beta-carotene conversion to retinol,,,,chr16,81274835
+rs6564851,BCMO1,Vitamin A (beta-carotene),T,G,T/T,+,0.25,B,18362332,BCMO1; beta-carotene conversion to retinol,,,,chr16,81264597
 rs33972313,SLC23A1,Vitamin C,G,A,A/A,+,0.20,C,20504927,SLC23A1; vitamin C transport and plasma levels,,,,chr5,138715502
 rs2108622,CYP4F2,Vitamin E,G,A,G/G,+,0.18,B,21443956,CYP4F2; vitamin E metabolism and tocopherol levels,,,,chr19,15990431
-rs1726866,TAS2R38,Bitter taste perception,C,T,T/T,+,0.30,A,12595690,TAS2R38; PTC/PROP taster status,,,,chr7,141672604
-rs713598,TAS2R38,Bitter taste perception,C,G,C/C,+,0.25,A,12595690,TAS2R38 A49P; bitter compound sensitivity,,,,chr7,141672705
-rs10246939,TAS2R38,Bitter taste perception,C,T,T/T,+,0.20,A,12595690,TAS2R38 V262A; bitter taste intensity perception,,,,chr7,141673345
-rs2187668,HLA-DQA1,Celiac disease,T,C,T/T,+,0.40,A,20190752,HLA-DQ2.5 tag; celiac disease risk (DQ2 haplotype),,,,chr6,32605864
-rs7454108,HLA-DQA1,Celiac disease,C,T,T/T,+,0.35,A,20190752,HLA-DQ8 tag; celiac disease risk (DQ8 haplotype),,,,chr6,32634098
-rs10177833,AOC1,Histamine intolerance,T,C,T/T,+,0.22,B,23899958,AOC1/DAO; diamine oxidase activity and histamine degradation,,,,chr7,150543321
-rs2052129,AOC1,Histamine intolerance,G,T,T/T,+,0.18,C,23899958,AOC1/DAO; histamine intolerance severity,,,,chr7,150545290
+rs1726866,TAS2R38,Bitter taste perception,C,T,T/T,+,0.30,A,12595690,TAS2R38; PTC/PROP taster status,,,,chr7,141672705
+rs713598,TAS2R38,Bitter taste perception,C,G,C/C,+,0.25,A,12595690,TAS2R38 A49P; bitter compound sensitivity,,,,chr7,141673345
+rs10246939,TAS2R38,Bitter taste perception,C,T,T/T,+,0.20,A,12595690,TAS2R38 V262A; bitter taste intensity perception,,,,chr7,141672604
+rs2187668,HLA-DQA1,Celiac disease,T,C,T/T,+,0.40,A,20190752,HLA-DQ2.5 tag; celiac disease risk (DQ2 haplotype),,,,chr6,32605884
+rs7454108,HLA-DQA1,Celiac disease,C,T,T/T,+,0.35,A,20190752,HLA-DQ8 tag; celiac disease risk (DQ8 haplotype),,,,chr6,32681483
+rs10156191,AOC1,Histamine intolerance,T,C,T/T,+,0.22,B,23899958,"Corrected 2026-07-14: rsid was corrupted (rs10177833 maps to chr2:74457718 GRCh37, unrelated locus) - replaced with rs10156191, the clinically-used AOC1/DAO missense variant for histamine intolerance (TT = reduced DAO activity), confirmed within AOC1 (chr7:150,521,715-150,558,592 GRCh37). Effect/reference alleles (T/C) unchanged - already valid for this SNP and match literature direction. Complements existing rs2052129 AOC1 row.",,,,chr7,150553605
+rs2052129,AOC1,Histamine intolerance,G,T,T/T,+,0.18,C,23899958,AOC1/DAO; histamine intolerance severity,,,,chr7,150548972
 rs1800562,HFE,Iron levels,G,A,A/A,+,0.30,A,10694398,HFE C282Y; hereditary hemochromatosis and iron overload,,,,chr6,26093141
-rs855791,TMPRSS6,Iron levels,G,A,A/A,+,0.22,B,19836065,TMPRSS6; matriptase-2; iron homeostasis and anemia risk,,,,chr22,37466963
-rs9939609,FTO,Body composition,A,T,A/A,+,0.32,A,17434869,FTO; fat mass and obesity; body fat percentage and BMI,,,,chr16,53799977
-rs17782313,MC4R,Body composition,T,C,C/C,+,0.25,A,18454148,MC4R; appetite regulation and waist circumference,,,,chr18,58013564
-rs734553,SLC2A9,Urate levels,T,G,T/T,+,0.30,A,18327256,SLC2A9/GLUT9; uric acid transporter and gout risk,,,,chr4,10024959
-rs2231142,ABCG2,Urate levels,T,G,T/T,+,0.28,A,18327256,ABCG2 Q141K; urate excretion and gout susceptibility,,,,chr4,89030591
-rs3764261,CETP,HDL/LDL extended,G,T,G/G,+,0.30,A,17903292,CETP; cholesteryl ester transfer; HDL-C levels,,,,chr16,56978523
-rs1800588,LIPC,HDL/LDL extended,C,T,C/C,+,0.22,B,15013120,LIPC; hepatic lipase; HDL-C size and metabolism,,,,chr15,58720808
-rs670,APOA1,Apolipoprotein A1,A,G,A/A,+,0.25,B,15769508,APOA1; apolipoprotein A1 levels; HDL component,,,,chr11,116705842
-rs1042031,APOB,Apolipoprotein B,G,A,G/G,+,0.22,B,20657596,APOB; apolipoprotein B levels; LDL component,,,,chr2,21263356
-rs2282679,GC,Vitamin D binding,T,G,T/T,+,0.22,A,20418485,GC/DBP; vitamin D binding protein; 25-OH vitamin D levels,,,,chr4,72610315
-rs12785878,DHCR7,Vitamin D synthesis,G,T,G/G,+,0.20,A,20418485,DHCR7; 7-dehydrocholesterol reductase; vitamin D synthesis,,,,chr11,71416923
-rs10741657,CYP2R1,Vitamin D activation,G,A,G/G,+,0.20,A,20418485,CYP2R1; vitamin D 25-hydroxylase; activation to calcidiol,,,,chr11,14917320
-rs1801131,MTHFR,Folate & methylation,A,C,C/C,+,0.22,B,10557310,MTHFR A1298C; additional folate cycle variant; DNA methylation,,,,chr1,11864800
+rs855791,TMPRSS6,Iron levels,G,A,A/A,+,0.22,B,19836065,TMPRSS6; matriptase-2; iron homeostasis and anemia risk,,,,chr22,37462936
+rs9939609,FTO,Body composition,A,T,A/A,+,0.32,A,17434869,FTO; fat mass and obesity; body fat percentage and BMI,,,,chr16,53820527
+rs17782313,MC4R,Body composition,T,C,C/C,+,0.25,A,18454148,MC4R; appetite regulation and waist circumference,,,,chr18,57851097
+rs734553,SLC2A9,Urate levels,T,G,T/T,+,0.30,A,18327256,SLC2A9/GLUT9; uric acid transporter and gout risk,,,,chr4,9923004
+rs2231142,ABCG2,Urate levels,T,G,T/T,+,0.28,A,18327256,ABCG2 Q141K; urate excretion and gout susceptibility,,,,chr4,89052323
+rs3764261,CETP,HDL/LDL extended,G,T,G/G,+,0.30,A,17903292,CETP; cholesteryl ester transfer; HDL-C levels,,,,chr16,56993324
+rs1800588,LIPC,HDL/LDL extended,C,T,C/C,+,0.22,B,15013120,LIPC; hepatic lipase; HDL-C size and metabolism,,,,chr15,58723675
+rs670,APOA1,Apolipoprotein A1,A,G,A/A,+,0.25,B,15769508,APOA1; apolipoprotein A1 levels; HDL component,,,,chr11,116708413
+rs1042031,APOB,Apolipoprotein B,G,A,G/G,+,0.22,B,20657596,APOB; apolipoprotein B levels; LDL component,,,,chr2,21225753
+rs2282679,GC,Vitamin D binding,T,G,T/T,+,0.22,A,20418485,GC/DBP; vitamin D binding protein; 25-OH vitamin D levels,,,,chr4,72608383
+rs12785878,DHCR7,Vitamin D synthesis,G,T,G/G,+,0.20,A,20418485,DHCR7; 7-dehydrocholesterol reductase; vitamin D synthesis,,,,chr11,71167449
+rs10741657,CYP2R1,Vitamin D activation,G,A,G/G,+,0.20,A,20418485,CYP2R1; vitamin D 25-hydroxylase; activation to calcidiol,,,,chr11,14914878
+rs1801131,MTHFR,Folate & methylation,A,C,C/C,+,0.22,B,10557310,MTHFR A1298C; additional folate cycle variant; DNA methylation,,,,chr1,11854476
 rs1695,GSTP1,Detoxification,A,G,G/G,+,0.20,B,11600223,GSTP1 Ile105Val; glutathione S-transferase; xenobiotic detox,,,,chr11,67352689
-rs1048943,CYP1A1,Detoxification,T,C,C/C,+,0.18,C,1966948,CYP1A1; phase I detoxification; polycyclic aromatic hydrocarbons,,,,chr15,75014700
+rs1048943,CYP1A1,Detoxification,T,C,C/C,+,0.18,C,1966948,CYP1A1; phase I detoxification; polycyclic aromatic hydrocarbons,,,,chr15,75012985
 rs3892097,CYP2D6,Drug metabolism (neuro),C,T,T/T,+,0.25,A,22205192,CYP2D6*4; psych med metabolism; antidepressants/antipsychotics,,,,chr22,42524947
-rs4680,COMT,Dopamine & cognition,G,A,G/G,+,0.28,A,11792807,COMT Val158Met; prefrontal dopamine; executive function,,,,chr22,19963748
+rs4680,COMT,Dopamine & cognition,G,A,G/G,+,0.28,A,11792807,COMT Val158Met; prefrontal dopamine; executive function,,,,chr22,19951271
 rs6265,BDNF,Cognitive function,G,A,G/G,+,0.20,B,12771985,BDNF Val66Met; memory and neuroplasticity,,,,chr11,27679916
 rs7412,APOE,Alzheimer risk,T,C,C/C,+,0.35,A,23833277,APOE ε2; protective for late-onset Alzheimer disease,,,,chr19,45412079
 rs429358,APOE,Alzheimer risk,C,T,T/T,+,0.40,A,23833277,APOE ε4; strongest genetic risk for late-onset Alzheimer,,,,chr19,45411941
-rs2802292,FOXO3,Longevity,G,T,G/G,+,0.20,B,19654922,FOXO3; human longevity and healthy aging,,,,chr6,108960955
-rs4444235,BMP4,Colorectal cancer risk,T,C,C/C,+,0.15,B,19096318,BMP4; colorectal cancer risk (GWAS),,,,chr14,54410488
-rs6983267,MYC,Colorectal cancer risk,G,T,G/G,+,0.18,B,17609667,8q24/MYC region; colorectal and prostate cancer risk,,,,chr8,128425861
-rs70991108,SLC17A1,Urate levels,G,A,A/A,-,0.20,B,31061563,SLC17A1; urate excretion and gout risk reduction,,,,chr6,25821380
-rs1476413,MMP3,Tendinopathy risk,G,A,G/G,+,0.18,C,23114171,MMP3; additional variant; rotator cuff tendinopathy,,,,chr11,102834698
+rs2802292,FOXO3,Longevity,G,T,G/G,+,0.20,B,19654922,FOXO3; human longevity and healthy aging,,,,chr6,108908518
+rs4444235,BMP4,Colorectal cancer risk,T,C,C/C,+,0.15,B,19096318,BMP4; colorectal cancer risk (GWAS),,,,chr14,54410919
+rs6983267,MYC,Colorectal cancer risk,G,T,G/G,+,0.18,B,17609667,8q24/MYC region; colorectal and prostate cancer risk,,,,chr8,128413305
+rs1165196,SLC17A1,Urate levels,G,A,A/A,-,0.20,B,31061563,"Corrected 2026-07-14: rsid was corrupted (rs70991108 maps to chr5:79950164 GRCh37, unrelated locus) - replaced with rs1165196 (Ile269Thr), the established SLC17A1 urate-transporter missense variant (PMID 22541845), confirmed within SLC17A1 (chr6:25,783,125-25,832,287 GRCh37). G confirmed as minor allele (MAF 0.28, Ensembl) matching CSV effect_allele; direction '-' (protective/urate-lowering) kept per literature. NOTE: the duplicate 'SLC17A1/Urate levels' row (originally rs602662, same placeholder chr6:25821380) was removed - rs602662 is genuinely a FUT2 SNP (vitamin B12/secretor status, chr19:49206985), not a second SLC17A1 urate variant. Only one real SLC17A1 urate SNP is retained here; FUT2 addition is tracked separately (plan 1.2 sub-task B).",,,,chr6,25813150
 rs12913832,HERC2,Eye color,T,C,C/C,+,0.40,A,17952075,HERC2/OCA2; brown vs blue eyes; T=brown C=blue,,,,chr15,28365618
-rs1805007,MC1R,Hair color (red),T,C,C/C,+,0.35,A,7581453,MC1R R151C; red hair and fair skin,,,,chr16,89985844
+rs1805007,MC1R,Hair color (red),T,C,C/C,+,0.35,A,7581453,MC1R R151C; red hair and fair skin,,,,chr16,89986117
 rs12821256,KITLG,Hair color (blonde),T,C,C/C,+,0.25,A,17952075,KITLG; blonde vs dark hair in Europeans,,,,chr12,89328335
-rs6152,AR,Baldness (male pattern),G,A,A/A,+,0.30,A,18385763,Androgen receptor; androgenetic alopecia risk,,,,chrX,66764998
-rs17822931,ABCC11,Earwax type,T,C,C/C,+,0.45,A,16444273,ABCC11; dry vs wet earwax; also affects axillary odor,,,,chr16,48212135
-rs671,ALDH2,Alcohol flush reaction,G,A,A/A,+,0.50,A,3199433,ALDH2; acetaldehyde metabolism; alcohol flush reaction,,,,chr12,112240098
-rs1229984,ADH1B,Alcohol dependence,T,C,C/C,+,0.35,A,17568390,ADH1B; alcohol metabolism rate; dependence risk,,,,chr4,100248296
-rs8176719,ABO,Blood type (ABO),C,del,del/del,+,0.40,A,18403018,ABO gene; O blood type (deletion = O allele),,,,chr9,136132908
-rs1053878,ABO,Blood type (ABO Rh),G,A,G/G,+,0.30,B,18403018,ABO; RhD antigen expression,,,,chr1,25592883
-rs3751812,FTO,Height,Six SNPs,T,T/T,+,0.20,B,18385763,FTO; height GWAS; T allele associated with taller stature,,,,chr16,53800974
-rs602662,SLC17A1,Urate levels,G,A,G/G,+,0.25,B,31061563,SLC17A1; urate transport; gout risk,,,,chr6,25821380
-rs1015362,IRF4,Skin pigmentation,T,C,C/C,+,0.25,B,17952075,IRF4; skin color and sun sensitivity,,,,chr6,396461
+rs6152,AR,Baldness (male pattern),G,A,A/A,+,0.30,A,18385763,Androgen receptor; androgenetic alopecia risk,,,,chrX,66765627
+rs17822931,ABCC11,Earwax type,T,C,C/C,+,0.45,A,16444273,ABCC11; dry vs wet earwax; also affects axillary odor,,,,chr16,48258198
+rs671,ALDH2,Alcohol flush reaction,G,A,A/A,+,0.50,A,3199433,ALDH2; acetaldehyde metabolism; alcohol flush reaction,,,,chr12,112241766
+rs1229984,ADH1B,Alcohol dependence,T,C,C/C,+,0.35,A,17568390,ADH1B; alcohol metabolism rate; dependence risk,,,,chr4,100239319
+rs8176719,ABO,Blood type (ABO),C,del,del/del,+,0.40,A,18403018,ABO gene; O blood type (deletion = O allele),,,,chr9,136132909
+rs590787,ABO,Blood type (ABO Rh),G,A,G/G,+,0.30,B,18403018,"Corrected 2026-07-14: rsid was corrupted (rs1053878 maps to chr9:136131651 GRCh37, the ABO gene locus - i.e. it was accidentally a duplicate-ish pointer to the OTHER ABO row, rs8176719) - replaced with rs590787, an RHD missense variant used in several studies to classify RhD+/RhD- status, confirmed within the gene at this locus (RHD, chr1:25,598,884-25,656,936 GRCh37; CSV position chr1:25,592,883 sits just upstream of RHD, in its regulatory region). NOTE: gene field kept as 'ABO' per task instructions (not renamed to RHD) though the true gene at this position is RHD - the 'ABO Rh' trait label already hints this row covers Rh, not ABO type. Effect_allele/reference_allele (G/A) are valid alleles of rs590787 (triallelic A/C/G) but the risk-genotype/direction mapping to RhD+/- status was NOT independently re-derived here - recommend human QC before using this row's direction/weight for real Rh prediction.",,,,chr1,25629943
+rs3751812,FTO,Height,Six SNPs,T,T/T,+,0.20,B,18385763,FTO; height GWAS; T allele associated with taller stature,,,,chr16,53818460
+rs12203592,IRF4,Skin pigmentation,T,C,C/C,+,0.25,B,17952075,"Corrected 2026-07-14: rsid was corrupted (rs1015362 maps to chr20:32738612 GRCh37, ASIP region) - replaced with rs12203592, the well-established IRF4 pigmentation variant (Han et al 2008, PMID 18488028; sun sensitivity/freckling/eye-hair-skin color), confirmed within IRF4 (chr6:391,739-411,447 GRCh37). Effect/reference alleles (T/C) unchanged - T is the minor/risk allele (MAF 0.037, Ensembl), matches literature direction.",,,,chr6,396321
 rs1426654,SLC24A5,Skin pigmentation,G,A,G/G,+,0.35,A,16357253,SLC24A5; light skin pigmentation in Europeans,,,,chr15,48426484
-rs16891982,SLC45A2,Skin pigmentation,G,C,C/C,+,0.30,A,16357253,SLC45A2/MATP; light skin; melanoma risk,,,,chr5,33952685
+rs16891982,SLC45A2,Skin pigmentation,G,C,C/C,+,0.30,A,16357253,SLC45A2/MATP; light skin; melanoma risk,,,,chr5,33951693
 rs1800497,DRD2,Reward sensitivity & BMI,A,G,G/G,+,0.20,B,18776921,DRD2/ANKK1 TaqIA; dopamine receptor; addiction and eating,,,,chr11,113270828
-rs324420,FAAH,Pain sensitivity,C,A,A/A,+,0.22,B,16552403,FAAH; endocannabinoid degradation; pain perception,,,,chr1,46875903
-rs3758650,BDNF,Sleep duration,T,C,C/C,+,0.18,C,22427845,BDNF; sleep regulation and insomnia risk,,,,chr11,27683572
-rs228697,PER2,Morning chronotype (early bird),C,G,G/G,+,0.25,B,17936063,PER2; circadian rhythm; morning vs evening preference,,,,chr2,239164396
-rs16944,IL1B,Inflammation (CRP),G,A,G/G,+,0.22,B,18385763,IL1B; inflammatory response and CRP levels,,,,chr2,113594387
+rs324420,FAAH,Pain sensitivity,C,A,A/A,+,0.22,B,16552403,FAAH; endocannabinoid degradation; pain perception,,,,chr1,46870761
+rs3758650,BDNF,Sleep duration,T,C,C/C,+,0.18,C,22427845,BDNF; sleep regulation and insomnia risk,,,,chr11,616865
+rs2304672,PER2,Morning chronotype (early bird),C,G,G/G,+,0.25,B,17936063,"Corrected 2026-07-14: rsid was corrupted (rs228697 maps to chr1:7887579 GRCh37 - actually a PER3 variant) - replaced with rs2304672, the PER2 5'UTR variant reported by Carpen et al 2005/2006 (PMID 16297719) as associated with morning/evening diurnal preference, confirmed within PER2 (chr2:239,152,679-239,198,743 GRCh37). Effect/reference alleles (C/G) unchanged - valid alleles of this SNP. CAVEAT: subsequent replication of rs2304672-chronotype association has been mixed/inconsistent across cohorts (e.g. Korean replication study found no association) - evidence_level should arguably be a notch lower than 'B'; flagged here rather than changed, since evidence-level curation is out of this task's scope.",,,,chr2,239186589
+rs16944,IL1B,Inflammation (CRP),G,A,G/G,+,0.22,B,18385763,IL1B; inflammatory response and CRP levels,,,,chr2,113594867
 rs1800629,TNF,Inflammation (TNF-alpha),G,A,A/A,+,0.25,B,10369255,TNF-alpha -308G>A; inflammatory cytokine levels,,,,chr6,31543031
-rs2808630,CRP,Inflammation (CRP levels),C,T,C/C,+,0.20,B,18385763,CRP; C-reactive protein levels and inflammation,,,,chr1,159715535
+rs2808630,CRP,Inflammation (CRP levels),C,T,C/C,+,0.20,B,18385763,CRP; C-reactive protein levels and inflammation,,,,chr1,159680868
 rs2075650,TOMM40,Longevity & aging,A,G,G/G,+,0.22,B,19654922,TOMM40/APOE region; longevity and healthy aging,,,,chr19,45395619
-rs7689424,TERT,Telomere length,T,C,T/T,+,0.18,C,23337216,TERT; telomerase; telomere length and cellular aging,,,,chr5,1254653
-rs10224002,FOXO3,Longevity & lifespan,G,T,G/G,+,0.20,B,19654922,FOXO3; additional variant; lifespan regulation,,,,chr6,108960955
-rs11547464,MC1R,Hair color (red),T,C,T/T,+,0.30,A,23579845,MC1R red hair variant R151C; strongest red hair predictor after rs1805007,,,EUR,chr16,89985861
-rs1110400,MC1R,Hair color (red),C,T,C/C,+,0.20,A,23579845,MC1R red hair variant I155T; contributes to RHC phenotype,,,EUR,chr16,89986154
-rs1393350,TYR,Hair color (blonde),A,G,A/A,+,0.25,A,17999355,TYR variant associated with blonde vs brown hair in Europeans,,,EUR,chr11,89011094
+rs2736100,TERT,Telomere length,C,A,C/C,+,0.18,C,23337216,"Corrected 2026-07-14: rsid was corrupted (rs7689424 maps to chr4:150923584 GRCh37, unrelated locus) - replaced with rs2736100, the well-established TERT intron-2 telomere-length variant (Codd et al 2010 PMID 20729905), confirmed within TERT (chr5:1,253,262-1,295,184 GRCh37). Effect allele reoriented to GRCh37 forward strand: C = allele associated with LONGER telomere length. CAVEAT: literature shows the C allele's association is double-edged (longer telomeres, higher risk in some cancers, e.g. lung; A allele linked to shorter telomeres and some non-cancer disease risk) - direction/weight here reflects 'telomere length' as originally framed by this row, not net disease risk; recommend human review of the +/- convention.",,,,chr5,1286516
+rs13217795,FOXO3,Longevity & lifespan,G,T,G/G,+,0.20,B,19654922,"Corrected 2026-07-14: rsid was corrupted (rs10224002 maps to chr7:151415041 GRCh37, unrelated locus) - replaced with rs13217795, part of the well-replicated FOXO3 longevity SNP trio (rs2802292, rs2764264, rs13217795 - Willcox et al 2008 PMID 18765803; meta-analysis PMID 25199915), confirmed within FOXO3 (chr6:108,881,038-109,005,977 GRCh37). Complements the existing rs2802292 FOXO3 row (a distinct SNP, not a duplicate). Effect/reference alleles (G/T) unchanged - both valid alleles of this SNP; direction/effect not independently re-derived from the specific allele letter - recommend human QC of directionality.",,,,chr6,108974098
+rs11547464,MC1R,Hair color (red),T,C,T/T,+,0.30,A,23579845,MC1R red hair variant R151C; strongest red hair predictor after rs1805007,,,EUR,chr16,89986091
+rs1110400,MC1R,Hair color (red),C,T,C/C,+,0.20,A,23579845,MC1R red hair variant I155T; contributes to RHC phenotype,,,EUR,chr16,89986130
+rs1393350,TYR,Hair color (blonde),A,G,A/A,+,0.25,A,17999355,TYR variant associated with blonde vs brown hair in Europeans,,,EUR,chr11,89011046
 rs12203592,IRF4,Hair color (blonde),T,C,T/T,+,0.20,A,27182965,IRF4 variant; associated with lighter hair (blonde) in Europeans,,,EUR,chr6,396321
 rs12913832,HERC2,Hair color (blonde),C,T,C/C,+,0.25,A,18483556,HERC2/OCA2; C allele associated with lighter hair and blue eyes,,,EUR,chr15,28365618
 rs12913832,HERC2,Hair color (brown),T,C,T/T,+,0.30,A,18483556,HERC2/OCA2; T allele associated with brown hair and brown eyes,,,EUR,chr15,28365618
-rs16891982,SLC45A2,Hair color (brown),C,G,C/C,+,0.25,A,18483556,SLC45A2; C allele associated with darker hair (brown vs blonde) in Europeans,,,EUR,chr5,33952685
+rs16891982,SLC45A2,Hair color (brown),C,G,C/C,+,0.25,A,18483556,SLC45A2; C allele associated with darker hair (brown vs blonde) in Europeans,,,EUR,chr5,33951693
 rs12203592,IRF4,Hair color (brown),C,T,C/C,+,0.20,A,27182965,IRF4; C allele associated with darker hair (brown) in Europeans,,,EUR,chr6,396321
-rs16891982,SLC45A2,Hair color (black),G,C,G/G,+,0.30,A,18483556,SLC45A2; G allele near-fixed in Africans; darkest hair/skin pigmentation,,,Global,chr5,33952685
+rs16891982,SLC45A2,Hair color (black),G,C,G/G,+,0.30,A,18483556,SLC45A2; G allele near-fixed in Africans; darkest hair/skin pigmentation,,,Global,chr5,33951693
 rs1426654,SLC24A5,Hair color (black),G,A,G/G,+,0.35,A,16357253,SLC24A5; G allele near-fixed in Africans; strongest pigmentation SNP,,,Global,chr15,48426484
-rs1834640,SLC24A5,Hair color (black),G,A,G/G,+,0.25,A,24045820,SLC24A5 additional variant; dark pigmentation in African and South Asian populations,,,Global,chr15,48426380
+rs1834640,SLC24A5,Hair color (black),G,A,G/G,+,0.25,A,24045820,SLC24A5 additional variant; dark pigmentation in African and South Asian populations,,,Global,chr15,48392165
 rs12203592,IRF4,Hair graying (early),T,C,T/T,+,0.30,A,27182965,IRF4; strongest GWAS hit for early hair graying; T allele increases risk ~2x per copy,2.0,2.0,EUR,chr6,396321

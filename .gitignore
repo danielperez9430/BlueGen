@@ -82,6 +82,12 @@ __pycache__/
 *.log
 pipeline_debug.log
 
+# ── Top-level reports (may contain real genotypes/HTML reports) ──
+/reports/
+
+# ── Data curation backups ──
+*.bak
+
 # ── Test Data ──
 prs_research_pipeline/test_samples_*.vcf.gz
 
