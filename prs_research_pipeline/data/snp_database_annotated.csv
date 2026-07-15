@@ -33,7 +33,7 @@ rs2236212,ELOVL2,Omega-3 metabolism,G,C,G/G,+,0.16,C,23833277,ELOVL2; additional
 rs953413,ELOVL2,Omega-3 metabolism,A,G,A/A,+,0.14,C,,ELOVL2; fatty acid elongation,,,,chr6,11012859
 rs174556,FADS1,Omega-3 metabolism,T,C,T/T,+,0.15,D,,FADS1 cluster; additional marker,,,,chr11,61580635
 rs1801133,MTHFR,Folate & methylation,T,C,T/T,+,0.40,A,22891605,"C677T; reduced enzyme activity (~35% het, ~70% hom)",,,,chr1,11856378
-rs1801131,MTHFR,Folate & methylation,G,A,G/G,+,0.30,A,22891605,A1298C; reduced MTHFR activity,,,,chr1,11854476
+rs1801131,MTHFR,Folate & methylation,G,A,G/G,+,0.30,A,9719624,"H4 dedup 2026-07-14: this row and a second rs1801131 row (same chrom:pos, effect_allele A/reference_allele C, risk_genotype C/C) were both present and being double-counted in the same trait's PRS sum. Verified against dbSNP GRCh37 (chr1:11854476; MTHFR is on the MINUS strand; forward-strand ref=T, with A1298C's transcript-relative risk allele 'C' corresponding to forward-strand G). This row's effect_allele=G/risk_genotype=G/G was already correct; reference_allele corrected A->T to match the true forward-strand reference. The duplicate row was removed (its A/C encoding was a strand-flip error, using the transcript-relative letter instead of forward-strand). PMID corrected to 9719624 (Weisberg et al. 1998, the actual A1298C discovery paper - the previous PMID 22891605 was an unrelated materials-science paper).",,,,chr1,11854476
 rs1801394,MTRR,Folate & methylation,G,A,G/G,+,0.25,B,19189260,MTRR A66G; B12 recycling impairment,,,,chr5,7870973
 rs1805087,MTR,Folate & methylation,G,A,G/G,+,0.22,B,14671159,MTR A2756G; methionine synthase variant,,,,chr1,237048500
 rs651852,BHMT,Folate & methylation,T,C,T/T,+,0.18,C,14576077,BHMT; betaine-homocysteine pathway,,,,chr5,78409060
@@ -71,9 +71,8 @@ rs6280,DRD3,Dopamine regulation,C,T,C/C,+,0.20,B,19480904,DRD3 Ser9Gly; D3 recep
 rs1051740,EPHX1,Detoxification,C,T,C/C,+,0.25,B,15054559,EPHX1 Y113H; microsomal epoxide hydrolase activity,,,,chr1,226019633
 rs1800566,NQO1,Detoxification,T,C,T/T,+,0.30,A,15735007,NQO1 P187S; null activity in homozygotes,,,,chr16,69745145
 rs4880,SOD2,Detoxification,C,T,C/C,+,0.22,A,17885939,SOD2 Ala16Val; altered mitochondrial targeting,,,,chr6,160113872
-rs1695,GSTP1,Detoxification,G,A,G/G,+,0.25,A,11502833,GSTP1 Ile105Val; reduced glutathione conjugation,,,,chr11,67352689
+rs1695,GSTP1,Detoxification,G,A,G/G,+,0.25,A,9111193,"H4 dedup 2026-07-14: this row and a second rs1695 row (same chrom:pos, effect_allele A/reference_allele G, risk_genotype G/G - internally mismatched, since effect_allele didn't match risk_genotype) were both present and being double-counted in the same trait's PRS sum. Verified against dbSNP GRCh37 (chr11:67352689, A>G forward strand, gene on plus strand; G=Val105, the reduced-activity/risk allele) - this row's encoding was already correct, so the duplicate was removed rather than this one. PMID corrected to 9111193 (Harries et al. 1997, the GSTP1 Ile105Val characterization paper - the previous PMID 11502833 was an unrelated endocrinology paper).",,,,chr11,67352689
 rs1138272,GSTP1,Detoxification,T,C,T/T,+,0.18,B,11502833,GSTP1 Ala114Val; additional activity variant,,,,chr11,67353579
-rs1048943,CYP1A1,Detoxification,G,A,G/G,+,0.20,B,15081107,CYP1A1 Ile462Val; phase I metabolism,,,,chr15,75012985
 rs4646903,CYP1A1,Detoxification,C,T,C/C,+,0.16,C,15081107,CYP1A1 MSP1; T3801C,,,,chr15,75011641
 rs1799930,NAT2,Detoxification,A,G,A/A,+,0.28,A,11505333,NAT2*6; slow acetylator phenotype,,,,chr8,18258103
 rs1799931,NAT2,Detoxification,A,G,A/A,+,0.24,A,11505333,NAT2*7; slow acetylator phenotype,,,,chr8,18258370
@@ -140,9 +139,7 @@ rs1042031,APOB,Apolipoprotein B,G,A,G/G,+,0.22,B,20657596,APOB; apolipoprotein B
 rs2282679,GC,Vitamin D binding,T,G,T/T,+,0.22,A,20418485,GC/DBP; vitamin D binding protein; 25-OH vitamin D levels,,,,chr4,72608383
 rs12785878,DHCR7,Vitamin D synthesis,G,T,G/G,+,0.20,A,20418485,DHCR7; 7-dehydrocholesterol reductase; vitamin D synthesis,,,,chr11,71167449
 rs10741657,CYP2R1,Vitamin D activation,G,A,G/G,+,0.20,A,20418485,CYP2R1; vitamin D 25-hydroxylase; activation to calcidiol,,,,chr11,14914878
-rs1801131,MTHFR,Folate & methylation,A,C,C/C,+,0.22,B,10557310,MTHFR A1298C; additional folate cycle variant; DNA methylation,,,,chr1,11854476
-rs1695,GSTP1,Detoxification,A,G,G/G,+,0.20,B,11600223,GSTP1 Ile105Val; glutathione S-transferase; xenobiotic detox,,,,chr11,67352689
-rs1048943,CYP1A1,Detoxification,T,C,C/C,+,0.18,C,1966948,CYP1A1; phase I detoxification; polycyclic aromatic hydrocarbons,,,,chr15,75012985
+rs1048943,CYP1A1,Detoxification,C,T,C/C,+,0.18,C,1722803,"H4 dedup 2026-07-14: this row and a second rs1048943 row (same chrom:pos, effect_allele G/reference_allele A, risk_genotype G/G) were both present and being double-counted in the same trait's PRS sum. Verified against dbSNP GRCh37 (chr15:75012985, T>C forward strand, gene on minus strand) - the duplicate's G/A alleles don't match this position on either strand and were removed as erroneous. This row's T/C alleles do match, but effect_allele/reference_allele were swapped relative to risk_genotype=C/C (C=Val462, the increased-inducibility/risk allele on forward strand); corrected effect_allele to C. PMID corrected to 1722803 (Hayashi et al. 1991, the original CYP1A1 Ile462Val discovery paper - the previous PMID 15081107 was an unrelated rat-autoimmunity paper).",,,,chr15,75012985
 rs3892097,CYP2D6,Drug metabolism (neuro),C,T,T/T,+,0.25,A,22205192,CYP2D6*4; psych med metabolism; antidepressants/antipsychotics,,,,chr22,42524947
 rs4680,COMT,Dopamine & cognition,G,A,G/G,+,0.28,A,11792807,COMT Val158Met; prefrontal dopamine; executive function,,,,chr22,19951271
 rs6265,BDNF,Cognitive function,G,A,G/G,+,0.20,B,12771985,BDNF Val66Met; memory and neuroplasticity,,,,chr11,27679916

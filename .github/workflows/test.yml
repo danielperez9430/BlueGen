@@ -67,6 +67,10 @@ jobs:
         run: |
           python -m pytest tests/ -v --tb=short
 
+      - name: SNP position regression (dbSNP/Ensembl GRCh37)
+        run: |
+          python -m pytest tests/test_snp_positions.py -v --tb=short
+
       - name: Validate config
         run: |
           cd prs_research_pipeline
