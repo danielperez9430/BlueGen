@@ -32,6 +32,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -58,7 +61,7 @@ class PRSResultEntry:
 class UnifiedPRSResult:
     """Complete unified PRS result — the SSST for all downstream consumers."""
     sample_id: str
-    pipeline_version: str = "9.0.0"
+    pipeline_version: str = PIPELINE_VERSION
     prs_entries: List[PRSResultEntry] = field(default_factory=list)
     ancestry: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -182,7 +185,7 @@ class UnifiedPRSAssembler:
                 "n_sources_available": sum(1 for s in self.SOURCES.values() if Path(s).exists()),
                 "computation_method": "PLINK --score (dosage-weighted)",
                 "prs_formula": "PRS = Σ(βⱼ × Gᵢⱼ)",
-                "pipeline_version": "9.0.0",
+                "pipeline_version": PIPELINE_VERSION,
                 "consolidation_note": "Single Source of Scientific Truth — all PRS values unified",
             },
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),

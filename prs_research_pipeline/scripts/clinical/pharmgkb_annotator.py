@@ -31,6 +31,9 @@ from typing import Dict, List, Optional, Tuple
 from collections import defaultdict, Counter
 from datetime import datetime, timezone
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -387,7 +390,7 @@ def annotate_user_vcf(
     output = {
         "metadata": {
             "analysis_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "pipeline_version": "10.0.0",
+            "pipeline_version": PIPELINE_VERSION,
             "user_vcf": user_vcf,
             "pharmgkb_db": "data/pharmgkb_variants.csv",
             "cpic_guidelines": "CPIC Level A/B (Clinical Pharmacogenetics Implementation Consortium). Run clinpgx_sync.py --sync for full guideline texts.",

@@ -41,6 +41,9 @@ PYTHON = sys.executable
 START_TIME = time.time()
 SNP_DB_PATH = str(PLATFORM_DIR / "data" / "snp_database_annotated.csv")
 
+sys.path.insert(0, str(SCRIPTS))
+from utils.constants import PIPELINE_VERSION  # noqa: E402 - single source of truth for the version string
+
 # Ensure we're in the project root for relative path resolution
 os.chdir(str(PROJECT_ROOT))
 
@@ -342,7 +345,7 @@ def cmd_run(args):
             else:
                 log_path.write_text("")  # Truncate for fresh run
         # Write run header
-        log_path.write_text(f"=== BlueGen Pipeline v1.0.0 — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} ===\n"
+        log_path.write_text(f"=== BlueGen Pipeline v{PIPELINE_VERSION} — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} ===\n"
                            f"Sample: {sample} | VCF: {vcf} | Mode: {'FULL' if full else 'PIPELINE'}\n\n")
 
     # Pre-flight checks
@@ -754,7 +757,7 @@ def cmd_benchmark(args):
 
 def cmd_status(args):
     """Enhanced status dashboard."""
-    print(f"\n{B}🧬 BlueGen v1.0.0{N}\n")
+    print(f"\n{B}🧬 BlueGen v{PIPELINE_VERSION}{N}\n")
 
     # Environment
     print(f"  {B}Environment{N}")
@@ -880,7 +883,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="BlueGen v1.0.0 — Personal Genomics Platform",
+        description=f"BlueGen v{PIPELINE_VERSION} — Personal Genomics Platform",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   python prs.py run --vcf sample.vcf.gz           # Full pipeline

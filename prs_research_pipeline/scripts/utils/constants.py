@@ -90,5 +90,5 @@ PLINK_MEMORY = 8000
 
 # ── Version ──────────────────────────────────────────────────────────────────
 
-PIPELINE_VERSION = "1.1.0"
+PIPELINE_VERSION = "2.0.0"
 GENOME_BUILD = "GRCh37"

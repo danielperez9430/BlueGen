@@ -40,6 +40,9 @@ from urllib.request import urlopen, Request
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -86,7 +89,7 @@ class G1KFullManifest:
     merged_fam: str = ""
     merged_hash: str = ""
     download_date: str = ""
-    pipeline_version: str = "6.0.0"
+    pipeline_version: str = PIPELINE_VERSION
 
 
 # ── 1000 Genomes Full Downloader ──────────────────────────────────────────────

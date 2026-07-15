@@ -37,6 +37,9 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +66,7 @@ class StageRecord:
 class ExecutionManifest:
     """Complete pipeline execution manifest."""
     run_id: str
-    pipeline_version: str = "7.0.0"
+    pipeline_version: str = PIPELINE_VERSION
     started_at: str = ""
     completed_at: str = ""
     total_duration_seconds: float = 0.0

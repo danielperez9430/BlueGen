@@ -45,6 +45,9 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from collections import Counter, defaultdict
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 # ── Pathogenic CLNSIG values ───────────────────────────────────────────────────
@@ -584,7 +587,7 @@ def build_output_json(
 
     metadata = {
         "analysis_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "pipeline_version": "10.0.0",
+        "pipeline_version": PIPELINE_VERSION,
         "user_vcf": user_vcf,
         "clinvar_vcf": clinvar_vcf,
         "user_vcf_total_variants": user_variant_count,
@@ -792,7 +795,7 @@ def _write_empty_output(
     output = {
         "metadata": {
             "analysis_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "pipeline_version": "10.0.0",
+            "pipeline_version": PIPELINE_VERSION,
             "user_vcf": user_vcf,
             "clinvar_vcf": clinvar_vcf,
             "user_vcf_total_variants": n_user_variants,

@@ -342,13 +342,16 @@ BlueGen/
 
 ## Version Compatibility
 
-| Version | Key Features | Min Python | Status |
-|---------|-------------|------------|--------|
-| v1.0.0 | ClinVar, PharmGKB, MedGen, Deep Ancestry, 56 PRS traits, Dashboard | 3.10+ | Current |
-| v10.0 | PGS Catalog, DeepVariant, PCA ensemble, Bilingual reports | 3.10+ | Stable |
-| v1.0–v9.0 | Core PRS, QC, LD pruning, 1000G PCA | 3.8+ | Legacy |
+The pipeline version is defined once, in `scripts/utils/constants.py` (`PIPELINE_VERSION`),
+and referenced everywhere else (`prs.py`, this README, `config.yaml`, and every script
+that stamps a `pipeline_version` field into its output). CI fails if any of those drift
+from each other.
 
-### Upgrading from v10.0
+| Version | Key Features | Min Python |
+|---------|-------------|------------|
+| 2.0.0 | ClinVar, PharmGKB, MedGen, Deep Ancestry, PGS Catalog, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
+
+### Upgrading
 ```bash
 # Pull latest code, re-download expanded references
 git pull

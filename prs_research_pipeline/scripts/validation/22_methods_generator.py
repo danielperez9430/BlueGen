@@ -34,6 +34,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +45,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MethodsContext:
     """Context for methods generation — all data must be from real pipeline state."""
-    pipeline_version: str = "7.0.0"
+    pipeline_version: str = PIPELINE_VERSION
     frozen_date: str = ""
     lock_hash: str = ""
 
@@ -202,7 +205,7 @@ class MethodsGenerator:
         if Path(manifest_file).exists():
             with open(manifest_file) as fh:
                 manifest = json.load(fh)
-            ctx.pipeline_version = manifest.get("pipeline_version", "7.0.0")
+            ctx.pipeline_version = manifest.get("pipeline_version", PIPELINE_VERSION)
 
         # From SNP database
         if Path(snp_db).exists():

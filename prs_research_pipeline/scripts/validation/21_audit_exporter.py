@@ -40,6 +40,9 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +63,7 @@ class AuditPackage:
     """Complete audit package metadata."""
     package_version: str = "1.0.0"
     created_date: str = ""
-    pipeline_version: str = "7.0.0"
+    pipeline_version: str = PIPELINE_VERSION
     run_id: str = ""
     sample_id: str = ""
     total_files: int = 0
