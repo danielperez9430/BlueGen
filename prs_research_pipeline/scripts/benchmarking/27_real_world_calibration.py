@@ -46,12 +46,14 @@ class CalibrationValidation:
     mean_absolute_error: float = 0.0
     is_well_calibrated: bool = True
     n_samples: int = 0
+    low_confidence: bool = False   # reference distribution missing/<10 samples - excluded from aggregates
 
 @dataclass
 class CalibrationReport:
     validations: List[CalibrationValidation] = field(default_factory=list)
     mean_slope: float = 0.0; mean_r2: float = 0.0
     well_calibrated_count: int = 0; poorly_calibrated_count: int = 0
+    low_confidence_count: int = 0
     global_status: str = ""; generated_date: str = ""
 
 class CalibrationValidator:
@@ -80,10 +82,16 @@ class CalibrationValidator:
                 z_pop = float(row.get("z_score_population", 0))
                 pctl_pop = float(row.get("percentile_population", 50))
                 pop = str(row.get("assigned_population", "EUR"))
+                low_conf = bool(row.get("low_confidence", False))
 
                 # Expected: z-score of 0 means 50th percentile
                 # Calibration slope: how observed z maps to expected z
-                expected_z = scipy_stats.norm.ppf(pctl_pop / 100.0)
+                # Clamp away from the 0/100 boundary: norm.ppf(0) = -inf and
+                # norm.ppf(1) = +inf, which previously turned a single extreme
+                # (but legitimate) percentile into an infinite mean_slope for
+                # the whole report - see IMPROVEMENT_PLAN.md TIER 3.
+                pctl_clamped = min(max(pctl_pop / 100.0, 1e-6), 1 - 1e-6)
+                expected_z = scipy_stats.norm.ppf(pctl_clamped)
                 # Preserve sign of z_pop for correct slope direction
                 # (abs() was a bug: it inverted slopes for below-median traits)
                 denom = max(abs(z_pop), 0.01)
@@ -115,15 +123,23 @@ class CalibrationValidator:
                     tail_95_accuracy=round(tail_95, 4),
                     mean_absolute_error=round(mae, 4),
                     is_well_calibrated=well_cal,
-                    n_samples=0))
+                    n_samples=0,
+                    low_confidence=low_conf))
+
+        # Traits backed by too few (or zero) 1000G reference samples get a
+        # tautologically-perfect slope (z and percentile were derived from
+        # each other upstream) - excluded from the aggregate stats so they
+        # can't mask real miscalibration in the well-supported traits.
+        scored = [v for v in validations if not v.low_confidence]
 
         report = CalibrationReport(
             validations=validations,
-            mean_slope=round(np.mean([v.calibration_slope for v in validations]), 4) if validations else 0,
-            mean_r2=round(np.mean([v.r_squared for v in validations]), 4) if validations else 0,
-            well_calibrated_count=sum(1 for v in validations if v.is_well_calibrated),
-            poorly_calibrated_count=sum(1 for v in validations if not v.is_well_calibrated),
-            global_status="GOOD" if sum(1 for v in validations if v.is_well_calibrated) > len(validations) * 0.7 else "NEEDS_IMPROVEMENT",
+            mean_slope=round(np.mean([v.calibration_slope for v in scored]), 4) if scored else 0,
+            mean_r2=round(np.mean([v.r_squared for v in scored]), 4) if scored else 0,
+            well_calibrated_count=sum(1 for v in scored if v.is_well_calibrated),
+            poorly_calibrated_count=sum(1 for v in scored if not v.is_well_calibrated),
+            low_confidence_count=len(validations) - len(scored),
+            global_status="GOOD" if scored and sum(1 for v in scored if v.is_well_calibrated) > len(scored) * 0.7 else "NEEDS_IMPROVEMENT",
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"))
 
         self._save_report(report)
@@ -138,6 +154,7 @@ class CalibrationValidator:
                 "mean_r2": report.mean_r2,
                 "well_calibrated": report.well_calibrated_count,
                 "poorly_calibrated": report.poorly_calibrated_count,
+                "low_confidence": report.low_confidence_count,
                 "generated_date": report.generated_date,
                 "tolerances": {"slope": self.SLOPE_TOLERANCE, "r2": self.R2_THRESHOLD},
                 "validations": [asdict(v) for v in report.validations],

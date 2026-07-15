@@ -79,6 +79,8 @@ class CalibratedPRS:
     z_score_global: float
     percentile_global: float
     risk_category: str   # low/medium/high based on population percentiles
+    low_confidence: bool = False   # True if the reference distribution is missing/too small (<10 samples)
+    n_reference_samples: int = 0   # 1000G reference samples backing population_mu/population_sigma
 
 
 # ── Population Calibration Engine V2 ──────────────────────────────────────────
@@ -267,23 +269,34 @@ class PopulationCalibrationV2:
             pop_dist = self._get_distribution(trait, assigned_pop)
 
             if pop_dist is None:
-                # Fall back to global stats
+                # No reference distribution at all: mu/sigma are meaningless,
+                # so z and percentile must both stay neutral (not just one of
+                # them - see IMPROVEMENT_PLAN.md TIER 3, calibration bug fix).
                 pop_mu = 0.0
                 pop_sigma = 1.0
+                n_ref = 0
+                low_confidence = True
                 logger.warning(f"    No reference distribution for {trait}/{assigned_pop}")
+                z_pop = 0.0
+                percentile_pop = 50.0
             else:
                 pop_mu = pop_dist.mean
                 pop_sigma = pop_dist.std if pop_dist.std > 0 else 1.0
+                n_ref = pop_dist.n_samples
+                low_confidence = pop_dist.n_samples < 10
 
-            # Population-specific z-score
-            z_pop = (prs_raw - pop_mu) / pop_sigma if pop_sigma > 0 else 0.0
+                # Population-specific z-score
+                z_pop = (prs_raw - pop_mu) / pop_sigma if pop_sigma > 0 else 0.0
 
-            # Population-specific percentile
-            if pop_dist is not None and pop_dist.n_samples >= 10:
-                # Using normal approximation for now; can use empirical CDF
+                # Population-specific percentile - always derived from z_pop
+                # (via the normal approximation) so the two never disagree.
+                # Previously this was hardcoded to 50.0 when n_samples < 10
+                # while z_pop was still computed normally, which silently
+                # forced risk_category to "medium" for those traits and fed
+                # a degenerate calibration slope into 27_real_world_calibration.py.
+                # low_confidence flags the same condition instead, so callers
+                # can add an uncertainty caveat without discarding the signal.
                 percentile_pop = scipy_stats.norm.cdf(z_pop) * 100
-            else:
-                percentile_pop = 50.0
 
             # Global z-score (using all-population pooled stats)
             global_stats = self._compute_global_stats(trait, ancestry_probs)
@@ -309,6 +322,8 @@ class PopulationCalibrationV2:
                 z_score_global=round(z_global, 4),
                 percentile_global=round(percentile_global, 1),
                 risk_category=risk,
+                low_confidence=low_confidence,
+                n_reference_samples=n_ref,
             ))
 
         # Save
@@ -428,6 +443,8 @@ class PopulationCalibrationV2:
                 "z_score_global": c.z_score_global,
                 "percentile_global": c.percentile_global,
                 "risk_category": c.risk_category,
+                "low_confidence": c.low_confidence,
+                "n_reference_samples": c.n_reference_samples,
             })
 
         df = pd.DataFrame(rows)
