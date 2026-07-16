@@ -1,11 +1,11 @@
 {
-  "scientific_integrity_score": 87.2,
+  "scientific_integrity_score": 84.4,
   "category": "RESEARCH_GRADE",
   "category_description": "Minor limitations. Suitable for preprint.",
-  "score_hash": "6ead48b2fe6f1fb3",
+  "score_hash": "dab2b4d0b24e0e8f",
   "weights_locked": true,
   "formula": "SCI_SCORE = 0.25\u00d7SSST + 0.20\u00d7Benchmarks + 0.20\u00d7Adversarial + 0.15\u00d7Calibration + 0.10\u00d7Portability + 0.10\u00d7Reproducibility",
-  "generated_date": "2026-07-16 10:22 UTC",
+  "generated_date": "2026-07-16 15:55 UTC",
   "weights": {
     "ssst_compliance": 0.25,
     "external_benchmarks": 0.2,
@@ -45,17 +45,17 @@
     },
     {
       "name": "Calibration Stability",
-      "score": 97.48,
+      "score": 98.785,
       "weight": 0.15,
       "source": "calibration_validation.json",
-      "contribution": 14.62
+      "contribution": 14.82
     },
     {
       "name": "Population Portability",
-      "score": 62.125,
+      "score": 31.775000000000006,
       "weight": 0.1,
       "source": "portability_report.json",
-      "contribution": 6.21
+      "contribution": 3.18
     },
     {
       "name": "Reproducibility",

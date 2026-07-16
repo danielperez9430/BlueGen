@@ -3,10 +3,10 @@
   "n_checks": 10,
   "n_passed": 9,
   "n_failed": 1,
-  "final_score": 87.2,
+  "final_score": 84.4,
   "final_category": "RESEARCH_GRADE",
-  "lock_date": "2026-07-16 10:22 UTC",
-  "lock_hash": "8179cfba8a70bbdc",
+  "lock_date": "2026-07-16 15:57 UTC",
+  "lock_hash": "012033cb568a4ee4",
   "checks": [
     {
       "lock_id": "LOCK-001",

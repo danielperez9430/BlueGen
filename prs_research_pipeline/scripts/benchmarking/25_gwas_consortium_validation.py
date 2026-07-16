@@ -38,27 +38,62 @@ from scipy import stats as scipy_stats
 
 logger = logging.getLogger(__name__)
 
-# Known consortium → trait mapping with expected characteristics
+# Known consortium → trait mapping with expected characteristics.
+# "traits" lists every phenotype the consortium is known for (used for the
+# report's "Consortium Profiles" display, kept as-is). Most of these are NOT
+# literal trait_category values in the curated SNP panel - e.g. GLGC studies
+# "LDL cholesterol", "HDL cholesterol" and "triglycerides" separately, but the
+# panel only has one combined "Lipid metabolism" category covering all of
+# them. "category_map" resolves each display label to the trait_category it
+# should actually be validated against, so overlap/direction checks run on
+# the SNPs that genuinely exist instead of silently finding zero. A label
+# mapped to None (e.g. GIANT's "height") has no matching data in the panel at
+# all - that's a real, honestly-reported gap, not a lookup bug.
 CONSORTIA = {
     "GIANT": {
         "traits": ["Obesity predisposition", "BMI", "height", "weight"],
+        "category_map": {
+            "Obesity predisposition": "Obesity predisposition",
+            "BMI": "Obesity predisposition",
+            "height": None,
+            "weight": "Obesity predisposition",
+        },
         "primary_ancestry": "EUR", "n_discovery": 339224, "pmid": "25673413",
         "expected_effect_range": (0.01, 0.05),
     },
     "GLGC": {
         "traits": ["Lipid metabolism", "LDL cholesterol", "HDL cholesterol",
                    "triglycerides", "total cholesterol"],
+        "category_map": {
+            "Lipid metabolism": "Lipid metabolism",
+            "LDL cholesterol": "Lipid metabolism",
+            "HDL cholesterol": "Lipid metabolism",
+            "triglycerides": "Lipid metabolism",
+            "total cholesterol": "Lipid metabolism",
+        },
         "primary_ancestry": "EUR", "n_discovery": 188577, "pmid": "24097068",
         "expected_effect_range": (0.02, 0.08),
     },
     "MAGIC": {
         "traits": ["Glucose metabolism", "fasting glucose", "fasting insulin",
                    "HbA1c", "HOMA-IR"],
+        "category_map": {
+            "Glucose metabolism": "Glucose metabolism",
+            "fasting glucose": "Glucose metabolism",
+            "fasting insulin": "Glucose metabolism",
+            "HbA1c": "Glucose metabolism",
+            "HOMA-IR": "Glucose metabolism",
+        },
         "primary_ancestry": "EUR", "n_discovery": 133010, "pmid": "22885922",
         "expected_effect_range": (0.01, 0.04),
     },
     "DIAGRAM": {
         "traits": ["Glucose metabolism", "type 2 diabetes", "T2D"],
+        "category_map": {
+            "Glucose metabolism": "Glucose metabolism",
+            "type 2 diabetes": "Glucose metabolism",
+            "T2D": "Glucose metabolism",
+        },
         "primary_ancestry": "EUR+EAS", "n_discovery": 149821, "pmid": "28566273",
         "expected_effect_range": (0.05, 0.15),
     },
@@ -113,11 +148,19 @@ class GWASConsortiumValidator:
         validations = []
         for consortium, info in CONSORTIA.items():
             for trait in info["traits"]:
-                # Find matching SNPs in database
-                trait_snps = db[db["trait_category"].str.contains(
-                    trait.replace(" metabolism", ""), case=False, na=False)]
-                if len(trait_snps) == 0:
-                    trait_snps = db[db["trait_category"] == trait]
+                # Resolve the display label (e.g. "LDL cholesterol") to the
+                # trait_category actually present in the panel (e.g. "Lipid
+                # metabolism") before searching - most consortium sub-traits
+                # aren't literal trait_category values, so a raw substring/
+                # exact match against the label itself finds nothing.
+                mapped_category = info.get("category_map", {}).get(trait, trait)
+                if mapped_category is None:
+                    trait_snps = db.iloc[0:0]  # no panel coverage for this sub-trait
+                else:
+                    trait_snps = db[db["trait_category"].str.contains(
+                        mapped_category.replace(" metabolism", ""), case=False, na=False)]
+                    if len(trait_snps) == 0:
+                        trait_snps = db[db["trait_category"] == mapped_category]
 
                 n_overlap = len(trait_snps)
                 total_db = len(db)

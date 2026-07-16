@@ -20,6 +20,7 @@ from pathlib import Path
 from collections import defaultdict
 import pandas as pd
 import numpy as np
+import scipy.stats
 
 def main():
     import argparse
@@ -112,7 +113,12 @@ def main():
             eur = dist.get("EUR", {})
             if eur:
                 z = (sample_score - eur["mean"]) / eur["std"] if eur["std"] > 0 else 0
-                pctl = scipy.stats.norm.cdf(z) * 100 if 'scipy' in dir() else 50
+                # Previously gated on `'scipy' in dir()`, which only checks
+                # local names inside this function - scipy.stats was only
+                # ever imported under `if __name__ == "__main__":` at module
+                # scope, so that check was always False and percentile was
+                # always the hardcoded fallback of 50, regardless of z.
+                pctl = scipy.stats.norm.cdf(z) * 100
                 risk = "HIGH" if z > 2 else ("ELEVATED" if z > 1 else ("AVERAGE" if abs(z) <= 1 else ("LOW" if z < -1 else "PROTECTIVE")))
             else:
                 z, pctl, risk = 0, 50, "UNKNOWN"
@@ -148,5 +154,4 @@ def main():
         print(f"📁 Results: {out_dir / 'pgs_calibrated.csv'}")
 
 if __name__ == "__main__":
-    import scipy.stats  # needed for percentile calculation
     main()
