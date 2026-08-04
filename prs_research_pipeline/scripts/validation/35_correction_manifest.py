@@ -231,7 +231,7 @@ class CorrectionManifestGenerator:
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Correction Manifest + Final Audit")
-    parser.add_argument("--integrity-json", default="science/scientific_integrity_score.json")
+    parser.add_argument("--integrity-json", default="FINAL_SCIENTIFIC_SCORE.json")
     parser.add_argument("--validation-json", default="science/global_validation_report.json")
     parser.add_argument("--leakage-json", default="science/leakage_audit.json")
     parser.add_argument("--output-dir", "-o", default="science")

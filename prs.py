@@ -546,20 +546,25 @@ def cmd_run(args):
         run_script("pgs_integration", "--bfile", "qc/qc_filtered",
                    "--output-dir", "pgs")
 
+        # final_score only depends on artifacts already produced above
+        # (CONSOLIDATION_MANIFEST, VALIDATION_REPORT, adversarial/calibration/
+        # portability reports, run_fingerprint) - run it here so report_engine
+        # and evidence_pack below see the real score instead of a missing file.
+        run_script("final_score")
+
         hdr("Reports")
         run_script("report_engine", "--sample-id", sample,
                    "--prs-core", "science/prs_core_definition.json",
                    "--ancestry", "science/ANCESTRY_MODEL.json",
                    "--prs-result", "prs/PRS_RESULT.json",
                    "--benchmark", "benchmark/VALIDATION_REPORT.json",
-                   "--integrity", "science/scientific_integrity_score.json",
+                   "--integrity", "FINAL_SCIENTIFIC_SCORE.json",
                    "--output-dir", "reports/")
         run_script("comprehensive_report", "--sample-id", sample, "--lang", lang,
                    "--output-dir", "reports/")
 
         hdr("Publication Lock")
         run_script("evidence_pack", "--output-dir", "publication_evidence_pack")
-        run_script("final_score")
         run_script("publication_lock")
 
     # ── Summary ──
@@ -668,12 +673,15 @@ def cmd_report(args):
     sample = args.sample or "SAMPLE_001"
 
     lang = args.lang or "both"
+    # report_engine reads FINAL_SCIENTIFIC_SCORE.json for the integrity score
+    # shown in the manuscripts - (re)compute it first so that's never stale.
+    run_script("final_score")
     run_script("report_engine", "--sample-id", sample,
                "--prs-core", "science/prs_core_definition.json",
                "--ancestry", "science/ANCESTRY_MODEL.json",
                "--prs-result", "prs/PRS_RESULT.json",
                "--benchmark", "benchmark/VALIDATION_REPORT.json",
-               "--integrity", "science/scientific_integrity_score.json",
+               "--integrity", "FINAL_SCIENTIFIC_SCORE.json",
                "--output-dir", "reports/")
     run_script("comprehensive_report", "--sample-id", sample, "--lang", lang,
                "--output-dir", "reports/")

@@ -56,7 +56,7 @@ class PublicationEvidencePack:
                  prs_result_json: str = "prs/PRS_RESULT.json",
                  validation_json: str = "science/global_validation_report.json",
                  adversarial_json: str = "science/adversarial_validation_report.json",
-                 integrity_json: str = "science/scientific_integrity_score.json",
+                 integrity_json: str = "FINAL_SCIENTIFIC_SCORE.json",
                  failure_map_json: str = "science/failure_mode_map.json") -> EvidencePackage:
         logger.info("═══ Publication Evidence Package ═══")
 
@@ -280,7 +280,7 @@ def main():
     parser.add_argument("--prs-result", default="prs/PRS_RESULT.json")
     parser.add_argument("--validation", default="science/global_validation_report.json")
     parser.add_argument("--adversarial", default="science/adversarial_validation_report.json")
-    parser.add_argument("--integrity", default="science/scientific_integrity_score.json")
+    parser.add_argument("--integrity", default="FINAL_SCIENTIFIC_SCORE.json")
     parser.add_argument("--failure-map", default="science/failure_mode_map.json")
     parser.add_argument("--output-dir", "-o", default="publication_evidence_pack")
     parser.add_argument("--verbose", "-v", action="store_true")

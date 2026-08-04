@@ -66,6 +66,7 @@ class PRSCoreDefinition:
     definition_hash: str = ""
     frozen_date: str = ""
     canonical_version: str = "1.0.0"
+    source_csv_hash: str = ""
 
 class PRSCoreRegistry:
     """
@@ -103,16 +104,34 @@ class PRSCoreRegistry:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _hash_csv(snp_db: str) -> str:
+        """SHA-256 of the SNP database file, to detect panel changes since freeze."""
+        if not Path(snp_db).exists():
+            return ""
+        return hashlib.sha256(Path(snp_db).read_bytes()).hexdigest()[:16]
+
     def load_or_create(self, snp_db: str = "data/snp_database_annotated.csv",
                        score_files: Optional[List[str]] = None) -> PRSCoreDefinition:
-        """Load existing SSST or create from current pipeline state."""
+        """Load existing SSST, or (re)create it if the SNP panel changed since
+        it was last frozen. The freeze is meant to pin the definition for
+        reproducibility within a given panel version - not to survive the
+        panel itself being curated/expanded, which would silently leave the
+        canonical definition (and everything downstream: manuscripts,
+        consistency checks) describing a stale trait/SNP count."""
         existing = self.output_dir / "prs_core_definition.json"
+        current_hash = self._hash_csv(snp_db)
         if existing.exists():
-            logger.info("  Loading existing PRS_CORE definition...")
-            return self._load(existing)
+            core = self._load(existing)
+            if core.source_csv_hash == current_hash and current_hash:
+                logger.info("  Loading existing PRS_CORE definition (panel unchanged)...")
+                return core
+            logger.info(f"  SNP panel changed since freeze ({core.source_csv_hash!r} → {current_hash!r}) "
+                        "- re-freezing PRS_CORE definition...")
 
         logger.info("═══ Creating Canonical PRS_CORE Definition ═══")
-        core = PRSCoreDefinition(frozen_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"))
+        core = PRSCoreDefinition(frozen_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+                                  source_csv_hash=current_hash)
 
         # Load variants from SNP database
         if Path(snp_db).exists():
@@ -228,6 +247,7 @@ class PRSCoreRegistry:
                 "definition_hash": core.definition_hash,
                 "frozen_date": core.frozen_date,
                 "canonical_version": core.canonical_version,
+                "source_csv_hash": core.source_csv_hash,
                 "variants": [asdict(v) for v in core.variants[:20]],
             }, fh, indent=2)
         logger.info(f"  ✅ PRS_CORE saved: {path}")

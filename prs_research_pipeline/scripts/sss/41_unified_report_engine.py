@@ -59,7 +59,7 @@ class UnifiedReportEngine:
                  ancestry_json: str = "science/ANCESTRY_MODEL.json",
                  prs_result_json: str = "prs/PRS_RESULT.json",
                  benchmark_json: str = "benchmark/VALIDATION_REPORT.json",
-                 integrity_json: str = "science/scientific_integrity_score.json"
+                 integrity_json: str = "FINAL_SCIENTIFIC_SCORE.json"
                  ) -> Dict[str, str]:
         logger.info("═══ Unified Report Engine (SSST) ═══")
 
@@ -235,7 +235,7 @@ def main():
     parser.add_argument("--ancestry", default="science/ANCESTRY_MODEL.json")
     parser.add_argument("--prs-result", default="prs/PRS_RESULT.json")
     parser.add_argument("--benchmark", default="benchmark/VALIDATION_REPORT.json")
-    parser.add_argument("--integrity", default="science/scientific_integrity_score.json")
+    parser.add_argument("--integrity", default="FINAL_SCIENTIFIC_SCORE.json")
     parser.add_argument("--output-dir", "-o", default="reports")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
