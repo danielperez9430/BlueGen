@@ -90,12 +90,13 @@ El entregable que de verdad importa —el **informe completo** (`comprehensive_r
 
 > **Principio:** el informe se mantiene completo. Todo lo que sigue es **aditivo** — más cobertura, más contexto, más acciones — sin quitar profundidad científica.
 
-### 1.1 Añadir un "Resumen ejecutivo accionable" al principio (sin quitar nada)
+### 1.1 Añadir un "Resumen ejecutivo accionable" al principio (sin quitar nada) — ✅ **Hecho (commit `d16fc3a`, 2026-08-04)**
 - **Qué:** una primera sección que destile los hallazgos más relevantes en lenguaje claro para el nutricionista/uno mismo, **encima** del informe científico completo que ya existe.
 - **Por qué:** el informe es potente pero denso; una portada con "tus 10 hallazgos clave + qué hacer" multiplica su utilidad práctica sin perder el detalle de abajo.
 - **Dónde:** `prs_research_pipeline/scripts/publication/comprehensive_report.py` (añadir sección al inicio del render), consume `prs/PRS_RESULT.json`, `clinvar/…`, `pharmgkb/…`, `ancestry/…`.
 - **Cómo:** priorizar rasgos por (magnitud del z-score / percentil extremo) × (nivel de evidencia) × (accionabilidad). Cada hallazgo: título en claro → qué significa → **acción concreta** → nivel de evidencia. Con enlaces ancla a la sección científica completa.
 - **Esfuerzo:** 2–3 días. **Criterio:** el informe abre con un resumen de hallazgos priorizados y el resto del contenido sigue intacto debajo.
+- **Estado:** nueva sección "🔍 Your Top Findings" / "Tus Hallazgos Principales" al inicio del HTML (EN/ES), abierta por defecto. Prioriza por `|z-score| × evidencia × confianza` (no hay campo de "accionabilidad" real todavía — eso es 1.4). Cada card: rasgo, badge de riesgo, badge de evidencia A-D, una frase en lenguaje claro (qué se midió, base estadística), y enlace ancla a la fila exacta en la tabla PRS completa (`id="trait-<slug>"` nuevo en cada fila). **Deliberadamente NO fabrica una recomendación específica por rasgo** — el campo `recommendation_en/es` se lee si existe (lo llenará 1.4), si no hay, muestra un texto honesto de fallback ("consultar con un profesional, ver detalle abajo"). Evita repetir el patrón de PMIDs/notas fabricadas que esta sesión ya encontró y corrigió varias veces en el panel de SNPs. 12 tests nuevos.
 
 ### 1.2 Ampliar cobertura y **auditar posiciones** del panel
 
@@ -190,12 +191,13 @@ Todas verificadas hoy en Ensembl GRCh37. El **alelo de efecto/peso/evidencia se 
 - **Cómo:** cada rasgo con campos `recommendation_en/es` + `evidence_level` (A/B/C) + `reference` (PMID/URL). En el informe, mostrar la acción destacada y el nivel de evidencia como badge.
 - **Esfuerzo:** 2–3 días (curación). **Criterio:** cada rasgo del informe tiene acción + nivel de evidencia + cita.
 
-### 1.5 Contexto honesto de base (aditivo, refuerza credibilidad)
+### 1.5 Contexto honesto de base (aditivo, refuerza credibilidad) — ✅ **Hecho (mayormente ya existía; brecha cerrada en commit `b589fcb`, 2026-08-04)**
 - **Qué:** mostrar en cada rasgo cuántos SNPs lo sustentan y su límite; distinguir "nutrigenética de panel pequeño (bien establecida)" de "PRS de enfermedad compleja (limitado)". El disclaimer de `config.yaml:180-196` es bueno pero está enterrado.
 - **Por qué:** un informe completo y **bien calibrado en confianza** es mejor producto que uno que aparenta certeza uniforme; también protege ante decisiones de salud.
 - **Dónde:** `config.yaml:180-196`, `comprehensive_report.py`.
 - **Cómo:** badge de "n SNPs" y "nivel de evidencia" por rasgo; disclaimer accesible pero no intrusivo (colapsable). Esto acompaña, no reemplaza, la profundidad.
 - **Esfuerzo:** 1 día. **Criterio:** cada rasgo muestra su base de evidencia y n de SNPs.
+- **Estado:** al auditar el código (2026-08-04) resultó que casi todo esto ya estaba construido en una sesión anterior a este plan (CHANGELOG 1.1.1/1.2.0): barra de cobertura de SNPs, estrellas de confianza, badge de calibración, trust tier T1/T2/T3, badges de limitación — todo por rasgo en la tabla PRS. Lo único genuinamente pendiente era el disclaimer enterrado al final del informe — se agregó un `<details>` colapsable (sin JS) con el mismo texto justo debajo de Top Findings, arriba del todo.
 
 ### 1.6 Refactorizar `comprehensive_report.py` (2.998 líneas) para poder crecer
 - **Qué:** un solo archivo con HTML, CSS, datos y lógica mezclados. Al añadir secciones (1.1–1.5) crecerá; conviene ordenarlo antes/durante.
