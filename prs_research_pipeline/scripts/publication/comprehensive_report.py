@@ -72,6 +72,7 @@ UI = {
         "top_findings_meaning": "{trait} is {risk_word}, at the {pctl:.0f}th percentile versus the {pop} reference population (z={z:+.2f}), based on {n_used} of {n_total} panel SNP(s) with {evidence} evidence.",
         "top_findings_action_fallback": "Curated, evidence-cited guidance for this trait is not yet available in this report — discuss with a nutritionist or healthcare professional, and see the full trait detail below.",
         "top_findings_jump": "See full detail ↓",
+        "top_findings_disclaimer_summary": "⚠️ Research use only — how confident should you be in these results? (click to expand)",
         "risk_word_high": "elevated relative to the reference population",
         "risk_word_medium": "close to the reference population average",
         "risk_word_low": "lower relative to the reference population",
@@ -127,6 +128,7 @@ UI = {
         "top_findings_meaning": "{trait} está {risk_word}, en el percentil {pctl:.0f} respecto a la población de referencia {pop} (z={z:+.2f}), basado en {n_used} de {n_total} SNP(s) del panel con evidencia {evidence}.",
         "top_findings_action_fallback": "Todavía no hay una recomendación curada y con evidencia citada para este rasgo en este informe — coméntalo con un nutricionista o profesional de la salud, y consultá el detalle completo más abajo.",
         "top_findings_jump": "Ver detalle completo ↓",
+        "top_findings_disclaimer_summary": "⚠️ Solo para uso en investigación — ¿cuánta confianza depositar en estos resultados? (clic para expandir)",
         "risk_word_high": "elevado respecto a la población de referencia",
         "risk_word_medium": "cercano al promedio de la población de referencia",
         "risk_word_low": "más bajo respecto a la población de referencia",
@@ -732,8 +734,19 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
             <a href="#{anchor}" style="font-size:0.7rem" onclick="document.getElementById('prs').style.display='block'">{ui["top_findings_jump"]}</a>
         </div>"""
 
+    # Compact, collapsible confidence-context note (IMPROVEMENT_PLAN.md 1.5)
+    # — the full disclaimer + per-trait confidence notes already exist at
+    # the bottom of the report (Limitations & Disclaimers section); this is
+    # the same text, just also reachable without scrolling past everything.
+    disclaimer_html = f"""
+    <details style="margin-bottom:1rem;background:var(--color-bg-secondary,#f8f9fa);border-radius:6px;padding:0.6rem 1rem">
+        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600">{ui["top_findings_disclaimer_summary"]}</summary>
+        <p style="white-space:pre-line;font-size:0.78rem;margin:0.6rem 0 0;color:var(--color-text-secondary)">{ui["disclaimer"]}</p>
+    </details>"""
+
     return f"""
     <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:0.75rem">{ui["top_findings_intro"]}</p>
+    {disclaimer_html}
     <div class="info-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">{cards}</div>
     """
 
