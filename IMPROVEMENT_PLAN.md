@@ -184,12 +184,17 @@ Todas verificadas hoy en Ensembl GRCh37. El **alelo de efecto/peso/evidencia se 
 - **Cómo:** para farmacogenética, añadir "qué implica" por fármaco (dosis/precaución según CPIC). Para ClinVar, agrupar por sistema/órgano y enlazar la definición MedGen. Sección de ancestría con contexto divulgativo.
 - **Esfuerzo:** 2–3 días. **Criterio:** cada módulo tiene una sub-sección con lectura accionable, no solo tablas crudas.
 
-### 1.4 Traducir cada score a recomendación accionable **con evidencia citada**
+### 1.4 Traducir cada score a recomendación accionable **con evidencia citada** — 🟡 **Parcial: 10/59 rasgos hecho (2026-08-04)**
 - **Qué:** las interpretaciones viven en `config.yaml:140-169` (9 genes) y `bilingual_interpretation.py`. Faltan **acciones** (qué comer/evitar/monitorizar) con su cita y nivel de evidencia.
 - **Por qué:** es lo que hace el informe útil para el nutricionista y fiable para decisiones. Añade valor sin quitar contenido.
 - **Dónde:** `scripts/validation/bilingual_interpretation.py`, `config.yaml:140-169`, `data/snp_database_annotated.csv`.
 - **Cómo:** cada rasgo con campos `recommendation_en/es` + `evidence_level` (A/B/C) + `reference` (PMID/URL). En el informe, mostrar la acción destacada y el nivel de evidencia como badge.
 - **Esfuerzo:** 2–3 días (curación). **Criterio:** cada rasgo del informe tiene acción + nivel de evidencia + cita.
+- **Estado:** decisión deliberada de **no** apurar los 59 rasgos de una — cada recomendación requiere verificar una fuente real (PubMed/NIH), y esta sesión ya encontró PMIDs fabricados en el panel al apurar curación antes. Se hicieron los **10 rasgos más accionables en nutrición** de los que puntúan sobre datos reales: Lactose intolerance, Caffeine metabolism, Glucose metabolism, Folate & methylation, Vitamin D metabolism, Lipid metabolism, Histamine intolerance, Iron levels, Blood pressure, Inflammation (CRP levels).
+  - **Dónde quedó implementado** (distinto de "Dónde" arriba — diseño más aditivo/desacoplado): `prs_research_pipeline/data/trait_recommendations.json` (nuevo archivo, no toca `config.yaml` ni el CSV del panel — cada entrada: `recommendation_en/es`, `evidence_level`, `reference`). `comprehensive_report.py` lo carga y lo pasa a `build_top_findings()` (de 1.1), que solo muestra la recomendación curada cuando `risk_category == "high"` (el texto está escrito para la dirección de riesgo elevado; mostrarlo en un hallazgo protector/promedio sería incorrecto). Sin cobertura curada o sin risk="high" → cae al fallback honesto de 1.1.
+  - **Cada recomendación fue verificada contra una fuente real** antes de escribirse (PMID de PubMed o ficha de NIDDK/NIH ODS) — no reescribe conocimiento genérico, cita el hallazgo específico (p. ej. Iron levels queda deliberadamente sin recomendación dietética directa — combina HFE con TMPRSS6 en direcciones opuestas, así que remite a análisis de sangre en vez de arriesgar un consejo dietético incorrecto).
+  - Tests: `TestTraitRecommendationsData` (cada trait curado existe en el panel real, cada entrada tiene ambos idiomas + evidencia + referencia) + tests de gating en `TestBuildTopFindings`.
+  - **Pendiente:** ~49 rasgos restantes, misma metodología (WebSearch + verificación PMID por rasgo antes de escribir), en sesiones futuras.
 
 ### 1.5 Contexto honesto de base (aditivo, refuerza credibilidad) — ✅ **Hecho (mayormente ya existía; brecha cerrada en commit `b589fcb`, 2026-08-04)**
 - **Qué:** mostrar en cada rasgo cuántos SNPs lo sustentan y su límite; distinguir "nutrigenética de panel pequeño (bien establecida)" de "PRS de enfermedad compleja (limitado)". El disclaimer de `config.yaml:180-196` es bueno pero está enterrado.

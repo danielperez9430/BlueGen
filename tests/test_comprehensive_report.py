@@ -515,12 +515,23 @@ class TestBuildTopFindings:
         html = build_top_findings(entries, UI["en"])
         assert UI["en"]["top_findings_action_fallback"] in html
 
-    def test_uses_curated_recommendation_when_present(self):
+    def test_uses_curated_recommendation_when_present_and_high_risk(self):
         entry = _entry("Some trait", z=2.0, pctl=95, risk="high")
-        entry["recommendation_en"] = "Specific curated action text"
-        html = build_top_findings([entry], UI["en"])
+        reco_lookup = {"some trait": {"recommendation_en": "Specific curated action text",
+                                       "recommendation_es": "Texto de acción curado específico"}}
+        html = build_top_findings([entry], UI["en"], recommendation_lookup=reco_lookup)
         assert "Specific curated action text" in html
         assert UI["en"]["top_findings_action_fallback"] not in html
+
+    def test_curated_recommendation_ignored_when_risk_not_high(self):
+        """A curated recommendation is written for the elevated-risk
+        direction - it must not be shown for a medium/low (average or
+        protective) finding just because the trait happens to be curated."""
+        entry = _entry("Some trait", z=-2.0, pctl=5, risk="low")
+        reco_lookup = {"some trait": {"recommendation_en": "Specific curated action text"}}
+        html = build_top_findings([entry], UI["en"], recommendation_lookup=reco_lookup)
+        assert "Specific curated action text" not in html
+        assert UI["en"]["top_findings_action_fallback"] in html
 
     def test_empty_when_nothing_scored(self):
         html = build_top_findings([], UI["en"])
@@ -531,3 +542,46 @@ class TestBuildTopFindings:
         html = build_top_findings(entries, UI["es"],
                                    evidence_lookup={"lactose intolerance": [100]})
         assert UI["es"]["top_findings_action_fallback"] in html
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CURATED RECOMMENDATIONS DATA FILE TEST (IMPROVEMENT_PLAN.md 1.4)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestTraitRecommendationsData:
+    """Regression coverage for data/trait_recommendations.json: every curated
+    trait key must still exist as a real trait_category in the SNP panel, and
+    every entry must have both languages + a reference. Catches the panel
+    being re-curated (trait renamed/removed) out from under this file, and
+    catches a future addition skipping the citation this session insisted on."""
+
+    @staticmethod
+    def _load():
+        import json
+        path = os.path.join(os.path.dirname(__file__), "..",
+            "prs_research_pipeline", "data", "trait_recommendations.json")
+        with open(path) as fh:
+            return json.load(fh)
+
+    @staticmethod
+    def _real_trait_categories():
+        import pandas as pd
+        csv_path = os.path.join(os.path.dirname(__file__), "..",
+            "prs_research_pipeline", "data", "snp_database_annotated.csv")
+        return set(pd.read_csv(csv_path)["trait_category"].dropna().unique())
+
+    def test_every_curated_trait_exists_in_the_panel(self):
+        data = self._load()
+        real_traits = self._real_trait_categories()
+        for trait in data:
+            if trait == "_meta":
+                continue
+            assert trait in real_traits, f"{trait!r} is not a real trait_category in the panel"
+
+    def test_every_entry_has_both_languages_evidence_and_reference(self):
+        data = self._load()
+        for trait, entry in data.items():
+            if trait == "_meta":
+                continue
+            for field in ("recommendation_en", "recommendation_es", "evidence_level", "reference"):
+                assert entry.get(field), f"{trait!r} is missing {field!r}"

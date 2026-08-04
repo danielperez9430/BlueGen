@@ -663,7 +663,7 @@ def evidence_badge(evidence_avg_score):
     return f'<span style="background:{bg};color:{fg};padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:700">Evidence {letter}</span>'
 
 def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncert_lookup=None,
-                        ancestry=None, max_findings=8):
+                        recommendation_lookup=None, ancestry=None, max_findings=8):
     """Prioritized, plain-language 'top findings' list (IMPROVEMENT_PLAN.md 1.1).
 
     Priority = |z-score| x evidence quality x confidence — the closest proxy
@@ -672,15 +672,18 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
     (that's 1.4, tracked separately). Traits with zero matched SNPs are
     excluded — there's nothing to prioritize for an empty result.
 
-    Deliberately does NOT fabricate specific dietary/medical recommendations:
-    each card states what was measured and its evidence/confidence basis
-    (all derived from already-computed, already-verified fields), and points
-    to a fallback message for the action slot until 1.4 supplies real,
-    citation-backed guidance per trait.
+    Does NOT fabricate a recommendation for traits without curated action
+    guidance: `recommendation_lookup` (data/trait_recommendations.json) covers
+    only a hand-verified subset of traits, each checked against a real source
+    before being written. Uncovered traits, and covered traits whose
+    risk_category isn't "high" (the curated text is written for the elevated-
+    risk direction and would misrepresent a protective/average finding), fall
+    back to an honest placeholder pointing to the full trait detail below.
     """
     if evidence_lookup is None: evidence_lookup = {}
     if cal_lookup is None: cal_lookup = {}
     if uncert_lookup is None: uncert_lookup = {}
+    if recommendation_lookup is None: recommendation_lookup = {}
     ancestry = ancestry or {}
     pop = POP_NAMES.get(ui.get("_lang", "en"), POP_NAMES["en"]).get(
         ancestry.get("assigned_population", "EUR"), ancestry.get("assigned_population", "EUR"))
@@ -721,7 +724,9 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
             trait=trait, risk_word=risk_words.get(risk, risk_words["medium"]),
             pctl=pctl, pop=pop, z=z, n_used=n_used, n_total=n_total,
             evidence=evidence_letter(ev_avg))
-        recommendation = e.get("recommendation_" + ui.get("_lang", "en")) or ui["top_findings_action_fallback"]
+        lang = ui.get("_lang", "en")
+        curated = recommendation_lookup.get(trait.lower()) if risk == "high" else None
+        recommendation = (curated or {}).get("recommendation_" + lang) or ui["top_findings_action_fallback"]
         color = risk_color(z)
         cards += f"""
         <div class="info-card" style="border-left:3px solid {color}">
@@ -2711,6 +2716,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
                            evidence_lookup=data.get("_evidence_lookup", {}),
                            cal_lookup=data.get("_cal_lookup", {}),
                            uncert_lookup=data.get("_uncert_lookup", {}),
+                           recommendation_lookup=data.get("_recommendation_lookup", {}),
                            ancestry=data["ancestry"]),
         open_by_default=True)
 
@@ -3081,6 +3087,20 @@ def main():
         except Exception:
             pass
     data["_evidence_lookup"] = evidence_lookup
+
+    # Curated, evidence-cited per-trait action recommendations (IMPROVEMENT_PLAN.md
+    # 1.4). Deliberately a small hand-verified subset, not auto-generated - see
+    # data/trait_recommendations.json's _meta for the curation scope/rationale.
+    recommendation_lookup = {}
+    trait_reco_path = os.path.join(os.path.dirname(args.snp_db), "trait_recommendations.json")
+    if os.path.exists(trait_reco_path):
+        try:
+            with open(trait_reco_path) as fh:
+                raw = json.load(fh)
+            recommendation_lookup = {k.lower(): v for k, v in raw.items() if k != "_meta"}
+        except Exception:
+            pass
+    data["_recommendation_lookup"] = recommendation_lookup
 
     # Build PGS coverage lookup from pgs_results.csv
     pgs_coverage_lookup = {}
