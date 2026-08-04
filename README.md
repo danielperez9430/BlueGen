@@ -21,6 +21,11 @@ cd BlueGen
 python3 -m venv venv && source venv/bin/activate
 pip install -r prs_research_pipeline/requirements.txt
 
+# Recommended: download the genome-wide 1000G reference first (~25 GB, one-time).
+# Without it, the pipeline silently falls back to a chr22-only reference for
+# PCA/ancestry/LD pruning (see IMPROVEMENT_PLAN.md TIER 0.2).
+python3 prs_research_pipeline/scripts/setup/download_1000G_full.py
+
 # Full analysis
 python3 prs.py run --full --vcf your_sample.vcf.gz
 
@@ -32,12 +37,12 @@ venv/bin/streamlit run dashboard.py
 
 | Module | Description | Data Source |
 |--------|-------------|-------------|
-| 🧬 **PRS Engine** | 56 traits, 179 SNPs, population-calibrated z-scores | Curated GWAS + 1000 Genomes |
+| 🧬 **PRS Engine** | ~59 traits, 190 SNPs, population-calibrated z-scores | Curated GWAS + 1000 Genomes |
 | 🔬 **ClinVar** | Pathogenic/likely pathogenic variants with confidence tiers | NCBI ClinVar (4.4M records) |
 | 💊 **PharmGKB** | Drug-gene interactions, CPIC guideline recommendations | CPIC/DPWG (218 guidelines) |
 | 🌍 **Ancestry** | PCA + mtDNA/Y-DNA haplogroups + sub-continental | 1000 Genomes (26 populations) |
 | 🦴 **Archaic DNA** | Neanderthal/Denisovan admixture via AADR direct comparison | Allen Ancient DNA Resource (1.23M SNPs) |
-| 🩺 **PGS Catalog** | 54 published polygenic scores for complex diseases | PGS Catalog (EBI) |
+| 🩺 **PGS Catalog** | 30 scored PGS Catalog scores (9 fully population-calibrated; 45/54 rsID-based scores still pending, see `IMPROVEMENT_PLAN.md` TIER 3.1) | PGS Catalog (EBI) |
 | 📖 **MedGen** | Disease definitions for ClinVar findings | NCBI MedGen (23K concepts) |
 | 📊 **Dashboard** | 6-page interactive Streamlit app | All JSON outputs |
 

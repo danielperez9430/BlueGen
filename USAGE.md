@@ -1,6 +1,6 @@
 # BlueGen — User Guide
 
-**Version:** 1.1 | **Status:** Publication-Ready | **Date:** 2026-06-23
+**Pipeline version:** see `prs_research_pipeline/scripts/utils/constants.py::PIPELINE_VERSION` (single source of truth) | **Status:** Research-Grade
 
 ⏱️ **Quick links:** [Pipeline Stages](#pipeline-stages) · [ClinVar](#clinvar-pathogenic-variants) · [PharmGKB](#pharmacogenomics) · [Dashboard](#streamlit-dashboard)
 

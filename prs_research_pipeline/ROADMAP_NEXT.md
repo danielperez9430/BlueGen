@@ -1,12 +1,12 @@
 # BlueGen — Future Roadmap
 
-**Date:** 2026-06-09 | **Current:** v1.0.0
+**Date:** 2026-06-09 (superseded by `IMPROVEMENT_PLAN.md`, 2026-07-14, for current priorities — this file is kept for the longer-term Tier 2/3 items not yet re-triaged there)
 
 ---
 
 ## Tier 1 — High Impact / Short Term
 
-### 1. Full PGS Calibration
+### 1. Full PGS Calibration — **still open**, tracked as `IMPROVEMENT_PLAN.md` TIER 3.1
 | | |
 |---|---|
 | **Impact** | 9/10 — Complex disease risk with percentiles |
@@ -22,13 +22,14 @@
 | **Plan** | Download gnomAD v2.1 allele frequencies for the 30 SNPs that failed 1000G calibration. Build a local AF lookup. More accurate than default 0.25 MAF. |
 | **Deliverable** | `reference/gnomad_af.json` + improved calibration for HWE-fallback traits |
 
-### 3. rsID-based PGS Support
+### 3. rsID-based PGS Support — **infrastructure done, calibration still pending**
 | | |
 |---|---|
 | **Impact** | 7/10 — Unlock 45/54 PGS scores currently unusable |
 | **Effort** | 5/10 — 2-3 days |
 | **Plan** | Build rsID → chr:pos mapping using the 1000G BIM file or dbSNP API. Convert rsID-based PGS scoring files to position-based format for PLINK. |
 | **Deliverable** | 54/54 PGS scores computable |
+| **Status** | `pgs_rsid_mapper.py` built and wired into `pgs_catalog_integration.py` (CHANGELOG 1.2.0) — the mapping tool exists, but full 54/54 calibration is not done yet (see item 1 above / `IMPROVEMENT_PLAN.md` TIER 3.1). |
 
 ### 4. Y-DNA Haplogroup from Genotyping Arrays
 | | |
@@ -66,13 +67,14 @@
 | **Plan** | Accept 2+ VCFs, compute PRS for each, generate comparison table. |
 | **Deliverable** | `prs.py run --vcf a.vcf.gz,b.vcf.gz --compare` |
 
-### 8. SNP Position Auto-Fixer
+### 8. SNP Position Auto-Fixer — ✅ **Done** (2026-07-14, see `IMPROVEMENT_PLAN.md` H1)
 | | |
 |---|---|
 | **Impact** | 6/10 — More traits pass empirical calibration |
 | **Effort** | 3/10 — 1 day |
 | **Plan** | When a SNP fails 1000G matching, query dbSNP API for correct GRCh37 position. Auto-update CSV. |
 | **Deliverable** | Fewer HWE fallbacks, more empirical calibrations |
+| **Status** | `prs_research_pipeline/scripts/setup/audit_snp_positions.py` — 108 GRCh37 positions corrected, 10 corrupted rsIDs resolved. Regression test in `tests/test_snp_positions.py`. |
 
 ---
 

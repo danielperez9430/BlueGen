@@ -2,6 +2,23 @@
 
 All notable changes to BlueGen.
 
+## [Unreleased] — 2026-07-14 to 2026-08-04
+
+### Fixed
+- **SNP panel curation** (`data/snp_database_annotated.csv`): 108 GRCh37 position errors corrected, 10 corrupted rsIDs resolved by reverse dbSNP lookup, 3 duplicate rsID/trait_category rows removed (each was double-counting a SNP's weight in the PRS sum), 7 new SNPs added (FUT2/B12, HFE H63D, ADORA2A, HNMT, COL1A1, CLOCK, ACE). Panel now 190 rows / 172 unique rsIDs / 59 trait categories.
+- **34 strand-orientation mismatches**: `effect_allele`/`reference_allele` recorded in gene-relative (minus-strand) notation instead of GRCh37 forward-strand for minus-strand genes — PLINK `--score` silently drops any SNP that doesn't match its `.bim` alleles. 26 rows mechanically complemented, 6 rows had an independent effect_allele/risk_genotype mismatch fixed against primary literature, 2 rows removed (placeholder/wrong-gene data). User's own genotype scoring went from 23 to 25 scoring traits.
+- **Calibration z-score/percentile inconsistency** (`population_calibrate_v2.py`): `percentile_population` was hardcoded to 50.0 in two branches even when a real z-score existed, silently forcing `risk_category="medium"` regardless of the true z. Also fixed a `norm.ppf` domain overflow at the 0/100 percentile boundary that floored the aggregate calibration stability score. Scientific integrity score: 74.1 (NEEDS_REVISION) → 86.7 (RESEARCH_GRADE).
+- **GWAS consortium validation false-failures** (`25_gwas_consortium_validation.py`): sub-trait display aliases (e.g. "LDL cholesterol") were being looked up as literal `trait_category` values instead of mapping to the real combined category, reporting false FAILs. 4/17 → 16/17 consortiums passed.
+- **PGS percentile bug** (`pgs_population_calibrate.py`): `'scipy' in dir()` with no arguments only checks local scope, so the condition was always False and percentile was hardcoded to 50 for all 30 PGS scores regardless of z-score. Fixed by moving the `scipy` import to module scope.
+- **Pipeline version drift**: 9 files independently hardcoded their own `pipeline_version` (v1.0.0 to v10.0.0 across different files). Unified to a single constant (`utils/constants.py::PIPELINE_VERSION`, now `2.0.0`); CI now fails if any file drifts.
+
+### Added
+- `tests/test_allele_strand_consistency.py`, `tests/test_population_calibration.py`, `tests/test_version_consistency.py`, `tests/test_snp_positions.py` (regression coverage for all of the above).
+
+### Note
+- Population Portability score dropped 62 → 32 as a *consequence* of the strand fix landing in a benchmarking run for the first time — this reflects the corrected panel measuring the real (well-documented) EUR-vs-other-ancestry PRS transfer gap more completely, not a regression.
+- `IMPROVEMENT_PLAN.md` H5 (regenerate `comprehensive_report_en.html` with all of the above reflected) still pending as of this entry.
+
 ## [1.2.1] — 2026-06-26
 
 ### Changed
