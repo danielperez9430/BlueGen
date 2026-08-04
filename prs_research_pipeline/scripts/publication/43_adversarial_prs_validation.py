@@ -139,20 +139,41 @@ class AdversarialPRSValidator:
     def _test_ld_disruption(self, entries: List[Dict]) -> List[StressTestResult]:
         logger.info("  Stress: LD structure disruption")
         results = []
-        baseline_scores = np.array([e.get("raw_score", 0) for e in entries])
-        variance = np.var(baseline_scores) if len(baseline_scores) > 1 else 1.0
+        baseline_zs = np.array([e.get("population_zscore", 0) for e in entries])
+        baseline_pctls = np.array([e.get("population_percentile", 50) for e in entries])
+        n = len(baseline_zs)
+        baseline_var = np.var(baseline_zs) if n > 1 else 1.0
 
-        # Broken LD blocks inflate variance by retaining correlated SNPs
+        # Broken LD blocks retain correlated SNPs that PLINK --score double-
+        # counts, inflating each trait's score variance beyond what the
+        # independence assumption predicts. Simulate by adding a shared
+        # ("LD-correlated" — same draw across every trait, since LD breakage
+        # affects the whole panel's correlation structure at once) noise
+        # component plus a smaller per-trait idiosyncratic term, sized so the
+        # *measured* variance inflation targets the nominal factor - then
+        # check whether that actually disrupts trait-ranking stability, the
+        # same rank-correlation methodology the other three stress tests use.
+        # (Previously this multiplied baseline_var by `inflation` and divided
+        # by itself, which algebraically always returned exactly `inflation`
+        # regardless of any real data - not a stress test at all.)
         for inflation, label in [(1.3, "MILD"), (2.0, "MODERATE"), (3.0, "SEVERE")]:
-            inflated_var = variance * inflation
-            vif = inflated_var / max(variance, 0.001)
-            robust = vif < 2.0
+            extra_sd = float(np.sqrt(max(inflation - 1.0, 0.0) * max(baseline_var, 1e-6)))
+            shared = self.rng.normal(0, extra_sd) if extra_sd > 0 else 0.0
+            idiosyncratic = self.rng.normal(0, extra_sd * 0.3, n) if n > 0 else np.array([])
+            disrupted_zs = baseline_zs + shared + idiosyncratic
+            disrupted_var = np.var(disrupted_zs) if n > 1 else baseline_var
+            vif = disrupted_var / max(baseline_var, 1e-6)
+
+            disrupted_pctls = baseline_pctls + (disrupted_zs - baseline_zs) * 15
+            reorder = (np.corrcoef(np.argsort(baseline_pctls), np.argsort(disrupted_pctls))[0, 1]
+                       if n > 1 else 1.0)
+            robust = reorder > 0.70
             results.append(StressTestResult(
                 test_id=f"LD_DISRUPT_{label}", description=f"LD disruption — variance inflation x{inflation:.1f}",
-                metric="Variance inflation factor (VIF)", baseline=1.0,
-                stressed=round(float(vif), 2), relative_change=round(float(vif - 1.0), 2),
-                is_robust=robust, severity="CRITICAL" if vif > 2.5 else ("HIGH" if vif > 2.0 else "MODERATE"),
-                detail=f"VIF={vif:.1f}x — {'acceptable' if robust else 'problematic'} variance inflation"))
+                metric="Rank correlation under variance inflation", baseline=1.0,
+                stressed=round(float(reorder), 4), relative_change=round(float(1.0 - reorder), 4),
+                is_robust=robust, severity="CRITICAL" if inflation > 2.5 else ("HIGH" if inflation > 2.0 else "MODERATE"),
+                detail=f"Target VIF={inflation:.1f}x (measured={vif:.2f}x), trait-rank r={reorder:.3f}"))
         return results
 
     def _test_missing_snp_robustness(self, entries: List[Dict]) -> List[StressTestResult]:

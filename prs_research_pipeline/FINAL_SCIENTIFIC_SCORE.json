@@ -1,11 +1,11 @@
 {
-  "scientific_integrity_score": 84.4,
+  "scientific_integrity_score": 82.9,
   "category": "RESEARCH_GRADE",
   "category_description": "Minor limitations. Suitable for preprint.",
-  "score_hash": "dab2b4d0b24e0e8f",
+  "score_hash": "f20ce52d2a543fc0",
   "weights_locked": true,
   "formula": "SCI_SCORE = 0.25\u00d7SSST + 0.20\u00d7Benchmarks + 0.20\u00d7Adversarial + 0.15\u00d7Calibration + 0.10\u00d7Portability + 0.10\u00d7Reproducibility",
-  "generated_date": "2026-08-04 20:20 UTC",
+  "generated_date": "2026-08-04 20:37 UTC",
   "weights": {
     "ssst_compliance": 0.25,
     "external_benchmarks": 0.2,
@@ -38,10 +38,10 @@
     },
     {
       "name": "Adversarial Robustness",
-      "score": 84.6,
+      "score": 76.9,
       "weight": 0.2,
       "source": "adversarial_validation_report.json",
-      "contribution": 16.92
+      "contribution": 15.38
     },
     {
       "name": "Calibration Stability",
