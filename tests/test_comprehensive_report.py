@@ -24,6 +24,11 @@ from comprehensive_report import (
     build_radar_chart_js,
     trust_tier_legend,
     portability_banner,
+    evidence_letter,
+    evidence_badge,
+    trait_anchor_id,
+    build_top_findings,
+    UI,
 )
 
 
@@ -452,3 +457,77 @@ class TestPortabilityBanner:
     def test_no_data_empty(self):
         assert portability_banner({}) == ""
         assert portability_banner(None) == ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TOP FINDINGS TEST (IMPROVEMENT_PLAN.md 1.1)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestEvidenceLetter:
+    def test_a_grade(self):
+        assert evidence_letter(100) == "A"
+
+    def test_d_grade(self):
+        assert evidence_letter(10) == "D"
+
+    def test_badge_contains_letter(self):
+        assert "Evidence B" in evidence_badge(75)
+
+
+class TestTraitAnchorId:
+    def test_slugifies_spaces_and_case(self):
+        assert trait_anchor_id("Lactose Intolerance") == "trait-lactose-intolerance"
+
+    def test_strips_non_alphanumeric(self):
+        assert trait_anchor_id("Vitamin D (binding)") == "trait-vitamin-d-binding"
+
+
+def _entry(trait, z, pctl, risk, n_used=2, n_total=3):
+    return {"trait": trait, "population_zscore": z, "population_percentile": pctl,
+            "risk_category": risk, "n_snps_used": n_used, "n_snps_total": n_total}
+
+
+class TestBuildTopFindings:
+    def test_ranks_by_priority_and_excludes_unscored_traits(self):
+        entries = [
+            _entry("High evidence strong signal", z=3.0, pctl=99, risk="high"),
+            _entry("Weak signal", z=0.2, pctl=55, risk="medium"),
+            _entry("Zero coverage trait", z=5.0, pctl=99, risk="high", n_used=0, n_total=3),
+        ]
+        evidence_lookup = {"high evidence strong signal": [100, 100],  # A
+                            "weak signal": [25, 25]}                   # D
+        html = build_top_findings(entries, UI["en"], evidence_lookup=evidence_lookup)
+
+        assert "Zero coverage trait" not in html  # n_used=0 must be excluded
+        first_idx = html.find("High evidence strong signal")
+        second_idx = html.find("Weak signal")
+        assert first_idx != -1 and second_idx != -1
+        assert first_idx < second_idx  # higher |z| x evidence x confidence ranks first
+
+    def test_anchor_link_targets_the_prs_table_row(self):
+        entries = [_entry("Lactose intolerance", z=2.0, pctl=95, risk="high")]
+        html = build_top_findings(entries, UI["en"],
+                                   evidence_lookup={"lactose intolerance": [100]})
+        assert f'href="#{trait_anchor_id("Lactose intolerance")}"' in html
+
+    def test_no_fabricated_recommendation_when_none_curated(self):
+        entries = [_entry("Some trait", z=2.0, pctl=95, risk="high")]
+        html = build_top_findings(entries, UI["en"])
+        assert UI["en"]["top_findings_action_fallback"] in html
+
+    def test_uses_curated_recommendation_when_present(self):
+        entry = _entry("Some trait", z=2.0, pctl=95, risk="high")
+        entry["recommendation_en"] = "Specific curated action text"
+        html = build_top_findings([entry], UI["en"])
+        assert "Specific curated action text" in html
+        assert UI["en"]["top_findings_action_fallback"] not in html
+
+    def test_empty_when_nothing_scored(self):
+        html = build_top_findings([], UI["en"])
+        assert UI["en"]["top_findings_empty"] in html
+
+    def test_bilingual_es(self):
+        entries = [_entry("Lactose intolerance", z=2.0, pctl=95, risk="high")]
+        html = build_top_findings(entries, UI["es"],
+                                   evidence_lookup={"lactose intolerance": [100]})
+        assert UI["es"]["top_findings_action_fallback"] in html

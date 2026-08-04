@@ -16,6 +16,7 @@
 
 import sys
 import os
+import re
 import json
 import logging
 from pathlib import Path
@@ -60,6 +61,20 @@ UI = {
         "risk_high": "HIGHER RISK", "risk_medium": "AVERAGE RISK", "risk_low": "LOWER RISK",
         "passed": "PASSED", "failed": "FAILED", "warning": "WARNING",
         "yes": "Yes", "no": "No",
+        "top_findings_title": "🔍 Your Top Findings",
+        "top_findings_intro": (
+            "The traits below are prioritized by how far your result deviates from the reference "
+            "population, weighted by how much genetic evidence supports each trait's score. "
+            "This is a navigation aid, not a ranking of health importance — see the full PRS "
+            "Results table below for every trait scored."
+        ),
+        "top_findings_empty": "No traits had enough matched SNPs to prioritize yet.",
+        "top_findings_meaning": "{trait} is {risk_word}, at the {pctl:.0f}th percentile versus the {pop} reference population (z={z:+.2f}), based on {n_used} of {n_total} panel SNP(s) with {evidence} evidence.",
+        "top_findings_action_fallback": "Curated, evidence-cited guidance for this trait is not yet available in this report — discuss with a nutritionist or healthcare professional, and see the full trait detail below.",
+        "top_findings_jump": "See full detail ↓",
+        "risk_word_high": "elevated relative to the reference population",
+        "risk_word_medium": "close to the reference population average",
+        "risk_word_low": "lower relative to the reference population",
         "disclaimer": (
             "⚠️  RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS\n\n"
             "This PRS report is generated for RESEARCH PURPOSES ONLY. "
@@ -101,6 +116,20 @@ UI = {
         "risk_high": "RIESGO ELEVADO", "risk_medium": "RIESGO PROMEDIO", "risk_low": "RIESGO BAJO",
         "passed": "APROBADO", "failed": "FALLIDO", "warning": "ADVERTENCIA",
         "yes": "Sí", "no": "No",
+        "top_findings_title": "🔍 Tus Hallazgos Principales",
+        "top_findings_intro": (
+            "Los rasgos de abajo están priorizados por cuánto se desvía tu resultado de la población "
+            "de referencia, ponderado por cuánta evidencia genética respalda el score de cada rasgo. "
+            "Es una guía de navegación, no un ranking de importancia para la salud — ver la tabla "
+            "completa de Resultados PRS más abajo para todos los rasgos puntuados."
+        ),
+        "top_findings_empty": "Ningún rasgo tuvo suficientes SNPs casados todavía para priorizar.",
+        "top_findings_meaning": "{trait} está {risk_word}, en el percentil {pctl:.0f} respecto a la población de referencia {pop} (z={z:+.2f}), basado en {n_used} de {n_total} SNP(s) del panel con evidencia {evidence}.",
+        "top_findings_action_fallback": "Todavía no hay una recomendación curada y con evidencia citada para este rasgo en este informe — coméntalo con un nutricionista o profesional de la salud, y consultá el detalle completo más abajo.",
+        "top_findings_jump": "Ver detalle completo ↓",
+        "risk_word_high": "elevado respecto a la población de referencia",
+        "risk_word_medium": "cercano al promedio de la población de referencia",
+        "risk_word_low": "más bajo respecto a la población de referencia",
         "disclaimer": (
             "⚠️  SOLO PARA USO EN INVESTIGACIÓN — NO PARA DIAGNÓSTICO CLÍNICO\n\n"
             "Este informe PRS se genera SOLO PARA FINES DE INVESTIGACIÓN. "
@@ -141,6 +170,11 @@ def safe_float(v, default=0.0):
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTML GENERATORS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def trait_anchor_id(trait: str) -> str:
+    """Slugify a trait name into an HTML id usable for in-page anchor links."""
+    slug = re.sub(r"[^a-z0-9]+", "-", trait.lower()).strip("-")
+    return f"trait-{slug}"
 
 def risk_color(z_score):
     """Return CSS color based on z-score magnitude."""
@@ -612,6 +646,97 @@ def collapsible_section(section_id, title, content, open_by_default=False):
 # SECTION BUILDERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def evidence_letter(evidence_avg_score):
+    """Map an averaged 0-100 evidence score (A=100,B=75,C=50,D=25) back to a letter."""
+    if evidence_avg_score >= 90: return "A"
+    if evidence_avg_score >= 65: return "B"
+    if evidence_avg_score >= 40: return "C"
+    return "D"
+
+def evidence_badge(evidence_avg_score):
+    letter = evidence_letter(evidence_avg_score)
+    colors = {"A": ("#d5f5e3", "#1e8449"), "B": ("#d6eaf8", "#2874a6"),
+              "C": ("#fdebd0", "#b7950b"), "D": ("#fadbd8", "#c0392b")}
+    bg, fg = colors[letter]
+    return f'<span style="background:{bg};color:{fg};padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:700">Evidence {letter}</span>'
+
+def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncert_lookup=None,
+                        ancestry=None, max_findings=8):
+    """Prioritized, plain-language 'top findings' list (IMPROVEMENT_PLAN.md 1.1).
+
+    Priority = |z-score| x evidence quality x confidence — the closest proxy
+    available today to the plan's "magnitude x evidence x actionability", since
+    a curated per-trait actionability/recommendation field doesn't exist yet
+    (that's 1.4, tracked separately). Traits with zero matched SNPs are
+    excluded — there's nothing to prioritize for an empty result.
+
+    Deliberately does NOT fabricate specific dietary/medical recommendations:
+    each card states what was measured and its evidence/confidence basis
+    (all derived from already-computed, already-verified fields), and points
+    to a fallback message for the action slot until 1.4 supplies real,
+    citation-backed guidance per trait.
+    """
+    if evidence_lookup is None: evidence_lookup = {}
+    if cal_lookup is None: cal_lookup = {}
+    if uncert_lookup is None: uncert_lookup = {}
+    ancestry = ancestry or {}
+    pop = POP_NAMES.get(ui.get("_lang", "en"), POP_NAMES["en"]).get(
+        ancestry.get("assigned_population", "EUR"), ancestry.get("assigned_population", "EUR"))
+
+    scored = []
+    for e in entries:
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+        if n_used <= 0:
+            continue
+        trait = e.get("trait", "")
+        z = safe_float(e.get("population_zscore", e.get("raw_score", 0)))
+        pctl = safe_float(e.get("population_percentile", 50))
+        risk = e.get("risk_category", "medium")
+
+        ev_scores = evidence_lookup.get(trait.lower(), [])
+        ev_avg = sum(ev_scores) / len(ev_scores) if ev_scores else 50.0
+
+        cal_entry = cal_lookup.get(trait.lower())
+        uncert_entry = uncert_lookup.get(trait.lower())
+        conf = compute_per_trait_confidence(e, cal_entry, uncert_entry, ev_scores)
+
+        priority = abs(z) * (ev_avg / 100.0) * (conf / 100.0)
+        scored.append((priority, e, z, pctl, risk, ev_avg, conf, n_used, n_total))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    top = scored[:max_findings]
+
+    if not top:
+        return f'<p style="color:var(--color-text-secondary)">{ui["top_findings_empty"]}</p>'
+
+    risk_words = {"high": ui["risk_word_high"], "medium": ui["risk_word_medium"], "low": ui["risk_word_low"]}
+    cards = ""
+    for priority, e, z, pctl, risk, ev_avg, conf, n_used, n_total in top:
+        trait = e.get("trait", "")
+        anchor = trait_anchor_id(trait)
+        meaning = ui["top_findings_meaning"].format(
+            trait=trait, risk_word=risk_words.get(risk, risk_words["medium"]),
+            pctl=pctl, pop=pop, z=z, n_used=n_used, n_total=n_total,
+            evidence=evidence_letter(ev_avg))
+        recommendation = e.get("recommendation_" + ui.get("_lang", "en")) or ui["top_findings_action_fallback"]
+        color = risk_color(z)
+        cards += f"""
+        <div class="info-card" style="border-left:3px solid {color}">
+            <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
+                <strong style="font-size:0.95rem">{trait}</strong>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">{risk_badge(risk, ui)}{evidence_badge(ev_avg)}</div>
+            </div>
+            <p style="font-size:0.8rem;margin:0.4rem 0;color:var(--color-text-secondary)">{meaning}</p>
+            <p style="font-size:0.8rem;margin:0.4rem 0"><strong>→</strong> {recommendation}</p>
+            <a href="#{anchor}" style="font-size:0.7rem" onclick="document.getElementById('prs').style.display='block'">{ui["top_findings_jump"]}</a>
+        </div>"""
+
+    return f"""
+    <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:0.75rem">{ui["top_findings_intro"]}</p>
+    <div class="info-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">{cards}</div>
+    """
+
 def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, portability=None):
     """Executive summary cards with confidence overview."""
     if cal_lookup is None:
@@ -853,7 +978,7 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         color = risk_color(z)
 
         rows += f"""
-        <tr>
+        <tr id="{trait_anchor_id(trait)}">
             <td><strong>{trait}</strong></td>
             <td style="color:{color};font-weight:700">{z:+.2f}</td>
             <td>{pctl:.1f}%</td>
@@ -2564,6 +2689,17 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     # Build sections
     sections_html = ""
     s = ui["sections"]
+
+    # 0. Top Findings — prioritized, plain-language, actionable-navigation
+    # summary (IMPROVEMENT_PLAN.md 1.1). Purely additive: everything below
+    # (including the full PRS table it links into) is unchanged.
+    sections_html += collapsible_section("top_findings", ui["top_findings_title"],
+        build_top_findings(data["prs_result"].get("prs_entries", []), ui,
+                           evidence_lookup=data.get("_evidence_lookup", {}),
+                           cal_lookup=data.get("_cal_lookup", {}),
+                           uncert_lookup=data.get("_uncert_lookup", {}),
+                           ancestry=data["ancestry"]),
+        open_by_default=True)
 
     # 1. Summary (always open)
     sections_html += collapsible_section("summary", f"📊 {s['summary']}",
