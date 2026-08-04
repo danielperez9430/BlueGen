@@ -34,6 +34,18 @@ jobs:
             [ -f "prs_research_pipeline/scripts/$d/__init__.py" ] || { echo "Missing __init__.py in $d"; exit 1; }
           done
 
+      - name: Check for accidentally committed genomic/personal data
+        run: |
+          # Real genomes (VCF/BAM/CRAM/FASTQ), rendered reports with real genotypes,
+          # and curation backups must never enter git history - .gitignore blocks a
+          # plain `git add`, but this catches a forced add (git add -f) before merge.
+          offenders=$(git ls-files | grep -E '\.(vcf\.gz|vcf\.gz\.tbi|bam|bam\.bai|cram|fq\.gz|fastq\.gz|bak)$|(^|/)reports/.*\.html$' || true)
+          if [ -n "$offenders" ]; then
+            echo "Genomic/personal data files are tracked in git:"
+            echo "$offenders"
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
     needs: lint

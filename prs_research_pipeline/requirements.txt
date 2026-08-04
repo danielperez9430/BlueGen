@@ -1,6 +1,7 @@
 # PRS Research Pipeline — Python Dependencies
 # ==================================================
 # Install: pip install -r requirements.txt
+# For a pinned, reproducible environment instead: pip install -r requirements.lock
 #
 # System prerequisites (macOS):
 #   brew install htslib cairo pango gdk-pixbuf libffi

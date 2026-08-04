@@ -59,19 +59,21 @@ El entregable que de verdad importa —el **informe completo** (`comprehensive_r
 - **Cómo:** que el fallback a chr22 escriba un flag `reference_coverage: "chr22_only"` en `PRS_RESULT.json` y que el informe lo muestre como advertencia visible (no solo en logs).
 - **Esfuerzo:** 2–3 h. **Criterio:** informe generado con solo chr22 muestra un banner de "cobertura de referencia parcial".
 
-### 0.3 `.gitignore` / privacidad de datos genómicos
+### 0.3 `.gitignore` / privacidad de datos genómicos — ✅ **Hecho (2026-08-04)**
 - **Qué:** confirmar que ningún dato personal identificable (VCF, BAM, FASTQ, informes con genotipos) puede colarse a git. Ya hay reglas, pero conviene un test.
 - **Por qué:** el genoma es el PII más sensible que existe; un `git add .` accidental es irreversible una vez pusheado.
 - **Dónde:** `.gitignore`, `.github/workflows/test.yml` (añadir un job).
 - **Cómo:** añadir a CI un check que falle si el commit incluye `*.vcf.gz`, `*.bam`, `*.fq.gz`, `reports/*.html`, o rutas `/Users/`. Ya existe el check de `/Users/` en `test.yml:30` — extenderlo a extensiones de datos.
 - **Esfuerzo:** 1 h. **Criterio:** CI falla si se intenta commitear un VCF de prueba.
+- **Estado:** step "Check for accidentally committed genomic/personal data" añadido al job `lint` de `test.yml` — falla si `git ls-files` encuentra `.vcf.gz`/`.vcf.gz.tbi`/`.bam`/`.bam.bai`/`.cram`/`.fq.gz`/`.fastq.gz`/`.bak` o cualquier `reports/*.html` trackeado. Verificado localmente contra el árbol actual (0 offenders).
 
-### 0.4 `requirements.txt` con versiones fijadas (lock)
+### 0.4 `requirements.txt` con versiones fijadas (lock) — ✅ **Hecho (2026-08-04)**
 - **Qué:** las deps usan `>=` abierto (`prs_research_pipeline/requirements.txt`). `weasyprint>=60` arrastra libs de sistema (cairo/pango) frágiles en macOS.
 - **Por qué:** reproducibilidad — el proyecto presume de "deterministic seeds, SHA-256" pero el entorno Python no está pinneado.
 - **Dónde:** `prs_research_pipeline/requirements.txt`.
 - **Cómo:** generar un `requirements.lock` con `pip freeze` del venv que funciona hoy, y documentar que WeasyPrint es opcional (el HTML es el entregable primario; el PDF, secundario).
 - **Esfuerzo:** 1 h. **Criterio:** `pip install -r requirements.lock` reproduce el entorno actual.
+- **Estado:** `prs_research_pipeline/requirements.lock` generado desde el venv que corre H5 ahora mismo (Python 3.14.5, macOS). `requirements.txt` apunta a él. Nota de WeasyPrint opcional incluida en el header del lock.
 
 ---
 
