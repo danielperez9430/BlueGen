@@ -84,7 +84,7 @@ class AdversarialPRSValidator:
         n_vulnerable = sum(1 for r in results if not r.is_robust)
         robustness = 100.0 * n_robust / max(len(results), 1)
 
-        critical = [r.test_id for r in results if r.severity == "CRITICAL"]
+        critical = [r.test_id for r in results if r.severity == "CRITICAL" and not r.is_robust]
 
         report = AdversarialReport(
             results=results, n_tests=len(results),

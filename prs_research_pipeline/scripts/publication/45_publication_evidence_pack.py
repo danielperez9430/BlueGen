@@ -109,13 +109,21 @@ class PublicationEvidencePack:
             observed=f"{adv_score:.0f}%", match=adv_ok,
             detail="Survives stress tests" if adv_ok else "Vulnerable under stress"))
 
-        # Check 6: Failure modes
-        n_crit = failure_map.get("n_critical", 0) or 0
+        # Check 6: Failure modes — count of CRITICAL-severity adversarial
+        # tests that are CURRENTLY failing (adversarial.critical_findings),
+        # not failure_map.n_critical: that field is the size of a static,
+        # hardcoded catalog of known failure modes (FAILURE_MODES in
+        # 44_failure_mode_map.py) documented for reviewer transparency —
+        # it's fixed at 7 regardless of pipeline state, so comparing it
+        # against "expected: 0" could never pass by construction.
+        active_critical = adversarial.get("critical_findings", []) or []
+        n_crit = len(active_critical)
         crit_ok = n_crit == 0
         consistency.append(ConsistencyCheck(
             dimension="Critical failures", expected="0",
             observed=str(n_crit), match=crit_ok,
-            detail="No critical failure modes" if crit_ok else f"{n_crit} critical failure modes exist"))
+            detail="No critical adversarial failures" if crit_ok
+            else f"{n_crit} critical adversarial test(s) failing: {', '.join(active_critical)}"))
 
         # Check 7: SSST hash traceability
         ssst_hash = prs_core.get("definition_hash", "")
