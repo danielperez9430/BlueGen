@@ -119,6 +119,7 @@ ROUTES = {
     "positioning": "benchmarking/28_scientific_positioning.py",
     "quality_delta": "benchmarking/29_quality_delta_analysis.py",
     "pgs_integration": "benchmarking/pgs_catalog_integration.py",
+    "pgs_calibrate": "utils/pgs_population_calibrate.py",
     "gwas_stats": "benchmarking/gwas_summary_stats.py",
     # ── Publication (Phase 10) ──
     "adversarial": "publication/43_adversarial_prs_validation.py",
@@ -545,6 +546,18 @@ def cmd_run(args):
         run_script("quality_delta", "--output-dir", "benchmark")
         run_script("pgs_integration", "--bfile", "qc/qc_filtered",
                    "--output-dir", "pgs")
+        # Population-calibrate whatever pgs_integration just scored (z-score,
+        # percentile, risk_category vs 1000G EUR) - this was never wired in
+        # before, so the report's PGS Catalog section read a frozen snapshot
+        # of prs/pgs_scores/pgs_results.csv from 2026-06-07 instead of live
+        # per-run data. Needs the genome-wide 1000G reference (rsID-derived
+        # PGS variants can fall anywhere in the genome, not just chr22).
+        if use_full_ref and exists("pgs/pgs_results.csv"):
+            run_script("pgs_calibrate", "--bfile", g1k_full_bfile,
+                       "--pop-panel", pop_panel_full, "--pgs-dir", "pgs",
+                       "--sample-prs", "pgs/pgs_results.csv",
+                       "--output-dir", "prs/pgs_scores",
+                       "--plink", str(PROJECT_ROOT / "tools" / "plink"))
 
         # final_score only depends on artifacts already produced above
         # (CONSOLIDATION_MANIFEST, VALIDATION_REPORT, adversarial/calibration/

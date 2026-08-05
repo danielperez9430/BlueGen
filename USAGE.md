@@ -133,7 +133,7 @@ python prs.py run --full --lang en
 
 | Category | Modules |
 |----------|---------|
-| External data | PGS Catalog (30 scores), GWAS summary stats, dbSNP annotations |
+| External data | PGS Catalog (50+ scores, population-calibrated), GWAS summary stats, dbSNP annotations |
 | Validation | Leakage prevention, global validator (8 dims), adversarial stress tests |
 | Benchmarking | GWAS consortium validation, population portability, quality delta |
 | Publication | Scientific manuscripts, evidence pack, final score, publication lock |
@@ -257,7 +257,7 @@ cd bluegen
 | `population_calibration_report.json` | Population-stratified calibration |
 | `uncertainty_report.json` | 3-layer uncertainty propagation |
 | **`pgs_scores/`** | **PGS Catalog scores + calibrated results** |
-| `pgs_scores/pgs_results.csv` | 30 PGS scores against sample |
+| `pgs_scores/pgs_results.csv` | Raw PGS scores against sample (50+) |
 | `pgs_scores/pgs_calibrated.csv` | Population-calibrated (z-scores + percentiles) |
 | `pgs_scores/pgs_calibration_report.json` | Structured calibration report |
 
@@ -348,7 +348,7 @@ FASTQ (.fq.gz)                         raw_data/fastq/
   → DeepVariant (CNN, 16 shards)       aligned/*_dv.vcf.gz (6.1M variants)
   → bcftools mpileup (backup)          aligned/*_raw.vcf.gz (5.0M variants)
   → BlueGen Pipeline                       prs_research_pipeline/prs/
-  → PGS Catalog (30 scores)            prs_research_pipeline/prs/pgs_scores/
+  → PGS Catalog (50+ scores)            prs_research_pipeline/prs/pgs_scores/
   → Population Calibration             1000G Phase 3 (2,504 samples, 5 super-pops)
   → HTML Report                        reports/comprehensive_report_en.html
 ```

@@ -219,7 +219,7 @@ BlueGen/
 | **1000 Genomes** | Genome-wide (84M variants) | EBI FTP — `download_1000G_full.py` |
 | **dbSNP** | 108/109 rsIDs annotated | NCBI Entrez — `download_dbsnp.py` |
 | **GWAS VCFs** | 10 datasets, 525 records | OpenGWAS — manual (see `GWAS_DATASETS.md`) |
-| **PGS Catalog** | 30 scoring files | PGS Catalog REST API — auto-downloaded |
+| **PGS Catalog** | 57 downloaded, 52 scored + population-calibrated | PGS Catalog REST API — auto-downloaded |
 | **PharmGKB** | Detoxification variants | PharmGKB API |
 | **ClinVar** | Pathogenic/likely pathogenic variants | NCBI FTP — `download_clinvar.py` |
 | **MedGen** | Disease definitions (23K concepts) | NCBI FTP — `medgen_enrich.py --download` |

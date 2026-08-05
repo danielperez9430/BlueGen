@@ -42,7 +42,7 @@ venv/bin/streamlit run dashboard.py
 | 💊 **PharmGKB** | Drug-gene interactions, CPIC guideline recommendations | CPIC/DPWG (218 guidelines) |
 | 🌍 **Ancestry** | PCA + mtDNA/Y-DNA haplogroups + sub-continental | 1000 Genomes (26 populations) |
 | 🦴 **Archaic DNA** | Neanderthal/Denisovan admixture via AADR direct comparison | Allen Ancient DNA Resource (1.23M SNPs) |
-| 🩺 **PGS Catalog** | 30 scored PGS Catalog scores (9 fully population-calibrated; 45/54 rsID-based scores still pending, see `IMPROVEMENT_PLAN.md` TIER 3.1) | PGS Catalog (EBI) |
+| 🩺 **PGS Catalog** | 52/57 scored and population-calibrated (z-score + percentile vs 1000G EUR); a handful excluded for being genome-wide-scale (>500K variants, impractical for single-sample scoring) | PGS Catalog (EBI) |
 | 📖 **MedGen** | Disease definitions for ClinVar findings | NCBI MedGen (23K concepts) |
 | 📊 **Dashboard** | 6-page interactive Streamlit app | All JSON outputs |
 

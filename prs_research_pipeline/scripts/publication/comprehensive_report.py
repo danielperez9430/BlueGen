@@ -43,7 +43,7 @@ UI = {
             "uncertainty": "Uncertainty — Variance Decomposition",
             "variants": "Variant-Level Detail",
             "calibration": "Population Calibration Methodology",
-            "pgs_calibration": "PGS Catalog — External Validation (30 scores, calibrated)",
+            "pgs_calibration": "PGS Catalog — External Validation",
             "portability": "Population Portability Analysis",
             "validation": "Scientific Validation (8 Dimensions)",
             "gwas_consortium": "GWAS Consortium Validation",
@@ -99,7 +99,7 @@ UI = {
             "uncertainty": "Incertidumbre — Descomposición de Varianza",
             "variants": "Detalle por Variante",
             "calibration": "Metodología de Calibración Poblacional",
-            "pgs_calibration": "Catálogo PGS — Validación Externa (30 scores, calibrados)",
+            "pgs_calibration": "Catálogo PGS — Validación Externa",
             "portability": "Análisis de Portabilidad Poblacional",
             "validation": "Validación Científica (8 Dimensiones)",
             "gwas_consortium": "Validación de Consorcios GWAS",
@@ -2839,7 +2839,9 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     # 6b. PGS Catalog Calibration
     pgs_data = data.get("pgs_calibration", {})
     if pgs_data and pgs_data.get("all_entries"):
-        sections_html += collapsible_section("pgs_calibration", f"🧬 {s.get('pgs_calibration', 'PGS Catalog Calibration')}",
+        n_scores = pgs_data.get("summary", {}).get("total_scores", len(pgs_data["all_entries"]))
+        pgs_title = f"🧬 {s.get('pgs_calibration', 'PGS Catalog Calibration')} ({n_scores} scores, calibrated)"
+        sections_html += collapsible_section("pgs_calibration", pgs_title,
             build_pgs_calibration_section(pgs_data, ui=ui,
                                          pgs_coverage=data.get("_pgs_coverage_lookup", {})))
 

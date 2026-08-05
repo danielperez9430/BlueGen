@@ -240,10 +240,17 @@ Todas verificadas hoy en Ensembl GRCh37. El **alelo de efecto/peso/evidencia se 
 
 ## TIER 3 — Rigor científico (tocar con cuidado, afecta decisiones de salud)
 
-### 3.1 Completar la calibración PGS (ya en ROADMAP_NEXT.md #1)
+### 3.1 Completar la calibración PGS (ya en ROADMAP_NEXT.md #1) — ✅ **Hecho (2026-08-05)**
 - **Qué:** solo 9 de 54 PGS se calculan (basados en posición); 45 necesitan mapeo rsID→pos.
 - **Dónde:** `scripts/prs/`, `scripts/benchmarking/pgs_catalog_integration.py`, `scripts/utils/pgs_population_calibrate.py`, `scripts/utils/` (existe `pgs_rsid_mapper`, ver `tests/test_pgs_rsid_mapper.py`).
 - **Esfuerzo:** 2–3 días. **Criterio:** 54/54 PGS con z-score + percentil.
+- **Causa real (no era lo que decía el enunciado):** no era un problema de mapeo rsID→pos sin resolver — `pgs_catalog_integration.py` ya usa los archivos armonizados (`hmPOS_GRCh37`) de PGS Catalog, que traen `hm_chr`/`hm_pos` directo. El problema real eran **tres capas de artefactos desconectados**:
+  1. El loop principal solo procesaba los top-3 resultados de una búsqueda por trait en cada corrida — los PGS ya descargados en corridas previas nunca se reintentaban si no volvían a aparecer en el top-3. Fix: `reprocess_downloaded_scores()` reprocesa TODO lo ya descargado en `pgs/`, re-descargando el archivo armonizado por ID directo si falta, y excluyendo los de >500K variantes (poco prácticos para una sola muestra). Resultado: 30→46 PGS puntuando.
+  2. `pgs_population_calibrate.py` (el script que calcula z-score/percentil) **nunca estaba conectado a `prs.py`** — nadie lo invocaba, y su input (`prs/pgs_scores/pgs_results.csv`) llevaba congelado desde el 7 de junio. Conectado como paso `pgs_calibrate` después de `pgs_integration`, leyendo del `pgs/pgs_results.csv` real que ahora sí genera `pgs_catalog_integration.py` en cada corrida.
+  3. El informe (`build_pgs_calibration_section`) lee `prs/pgs_scores/pgs_calibration_report.json` — un archivo JSON estructurado (distinto del CSV) que **tampoco generaba nada**, congelado desde el 16 de julio. `pgs_population_calibrate.py` ahora también escribe este JSON con nombre real de trait, n_snps y flag de confiabilidad.
+  - Bug adicional encontrado corrigiendo esto: `--plink str(PLATFORM_DIR / "tools" / "plink")` en `prs.py` apuntaba a una ruta que no existe (`PLATFORM_DIR` es `prs_research_pipeline/`, el binario vive en la raíz del repo) — corregido a `PROJECT_ROOT`.
+  - Optimización de performance: calibrar contra las 84M variantes del 1000G completo por cada uno de los ~50 PGS tomaba 1.5-2h+. Se extrae una sola vez el subconjunto de variantes realmente necesario (`--extract`) antes del loop — bajó a ~15 min.
+- **Resultado verificado con el pipeline real (`prs.py run --full`) de punta a punta:** **52/57 PGS descargados puntuando y calibrados** (antes: 30, y esos 30 eran una foto congelada de junio/julio, no datos del run actual). 46 de los 52 son "reliable" (≤500K SNPs). El título de la sección del informe y las tarjetas de "Total Scores" ahora se calculan dinámicamente en vez de tener "30" hardcodeado.
 
 ### 3.2 Frecuencias alélicas reales gnomAD (ROADMAP_NEXT.md #2)
 - **Qué:** reemplazar estimaciones HWE / MAF 0.25 por AFs reales para los ~30 SNPs que fallan calibración 1000G.

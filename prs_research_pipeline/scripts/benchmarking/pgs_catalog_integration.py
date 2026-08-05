@@ -33,6 +33,11 @@ logger = logging.getLogger(__name__)
 PGS_API = "https://www.pgscatalog.org/rest"
 PGS_FTP = "https://ftp.ebi.ac.uk/pub/databases/spot/pgs"
 
+# Scores above this are genome-wide-scale and impractical/unreliable to score
+# against a single sample's targeted bfile (matches the existing "<500K SNPs
+# are reliable" convention already documented in USAGE.md for this platform).
+MAX_PRACTICAL_VARIANTS = 500_000
+
 # Map our traits to PGS Catalog traits (EFO terms where possible)
 TRAIT_MAP = {
     "Glucose metabolism": ["type 2 diabetes", "fasting glucose", "HbA1c", "glycated hemoglobin"],
@@ -206,6 +211,95 @@ def run_plink_score(
     return None
 
 
+def fetch_harmonized_url(pgs_id: str) -> Optional[Dict]:
+    """Look up a specific PGS ID directly by ID (not via trait search) to get
+    its harmonized GRCh37 scoring file URL and declared variant count."""
+    try:
+        detail = json.loads(urlopen(
+            Request(f"{PGS_API}/score/{pgs_id}"), timeout=15
+        ).read())
+        harmonized = detail.get("ftp_harmonized_scoring_files", {}).get("GRCh37")
+        if not harmonized:
+            return None
+        return {
+            "url": harmonized["positions"],
+            "n_variants": detail.get("variants_number", 0),
+        }
+    except Exception as e:
+        logger.warning(f"  Lookup failed for {pgs_id}: {e}")
+        return None
+
+
+def count_score_file_variants(path: Path) -> int:
+    """Count data rows (non-comment, non-header) in a PGS scoring file."""
+    n = 0
+    with open(path) as fh:
+        header_seen = False
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            if not header_seen:
+                header_seen = True
+                continue
+            n += 1
+    return n
+
+
+def reprocess_downloaded_scores(
+    output_dir: Path, plink_bin: str, bfile: str, mapper=None,
+    already_scored: Optional[set] = None,
+) -> Dict[str, pd.DataFrame]:
+    """Re-attempt scoring for every PGS ID already downloaded into `output_dir`
+    from a prior run, instead of relying on it resurfacing in a fresh trait
+    search's top-N results.
+
+    Root cause this fixes: integrate()'s main loop only ever processes the
+    top `max_scores_per_trait` PGS Catalog search hits per configured trait
+    query on THIS run. A PGS file downloaded in an earlier session (or under
+    an older, non-harmonized version of this script) that doesn't happen to
+    resurface in today's search results is silently never retried, even
+    though run_plink_score() would score it correctly today. Confirmed by
+    manually re-running the current preprocess+PLINK path against a stale
+    download (PGS001174, harmonized file present, last attempted with a June
+    log showing a since-fixed bug) - it scored successfully.
+    """
+    already_scored = already_scored or set()
+    results: Dict[str, pd.DataFrame] = {}
+
+    if not output_dir.exists():
+        return results
+
+    for score_dir in sorted(output_dir.iterdir()):
+        if not score_dir.is_dir() or not score_dir.name.startswith("PGS"):
+            continue
+        pgs_id = score_dir.name
+        if pgs_id in already_scored:
+            continue
+
+        score_file = score_dir / f"{pgs_id}_hmPOS_GRCh37.txt"
+        if not score_file.exists():
+            # Old-format download (pre-harmonization, or partial) - fetch the
+            # correct harmonized file directly by ID rather than re-searching.
+            info = fetch_harmonized_url(pgs_id)
+            if not info or not download_score_file(info["url"], score_file):
+                logger.info(f"  {pgs_id}: no harmonized GRCh37 file available, skipping")
+                continue
+
+        n_variants = count_score_file_variants(score_file)
+        if n_variants > MAX_PRACTICAL_VARIANTS:
+            logger.info(f"  {pgs_id}: {n_variants:,} variants exceeds practical "
+                        f"single-sample limit ({MAX_PRACTICAL_VARIANTS:,}), skipping")
+            continue
+
+        out_prefix = score_dir / pgs_id
+        prof = run_plink_score(plink_bin, bfile, score_file, out_prefix, mapper=mapper)
+        if prof is not None and len(prof) > 0:
+            results[pgs_id] = prof
+            logger.info(f"  {pgs_id}: scored ({n_variants:,} variants in file)")
+
+    return results
+
+
 def compute_concordance(
     platform_prs: pd.DataFrame, pgs_scores: Dict[str, pd.DataFrame]
 ) -> Dict:
@@ -309,12 +403,36 @@ def integrate(
 
             time.sleep(delay)
 
+    # Re-attempt every previously-downloaded PGS ID that didn't resurface in
+    # this run's trait searches above (see reprocess_downloaded_scores()).
+    reprocessed = reprocess_downloaded_scores(
+        output_dir, plink_bin, bfile, mapper=mapper, already_scored=set(all_scores))
+    if reprocessed:
+        logger.info(f"  Reprocessed {len(reprocessed)} previously-downloaded score(s)")
+        all_scores.update(reprocessed)
+
     # Compute concordance
     if all_scores:
         concordance = compute_concordance(platform_prs, all_scores)
         with open(output_dir / "concordance.json", "w") as fh:
             json.dump(concordance, fh, indent=2)
         logger.info(f"  ✅ Concordance: {concordance['n_scored']}/{concordance['n_scores']} scores computed")
+
+        # pgs_results.csv: the (pgs_id, prs_raw) format pgs_population_calibrate.py
+        # expects as --sample-prs. Writing it here, from this run's actual
+        # all_scores, is what lets calibration read live data instead of the
+        # pgs_results.csv snapshot from 2026-06-07 that nothing was
+        # regenerating (population_calibrate.py was never wired into prs.py).
+        rows = []
+        for pgs_id, prof in all_scores.items():
+            score_col = "SCORE" if "SCORE" in prof.columns else "SCORESUM"
+            if score_col not in prof.columns or len(prof) == 0:
+                continue
+            rows.append({"pgs_id": pgs_id, "individual_id": str(prof["IID"].iloc[0]),
+                         "prs_raw": float(prof[score_col].iloc[0])})
+        if rows:
+            pd.DataFrame(rows).to_csv(output_dir / "pgs_results.csv", index=False)
+            logger.info(f"  ✅ pgs_results.csv: {len(rows)} raw scores")
     else:
         concordance = {"n_scores": 0, "n_scored": 0, "scores": []}
         logger.warning("  No PGS scores could be computed")

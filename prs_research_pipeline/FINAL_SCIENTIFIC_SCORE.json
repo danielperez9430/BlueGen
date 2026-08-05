@@ -5,7 +5,7 @@
   "score_hash": "f20ce52d2a543fc0",
   "weights_locked": true,
   "formula": "SCI_SCORE = 0.25\u00d7SSST + 0.20\u00d7Benchmarks + 0.20\u00d7Adversarial + 0.15\u00d7Calibration + 0.10\u00d7Portability + 0.10\u00d7Reproducibility",
-  "generated_date": "2026-08-04 20:37 UTC",
+  "generated_date": "2026-08-05 02:08 UTC",
   "weights": {
     "ssst_compliance": 0.25,
     "external_benchmarks": 0.2,
