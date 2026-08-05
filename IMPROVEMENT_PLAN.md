@@ -252,10 +252,12 @@ Todas verificadas hoy en Ensembl GRCh37. El **alelo de efecto/peso/evidencia se 
   - Optimización de performance: calibrar contra las 84M variantes del 1000G completo por cada uno de los ~50 PGS tomaba 1.5-2h+. Se extrae una sola vez el subconjunto de variantes realmente necesario (`--extract`) antes del loop — bajó a ~15 min.
 - **Resultado verificado con el pipeline real (`prs.py run --full`) de punta a punta:** **52/57 PGS descargados puntuando y calibrados** (antes: 30, y esos 30 eran una foto congelada de junio/julio, no datos del run actual). 46 de los 52 son "reliable" (≤500K SNPs). El título de la sección del informe y las tarjetas de "Total Scores" ahora se calculan dinámicamente en vez de tener "30" hardcodeado.
 
-### 3.2 Frecuencias alélicas reales gnomAD (ROADMAP_NEXT.md #2)
+### 3.2 Frecuencias alélicas reales gnomAD (ROADMAP_NEXT.md #2) — ⏸️ **Sin objeto hoy (verificado 2026-08-05)**
 - **Qué:** reemplazar estimaciones HWE / MAF 0.25 por AFs reales para los ~30 SNPs que fallan calibración 1000G.
 - **Dónde:** nuevo `reference/gnomad_af.json`, consumido en `scripts/prs/population_calibrate_v2.py`.
 - **Esfuerzo:** 2 días. **Criterio:** menos fallbacks HWE; informe indica fuente de AF por SNP.
+- **Estado:** antes de implementar, se verificó `reference/population_distributions/reference_distributions.json` (el archivo real que usa la calibración) — **0 de 59 rasgos usan fallback HWE hoy** (`"method": "Hardy-Weinberg estimate..."` no aparece en ninguna entrada; los 59 tienen distribuciones empíricas reales con `n_samples=503` de 1000G EUR). El "~30 SNPs" del enunciado es un número de antes de los fixes de posición (H1, commit `666f19b`) y strand-orientation (commit `754a972`) de esta sesión y la anterior — ese trabajo ya resolvió indirectamente el problema que 3.2 buscaba arreglar. No hay nada que implementar hasta que aparezcan nuevos fallbacks (p. ej. si se amplía el panel con SNPs no presentes en 1000G).
+- **Nota aparte (no es fallback HWE, pero llamó la atención al verificar):** "Alcohol flush reaction" tiene `n_samples=503` pero **todos** los percentiles/media/mediana son idénticos (0.5), skewness/kurtosis `NaN` — una distribución degenerada, no una empírica real. Consistente con la limitación ya documentada de que `rs671` tiene cobertura pobre (no solo en el sample del usuario, sino aparentemente en gran parte del panel de referencia 1000G también). No investigado a fondo — candidato para revisar si se retoma el tema.
 
 ### 3.3 Auditoría/auto-fix de posiciones de SNP — **AHORA CRÍTICO** (ROADMAP_NEXT.md #8)
 - **Qué:** verificar y corregir chr:pos GRCh37 de **todos** los rsID del panel contra dbSNP/Ensembl GRCh37.
