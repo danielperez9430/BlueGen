@@ -28,6 +28,7 @@ from comprehensive_report import (
     evidence_badge,
     trait_anchor_id,
     build_top_findings,
+    build_clinvar_section,
     UI,
 )
 
@@ -585,3 +586,37 @@ class TestTraitRecommendationsData:
                 continue
             for field in ("recommendation_en", "recommendation_es", "evidence_level", "reference"):
                 assert entry.get(field), f"{trait!r} is missing {field!r}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLINVAR / MEDGEN LINK-OUT (IMPROVEMENT_PLAN.md 1.3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestClinvarMedgenLink:
+    """medgen_enrich.py now persists medgen_cui onto each variant (previously
+    computed then discarded); the report should turn that into a real link
+    to the source MedGen record instead of just showing unlinked prose."""
+
+    def _clinvar_data(self, medgen_cui="C0018995"):
+        variant = {
+            "rsid": "rs1800562", "chrom": "6", "pos": 26093141,
+            "genes": ["HFE"], "disease_name": "Hereditary hemochromatosis",
+            "clinical_significance": "Pathogenic", "confidence_tier": "high",
+            "review_status": "reviewed by expert panel",
+            "disease_description": "A disorder of iron metabolism.",
+        }
+        if medgen_cui:
+            variant["medgen_cui"] = medgen_cui
+        return {
+            "pathogenic_variants": [variant],
+            "pathogenic_variant_summary": {"high_confidence_count": 1, "by_confidence_tier": {}},
+            "metadata": {},
+        }
+
+    def test_renders_medgen_link_when_cui_present(self):
+        html = build_clinvar_section(self._clinvar_data(medgen_cui="C0018995"), UI["en"])
+        assert "ncbi.nlm.nih.gov/medgen/C0018995" in html
+
+    def test_no_broken_link_when_cui_absent(self):
+        html = build_clinvar_section(self._clinvar_data(medgen_cui=""), UI["en"])
+        assert "ncbi.nlm.nih.gov/medgen/" not in html

@@ -430,23 +430,34 @@ def enrich_clinvar_output(
         if not dname or dname in (".", "not_provided"):
             v["disease_description"] = ""
             v["disease_description_source"] = ""
+            v["medgen_cui"] = ""
             continue
 
         descriptions = []
+        cuis = []
         for part in dname.split("|"):
             part = part.strip()
             if part and part.lower() != "not provided":
                 result = cache.get(part)
                 if result and result.get("definition"):
                     descriptions.append(result["definition"])
+                    cui = result.get("medgen_cui")
+                    if cui and cui not in cuis:
+                        cuis.append(cui)
 
         if descriptions:
             v["disease_description"] = " | ".join(descriptions[:3])
             v["disease_description_source"] = "NCBI MedGen"
+            # CUI kept alongside the description text (previously computed in
+            # find_disease_definition() and discarded) so consumers can link
+            # to the source record at ncbi.nlm.nih.gov/medgen/{cui} instead of
+            # only showing unlinked prose (IMPROVEMENT_PLAN.md 1.3).
+            v["medgen_cui"] = cuis[0] if cuis else ""
             n_enriched += 1
         else:
             v["disease_description"] = ""
             v["disease_description_source"] = ""
+            v["medgen_cui"] = ""
 
     # Save
     json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))

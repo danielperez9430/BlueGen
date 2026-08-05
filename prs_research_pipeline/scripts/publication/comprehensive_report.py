@@ -2167,12 +2167,17 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
 
     def build_row(v):
         desc = v.get("disease_description", "")
+        cui = v.get("medgen_cui", "")
         desc_html = ""
         if desc:
+            medgen_link = (
+                f' <a href="https://www.ncbi.nlm.nih.gov/medgen/{cui}" target="_blank" '
+                f'rel="noopener" style="font-size:0.7rem">[MedGen ↗]</a>'
+            ) if cui else ""
             desc_html = (
                 f'<tr style="background:#fafafa">'
                 f'<td colspan="8" style="font-size:0.75rem;color:var(--color-text-secondary);padding:2px 12px 6px 32px;border-bottom:1px solid #eee">'
-                f'<em>{desc[:250]}</em>'
+                f'<em>{desc[:250]}</em>{medgen_link}'
                 f'</td>'
                 f'</tr>'
             )
