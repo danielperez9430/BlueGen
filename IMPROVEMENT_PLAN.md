@@ -158,7 +158,12 @@ Script entregado: **`scripts/setup/audit_snp_positions.py`** (batch Ensembl GRCh
 - **Nota de seguridad (por qué no se auto-corrigió ya):** es un fichero de datos de salud y la auditoría demuestra que el propio rsID a veces está mal; el fix seguro (108) descansa en confiar en el rsID, así que conviene revisar el diff y curar las 10 antes de commitear. El `.bak` y git lo hacen reversible.
 - **Criterio:** 0 divergencias tras curar; rasgos afectados (empezando por alcohol flush) aparecen en el informe.
 
-**Sub-tarea B — Rellenar huecos puntuales de alto valor (posiciones ya verificadas).**
+**Sub-tarea B — Rellenar huecos puntuales de alto valor (posiciones ya verificadas). ✅ COMPLETADA (commit `f1960d5`, H3 del handoff, 2026-07-14; verificado 2026-08-05).**
+
+> Las 7 filas de abajo están en `snp_database_annotated.csv`, cada una con posición+alelos re-verificados contra dbSNP GRCh37 y cita primaria confirmada en PubMed (no copiadas literales de esta tabla). Confirmado en H5 (2026-08-04): de las 7, solo **ACE** (`rs4343`) tiene una llamada de variante en el `qc_filtered.bim` real del usuario — las otras 6 no están genotipadas en este WGS concreto (limitación del dato del sample, no del panel, misma categoría que rs671/alcohol flush).
+>
+> **Follow-up cerrado (2026-08-05):** el emparejamiento `effect_allele`/`risk_genotype` de `rs1800562` (HFE C282Y) que quedó flageado al añadir `rs1799945` era en efecto un bug — `effect_allele`/`reference_allele` estaban invertidos (`G`/`A` en vez de `A`/`G`). Verificado contra dbSNP/ClinVar: `G` es el alelo de referencia, `A` es el alelo patogénico C282Y (~3.8% frecuencia, ClinVar "Pathogenic"). Como el scoring usa `effect_allele`+`effect_direction` (no `risk_genotype`, mismo patrón que el bug de `rs2304672` en H2), la fila puntuaba el alelo común `G` como generador de riesgo para ~96% de la gente, en vez del alelo patogénico raro `A` — con `weight=0.30`, el peso más alto de ese trait_category. Corregido (`effect_allele=A`, `reference_allele=G`; `effect_direction='+'` y `risk_genotype='A/A'` ya eran correctos). 151/151 tests siguen pasando.
+
 Todas verificadas hoy en Ensembl GRCh37. El **alelo de efecto/peso/evidencia se curan en 1.4** (aquí van marcados como *candidato*):
 
 | rsID | gen | rasgo | chr:pos (GRCh37) | alelos | efecto (candidato) | nota |
