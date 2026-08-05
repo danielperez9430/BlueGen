@@ -54,19 +54,23 @@ El entregable que de verdad importa —el **informe completo** (`comprehensive_r
 
 ## TIER 0 — Rápidas, alto valor, bajo riesgo (empezar aquí)
 
-### 0.1 Unificar el versionado
+### 0.1 Unificar el versionado — ✅ **Hecho (commit `e96c1ab`, verificado 2026-08-05)**
 - **Qué:** hay tres versiones distintas: `README.md:11` dice `1.1.0`, `prs_research_pipeline/config.yaml:13` dice `2.0.0`, y `prs.py:345` imprime `v1.0.0` en el header del log.
 - **Por qué:** confunde qué versión generó un informe; rompe la trazabilidad que el propio proyecto dice ofrecer.
 - **Dónde:** `README.md:11`, `prs_research_pipeline/config.yaml:13`, `prs.py:345`, `prs_research_pipeline/README.md` (tabla de versiones ~L345).
 - **Cómo:** definir la versión en **un solo sitio** (p. ej. `prs_research_pipeline/scripts/utils/constants.py`) y que README/config/log la importen o la referencien. Añadir un check en CI que falle si divergen.
 - **Esfuerzo:** 1–2 h. **Criterio:** `grep -rn "version" ` muestra una sola fuente de verdad.
+- **Estado:** ya estaba implementado de una sesión previa a este handoff — `PIPELINE_VERSION = "2.0.0"` vive en `prs_research_pipeline/scripts/utils/constants.py`, README (badge + tabla), `config.yaml` y `prs.py` lo referencian. `tests/test_version_consistency.py` (5 tests) verifica que las 3 fuentes coincidan y que ningún script tenga un literal `pipeline_version` hardcodeado; corre en CI vía `pytest tests/ -v`. Verificado hoy: 5/5 tests passing.
 
-### 0.2 Arreglar la ruta hardcodeada de referencia chr22
+### 0.2 Arreglar la ruta hardcodeada de referencia chr22 — ✅ **Hecho (2026-08-05)**
 - **Qué:** `config.yaml:110-111` y `prs.py:367` fijan `reference/1000G/ALL.chr22...vcf.gz` como fallback. Es una ruta concreta a un único cromosoma.
 - **Por qué:** frágil; si falta el genome-wide, el pipeline cae a chr22 silenciosamente y calcula ancestría/calibración con datos parciales sin avisar de forma prominente en el informe.
 - **Dónde:** `prs.py:365-380`, `config.yaml:106-121`.
 - **Cómo:** que el fallback a chr22 escriba un flag `reference_coverage: "chr22_only"` en `PRS_RESULT.json` y que el informe lo muestre como advertencia visible (no solo en logs).
 - **Esfuerzo:** 2–3 h. **Criterio:** informe generado con solo chr22 muestra un banner de "cobertura de referencia parcial".
+- **Estado:** `prs.py` ya calculaba `use_full_ref` (L376) pero nunca lo propagaba más allá de un `warn()` en el log. Ahora se pasa como `--reference-coverage genome_wide|chr22_only` a la stage `prs_result` (`sss/37_prs_result_unified.py`, nuevo flag CLI), que lo escribe en `PRS_RESULT.json::metadata.reference_coverage`. `comprehensive_report.py` añade `reference_coverage_banner()` (bilingüe EN/ES) que se muestra al principio de la página — antes de cualquier sección, no enterrado — cuando el valor es `chr22_only`; con `genome_wide` no renderiza nada.
+  - **Hallazgo de paso (relacionado con 0.1):** `comprehensive_report.py` tenía `"BlueGen v10.0"` hardcodeado en dos sitios (header + footer), divergiendo de `PIPELINE_VERSION="2.0.0"` — el mismo bug que 0.1 se supone que evitaba, pero el test existente solo vigilaba asignaciones `pipeline_version=...`, no texto libre. Corregido a usar `PIPELINE_VERSION` (import añadido); test nuevo `test_no_hardcoded_bluegen_v_string_anywhere` en `tests/test_version_consistency.py` (ahora 6/6) evita que vuelva a pasar en cualquier script.
+  - 151/151 tests pasan (`venv/bin/python -m pytest tests/ -q`).
 
 ### 0.3 `.gitignore` / privacidad de datos genómicos — ✅ **Hecho (2026-08-04)**
 - **Qué:** confirmar que ningún dato personal identificable (VCF, BAM, FASTQ, informes con genotipos) puede colarse a git. Ya hay reglas, pero conviene un test.

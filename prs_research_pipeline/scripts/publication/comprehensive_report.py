@@ -26,6 +26,9 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.constants import PIPELINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -426,6 +429,46 @@ def portability_banner(portability_data):
         f'Results should be interpreted with caution for non-European samples.'
         f'</p>'
         f'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">{pop_chips}</div>'
+        f'</div></div></div>'
+    )
+
+
+def reference_coverage_banner(prs_result, lang="en"):
+    """Prominent banner when Stage C fell back to the chr22-only 1000G reference
+    (IMPROVEMENT_PLAN.md 0.2). PCA-based ancestry and population calibration are
+    computed against that reference, so a chr22-only run means those components
+    reflect a single chromosome, not the genome — worth surfacing before any
+    other section, not just in the debug log."""
+    coverage = prs_result.get("metadata", {}).get("reference_coverage", "genome_wide")
+    if coverage != "chr22_only":
+        return ""
+    if lang == "es":
+        title = "Aviso: cobertura de referencia parcial (solo chr22)"
+        body = (
+            "Este informe se generó sin la referencia 1000G genoma-completo instalada, así que "
+            "la ancestría (PCA) y la calibración poblacional se calcularon usando <strong>solo "
+            "el cromosoma 22</strong> como referencia, no el genoma completo. Los rasgos cuyos "
+            "SNPs caen fuera de chr22 pueden faltar o estar mal calibrados. "
+            "Ejecuta <code>scripts/setup/download_1000G_full.py</code> y vuelve a correr el "
+            "pipeline para la cobertura completa."
+        )
+    else:
+        title = "Notice: Partial Reference Coverage (chr22 only)"
+        body = (
+            "This report was generated without the genome-wide 1000G reference installed, so "
+            "ancestry (PCA) and population calibration were computed using <strong>chromosome 22 "
+            "only</strong> as the reference, not the full genome. Traits whose SNPs fall outside "
+            "chr22 may be missing or miscalibrated. "
+            "Run <code>scripts/setup/download_1000G_full.py</code> and re-run the pipeline for "
+            "full coverage."
+        )
+    return (
+        f'<div class="portability-banner" style="padding:0.8rem 1.2rem;margin-bottom:1rem">'
+        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+        f'<span style="font-size:1.2rem">⚠️</span>'
+        f'<div>'
+        f'<strong style="color:#b7950b">{title}</strong>'
+        f'<p style="font-size:0.8rem;margin:4px 0 0;color:#7d6608">{body}</p>'
         f'</div></div></div>'
     )
 
@@ -2971,10 +3014,11 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         <div class="subtitle">{ui['subtitle']}</div>
         <div class="meta">
             Sample: {sample_id} | Population: {pop} | Integrity: {integrity_score:.0f}/100<br>
-            Generated: {now} | BlueGen v10.0 | GRCh37/hg19
+            Generated: {now} | BlueGen v{PIPELINE_VERSION} | GRCh37/hg19
         </div>
     </header>
     <div class="container">
+        {reference_coverage_banner(data["prs_result"], lang)}
         <div class="btn-row">
             <button class="btn" onclick="expandAll()">📖 Expand All</button>
             <button class="btn" onclick="collapseAll()">📕 Collapse All</button>
@@ -2983,7 +3027,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     </div>
     <footer class="report-footer">
         <p>BlueGen Report — Generated {now}</p>
-        <p>BlueGen v10.0 | Sample: {sample_id} | Research Use Only</p>
+        <p>BlueGen v{PIPELINE_VERSION} | Sample: {sample_id} | Research Use Only</p>
     </footer>
     <script>{JS}</script>
 </body>

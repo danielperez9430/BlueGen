@@ -520,7 +520,8 @@ def cmd_run(args):
     hdr("SSST Consolidation (Phase 9)")
     run_script("prs_core", "--snp-db", snp_db, "--output-dir", "science", "--validate-all")
     run_script("ancestry_unified", "--output-dir", "science")
-    run_script("prs_result", "--sample-id", sample, "--output-dir", "prs")
+    run_script("prs_result", "--sample-id", sample, "--output-dir", "prs",
+               "--reference-coverage", "genome_wide" if use_full_ref else "chr22_only")
     run_script("benchmark_reinterp", "--output-dir", "benchmark")
     run_script("leakage_integrated", "--sample-id", sample, "--output-dir", "science", "--no-hard-stop")
     run_script("consolidation", "--output-dir", "science")

@@ -92,7 +92,8 @@ class UnifiedPRSAssembler:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def assemble(self, sample_id: str = "SAMPLE_001",
-                 ancestry_json: Optional[str] = None) -> UnifiedPRSResult:
+                 ancestry_json: Optional[str] = None,
+                 reference_coverage: str = "genome_wide") -> UnifiedPRSResult:
         logger.info("═══ Assembling Unified PRS_RESULT ═══")
 
         # Load all available sources
@@ -187,6 +188,7 @@ class UnifiedPRSAssembler:
                 "prs_formula": "PRS = Σ(βⱼ × Gᵢⱼ)",
                 "pipeline_version": PIPELINE_VERSION,
                 "consolidation_note": "Single Source of Scientific Truth — all PRS values unified",
+                "reference_coverage": reference_coverage,
             },
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
         )
@@ -264,12 +266,15 @@ def main():
     parser.add_argument("--sample-id", default="SAMPLE_001")
     parser.add_argument("--ancestry-json", default="ancestry/classification_report.json")
     parser.add_argument("--output-dir", "-o", default="prs")
+    parser.add_argument("--reference-coverage", default="genome_wide",
+                         choices=["genome_wide", "chr22_only"],
+                         help="Whether Stage C ran against the full 1000G reference or fell back to chr22-only")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(message)s")
     assembler = UnifiedPRSAssembler(args.output_dir)
-    result = assembler.assemble(args.sample_id, args.ancestry_json)
+    result = assembler.assemble(args.sample_id, args.ancestry_json, args.reference_coverage)
     print(f"\n═══ Unified PRS_RESULT ═══")
     print(f"  Sample: {result.sample_id}")
     print(f"  Traits: {len(result.prs_entries)}")

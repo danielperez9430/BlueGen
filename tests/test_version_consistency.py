@@ -60,3 +60,16 @@ def test_prs_py_uses_the_constant_not_a_literal():
     assert not re.search(r'BlueGen v[0-9]+\.[0-9]+\.[0-9]+["{]', text.replace("v{PIPELINE_VERSION}", "")), (
         "prs.py appears to hardcode a version string instead of using PIPELINE_VERSION"
     )
+
+
+def test_no_hardcoded_bluegen_v_string_anywhere():
+    """Same drift this file guards against, but as free text ('BlueGen v10.0')
+    rather than a pipeline_version=... assignment - the pattern that let
+    comprehensive_report.py silently print v10.0 while the rest of the
+    pipeline was on 2.0.0 (see IMPROVEMENT_PLAN.md 0.1)."""
+    pattern = re.compile(r"BlueGen v[0-9]+\.[0-9]+(?:\.[0-9]+)?")
+    offenders = []
+    for py_file in SCRIPTS_DIR.rglob("*.py"):
+        for m in pattern.finditer(py_file.read_text()):
+            offenders.append(f"{py_file.relative_to(REPO_ROOT)}: {m.group(0)}")
+    assert not offenders, "hardcoded 'BlueGen vX.Y' string(s) found (should use f'BlueGen v{PIPELINE_VERSION}'):\n" + "\n".join(offenders)
