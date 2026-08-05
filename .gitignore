@@ -104,3 +104,6 @@ clouding.pub
 archive/
 _*.nopred
 _*.nosex
+
+# ── Internal working notes (not relevant to repo users) ──
+IMPROVEMENT_PLAN.md
