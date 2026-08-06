@@ -1,0 +1,20 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Pipeline</h4><div class="big-stat">v{{ pipeline_ver }}</div><div class="stat-sub">BlueGen</div></div>
+    <div class="info-card"><h4>PRS Formula</h4><div class="big-stat" style="font-size:0.9rem">{{ formula }}</div><div class="stat-sub">{{ method }}</div></div>
+    <div class="info-card"><h4>Variants</h4><div class="big-stat">{{ n_variants }}</div><div class="stat-sub">across {{ n_traits }} traits</div></div>
+    <div class="info-card"><h4>Reference</h4><div class="big-stat">{{ n_ref }}</div><div class="stat-sub">1000G Phase 3, {{ n_pcs }} PCs</div></div>
+</div>
+<h4>Pipeline Stages</h4>
+<table>
+    <thead><tr><th>Stage</th><th>Process</th><th>Method</th><th>Output</th></tr></thead>
+    <tbody>
+        <tr><td>A</td><td>VCF → PLINK</td><td>PLINK 1.9, GQ≥20, DP≥10</td><td>.bed/.bim/.fam</td></tr>
+        <tr><td>B</td><td>Quality Control</td><td>geno 0.05, maf 0.01, HWE 1e-6</td><td>Filtered genotypes</td></tr>
+        <tr><td>C</td><td>LD Pruning</td><td>Per-population (EUR/AFR/EAS/SAS/AMR), conservative intersection</td><td>Ancestry-matched independent SNPs</td></tr>
+        <tr><td>D</td><td>PCA + Projection</td><td>1000G-trained PCA, target sample projection</td><td>20 PCs, ancestry inference</td></tr>
+        <tr><td>F</td><td>PRS Computation</td><td>PLINK --score (dosage-weighted)</td><td>Raw PRS per trait</td></tr>
+        <tr><td>G</td><td>PCA Adjustment</td><td>PRS_adj = PRS_raw − Σ(βₖ × PCₖ)</td><td>Ancestry-adjusted PRS</td></tr>
+        <tr><td>H</td><td>Population Calibration</td><td>Empirical 1000G population distributions</td><td>Z-scores + percentiles</td></tr>
+        <tr><td>7-10</td><td>Validation & Lock</td><td>8-dimension validation, adversarial stress, publication lock</td><td>Scientific integrity score</td></tr>
+    </tbody>
+</table>

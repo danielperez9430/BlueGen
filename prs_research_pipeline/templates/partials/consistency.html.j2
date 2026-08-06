@@ -1,0 +1,20 @@
+<div class="info-grid">
+    <div class="info-card"><h4>GWAS-Ancestry Match</h4><div class="big-stat" style="color:{{ gwas_match_color }}">{{ gwas_match_label }}</div></div>
+    <div class="info-card"><h4>LD-Ancestry Match</h4><div class="big-stat" style="color:{{ ld_match_color }}">{{ ld_match_label }}</div></div>
+    <div class="info-card"><h4>Confidence Downgrade</h4><div class="big-stat">{{ confidence_downgrade }}</div></div>
+    <div class="info-card"><h4>Recommended GWAS</h4><div class="big-stat" style="font-size:0.75rem">{{ recommended_gwas }}</div></div>
+</div>
+{{ gwas_summary_html|safe }}
+<table>
+    <thead><tr><th>Trait</th><th>GWAS Population</th><th>GWAS Type</th><th>Target Pop</th><th>Match</th><th>Note</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td>{{ r.trait }}</td>
+            <td>{{ r.gwas_pop }}</td>
+            <td>{{ r.gwas_type }}</td>
+            <td>{{ r.target_pop }}</td>
+            <td>{{ r.icon }}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{{ r.note }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

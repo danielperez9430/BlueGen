@@ -1014,56 +1014,24 @@ def build_reproducibility_section(repro):
     env = repro.get("environment", {})
     seeds = repro.get("seeds", {})
 
-    # System info
-    sys_rows = f"""
-    <tr><td>OS</td><td>{env.get('os_name', '')} {env.get('os_version', '')} ({env.get('architecture', '')})</td></tr>
-    <tr><td>Python</td><td>{env.get('python_version', '')} ({env.get('python_implementation', '')})</td></tr>
-    <tr><td>Kernel</td><td style="font-size:0.7rem;word-break:break-all">{env.get('kernel', '')[:120]}</td></tr>"""
+    tools = [{"tool": t, "version": v} for t, v in env.get("system_tools", {}).items()]
+    packages = [{"pkg": pkg, "ver": ver} for pkg, ver in sorted(env.get("pip_packages", {}).items())[:20]]
 
-    # Tool versions
-    tools = env.get("system_tools", {})
-    tool_rows = ""
-    for tool, version in tools.items():
-        tool_rows += f"<tr><td>{tool}</td><td style='font-size:0.78rem'>{version}</td></tr>"
-
-    # Package versions (top 10)
-    pkgs = env.get("pip_packages", {})
-    pkg_rows = ""
-    for pkg, ver in sorted(pkgs.items())[:20]:
-        pkg_rows += f"<tr><td>{pkg}</td><td>{ver}</td></tr>"
-
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Run ID</h4><div class="big-stat" style="font-size:0.8rem;word-break:break-all">{repro.get('run_id', 'N/A')[:16]}</div></div>
-        <div class="info-card"><h4>Reproducibility Score</h4><div class="big-stat" style="color:#27ae60">{repro.get('reproducibility_score', 0):.0f}/100</div></div>
-        <div class="info-card"><h4>Pipeline Version</h4><div class="big-stat">v{repro.get('pipeline_version', 'N/A')}</div></div>
-        <div class="info-card"><h4>Global Seed</h4><div class="big-stat">{seeds.get('global_seed', 'N/A')}</div></div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1rem">
-        <div>
-            <h4>System Environment</h4>
-            <table><tbody>{sys_rows}</tbody></table>
-        </div>
-        <div>
-            <h4>Bioinformatics Tools</h4>
-            <table><thead><tr><th>Tool</th><th>Version</th></tr></thead><tbody>{tool_rows}</tbody></table>
-        </div>
-    </div>
-
-    <h4 style="margin-top:1.5rem">Python Packages (selected)</h4>
-    <table><thead><tr><th>Package</th><th>Version</th></tr></thead><tbody>{pkg_rows}</tbody></table>
-
-    <h4 style="margin-top:1.5rem">Seeds Registry</h4>
-    <table><thead><tr><th>Module</th><th>Seed</th></tr></thead><tbody>
-    <tr><td>Global</td><td>{seeds.get('global_seed', '')}</td></tr>
-    <tr><td>NumPy</td><td>{seeds.get('numpy_seed', '')}</td></tr>
-    <tr><td>Python hash</td><td>{seeds.get('python_hash_seed', '')}</td></tr>
-    <tr><td>Scikit-learn</td><td>{seeds.get('sklearn_seed', '')}</td></tr>
-    <tr><td>PLINK</td><td>{seeds.get('plink_seed', '')}</td></tr>
-    <tr><td>Bootstrap 0</td><td>{seeds.get('bootstrap_seeds', [0])[0]}</td></tr>
-    </tbody></table>
-    """
+    return render_partial("reproducibility.html.j2",
+        run_id=repro.get('run_id', 'N/A')[:16],
+        repro_score=f"{repro.get('reproducibility_score', 0):.0f}",
+        pipeline_version=repro.get('pipeline_version', 'N/A'),
+        global_seed=seeds.get('global_seed', 'N/A'),
+        global_seed_table=seeds.get('global_seed', ''),
+        os_name=env.get('os_name', ''), os_version=env.get('os_version', ''),
+        architecture=env.get('architecture', ''),
+        python_version=env.get('python_version', ''),
+        python_implementation=env.get('python_implementation', ''),
+        kernel=env.get('kernel', '')[:120],
+        tools=tools, packages=packages,
+        numpy_seed=seeds.get('numpy_seed', ''), python_hash_seed=seeds.get('python_hash_seed', ''),
+        sklearn_seed=seeds.get('sklearn_seed', ''), plink_seed=seeds.get('plink_seed', ''),
+        bootstrap_seed_0=seeds.get('bootstrap_seeds', [0])[0])
 
 
 def _build_gwas_summary(trait_checks):
@@ -1096,35 +1064,21 @@ def build_consistency_section(consistency):
     """GWAS-Ancestry consistency check per trait."""
     detailed = consistency.get("detailed_report", {})
     trait_checks = detailed.get("trait_checks", [])
-    rows = ""
-    for t in trait_checks:
-        gwas_pop = t.get("gwas_population", "")
-        gwas_type = t.get("gwas_type", "")
-        match = t.get("is_match", False)
-        icon = "✅" if match else "❌"
-        rows += f"""
-        <tr>
-            <td>{t.get('trait', '')}</td>
-            <td>{gwas_pop}</td>
-            <td>{gwas_type.replace('_', ' ').title()}</td>
-            <td>{t.get('target_population', '')}</td>
-            <td>{icon}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{t.get('note', '')}</td>
-        </tr>"""
+    rows = [{
+        "trait": t.get('trait', ''), "gwas_pop": t.get("gwas_population", ""),
+        "gwas_type": t.get("gwas_type", "").replace('_', ' ').title(),
+        "target_pop": t.get('target_population', ''),
+        "icon": "✅" if t.get("is_match", False) else "❌", "note": t.get('note', ''),
+    } for t in trait_checks]
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>GWAS-Ancestry Match</h4><div class="big-stat" style="color:{'#27ae60' if consistency.get('gwas_ancestry_match') else '#e74c3c'}">{'✅ PASS' if consistency.get('gwas_ancestry_match') else '❌ FAIL'}</div></div>
-        <div class="info-card"><h4>LD-Ancestry Match</h4><div class="big-stat" style="color:{'#27ae60' if consistency.get('ld_ancestry_match') else '#f39c12'}">{'✅ PASS' if consistency.get('ld_ancestry_match') else '⚠️ WARN'}</div></div>
-        <div class="info-card"><h4>Confidence Downgrade</h4><div class="big-stat">{safe_float(consistency.get('confidence_downgrade', 0)):.2f}</div></div>
-        <div class="info-card"><h4>Recommended GWAS</h4><div class="big-stat" style="font-size:0.75rem">{consistency.get('recommended_gwas_source', 'N/A')}</div></div>
-    </div>
-    {_build_gwas_summary(trait_checks)}
-    <table>
-        <thead><tr><th>Trait</th><th>GWAS Population</th><th>GWAS Type</th><th>Target Pop</th><th>Match</th><th>Note</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("consistency.html.j2",
+        gwas_match_color="#27ae60" if consistency.get('gwas_ancestry_match') else "#e74c3c",
+        gwas_match_label="✅ PASS" if consistency.get('gwas_ancestry_match') else "❌ FAIL",
+        ld_match_color="#27ae60" if consistency.get('ld_ancestry_match') else "#f39c12",
+        ld_match_label="✅ PASS" if consistency.get('ld_ancestry_match') else "⚠️ WARN",
+        confidence_downgrade=f"{safe_float(consistency.get('confidence_downgrade', 0)):.2f}",
+        recommended_gwas=consistency.get('recommended_gwas_source', 'N/A'),
+        gwas_summary_html=_build_gwas_summary(trait_checks), rows=rows)
 
 
 def build_leakage_detail_section(leakage_audit):
@@ -1156,28 +1110,9 @@ def build_methodology_section(prs_result, ancestry):
     n_ref = ancestry.get("n_reference_samples", 2504)
     n_pcs = ancestry.get("n_pcs", 20)
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Pipeline</h4><div class="big-stat">v{pipeline_ver}</div><div class="stat-sub">BlueGen</div></div>
-        <div class="info-card"><h4>PRS Formula</h4><div class="big-stat" style="font-size:0.9rem">{formula}</div><div class="stat-sub">{method}</div></div>
-        <div class="info-card"><h4>Variants</h4><div class="big-stat">{n_variants}</div><div class="stat-sub">across {n_traits} traits</div></div>
-        <div class="info-card"><h4>Reference</h4><div class="big-stat">{n_ref}</div><div class="stat-sub">1000G Phase 3, {n_pcs} PCs</div></div>
-    </div>
-    <h4>Pipeline Stages</h4>
-    <table>
-        <thead><tr><th>Stage</th><th>Process</th><th>Method</th><th>Output</th></tr></thead>
-        <tbody>
-            <tr><td>A</td><td>VCF → PLINK</td><td>PLINK 1.9, GQ≥20, DP≥10</td><td>.bed/.bim/.fam</td></tr>
-            <tr><td>B</td><td>Quality Control</td><td>geno 0.05, maf 0.01, HWE 1e-6</td><td>Filtered genotypes</td></tr>
-            <tr><td>C</td><td>LD Pruning</td><td>Per-population (EUR/AFR/EAS/SAS/AMR), conservative intersection</td><td>Ancestry-matched independent SNPs</td></tr>
-            <tr><td>D</td><td>PCA + Projection</td><td>1000G-trained PCA, target sample projection</td><td>20 PCs, ancestry inference</td></tr>
-            <tr><td>F</td><td>PRS Computation</td><td>PLINK --score (dosage-weighted)</td><td>Raw PRS per trait</td></tr>
-            <tr><td>G</td><td>PCA Adjustment</td><td>PRS_adj = PRS_raw − Σ(βₖ × PCₖ)</td><td>Ancestry-adjusted PRS</td></tr>
-            <tr><td>H</td><td>Population Calibration</td><td>Empirical 1000G population distributions</td><td>Z-scores + percentiles</td></tr>
-            <tr><td>7-10</td><td>Validation & Lock</td><td>8-dimension validation, adversarial stress, publication lock</td><td>Scientific integrity score</td></tr>
-        </tbody>
-    </table>
-    """
+    return render_partial("methodology.html.j2",
+        pipeline_ver=pipeline_ver, formula=formula, method=method,
+        n_variants=n_variants, n_traits=n_traits, n_ref=n_ref, n_pcs=n_pcs)
 
 
 def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
