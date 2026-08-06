@@ -635,7 +635,7 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
     if polarity_inverted is None:
         polarity_inverted = set()
 
-    rows = ""
+    rows = []
     confidences = []
     tier_counts = {"TIER 1": 0, "TIER 2": 0, "TIER 3": 0}
 
@@ -646,8 +646,6 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         risk = e.get("risk_category", "medium")
         n_used = e.get("n_snps_used", 0)
         n_total = e.get("n_snps_total", 0)
-        ci_low = safe_float(e.get("ci_95_lower", 0))
-        ci_high = safe_float(e.get("ci_95_upper", 0))
         uncertainty = safe_float(e.get("uncertainty_score", 1.0))
         snp_ratio = n_used / max(n_total, 1)
 
@@ -669,20 +667,15 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         inverted = trait.lower() in polarity_inverted
         color = risk_color(z, inverted=inverted)
 
-        rows += f"""
-        <tr id="{trait_anchor_id(trait)}">
-            <td><strong>{trait}</strong></td>
-            <td style="color:{color};font-weight:700">{z:+.2f}</td>
-            <td>{pctl:.1f}%</td>
-            <td>{risk_badge(risk, ui, inverted=inverted)}</td>
-            <td>{confidence_stars(conf_score)}</td>
-            <td>{calibration_flag(cal_entry)}</td>
-            <td>{trust_badge(tier)}</td>
-            <td>{snp_coverage_bar(n_used, n_total)}</td>
-            <td>{mini_decomp_bar(decomp)}</td>
-            <td>{trait_limitations_badges(e, cal_entry)}</td>
-            <td style="min-width:120px">{risk_bar(bar_pct, z, inverted=inverted)}</td>
-        </tr>"""
+        rows.append({
+            "anchor_id": trait_anchor_id(trait), "trait": trait, "color": color, "z": f"{z:+.2f}",
+            "pctl": f"{pctl:.1f}", "risk_badge": risk_badge(risk, ui, inverted=inverted),
+            "confidence_stars": confidence_stars(conf_score), "calibration_flag": calibration_flag(cal_entry),
+            "trust_badge": trust_badge(tier), "snp_coverage_bar": snp_coverage_bar(n_used, n_total),
+            "mini_decomp_bar": mini_decomp_bar(decomp),
+            "limitations_badges": trait_limitations_badges(e, cal_entry),
+            "risk_bar": risk_bar(bar_pct, z, inverted=inverted),
+        })
 
     # Portability banner
     port_banner = portability_banner(portability) if portability else ""
@@ -707,27 +700,9 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         f'</div>'
     )
 
-    return f"""
-    {port_banner}
-    {trust_tier_legend()}
-    {summary_bar}
-    <div style="overflow-x:auto">
-    <table>
-        <thead><tr>
-            <th>Trait</th><th>Z</th><th>%ile</th><th>Risk</th>
-            <th>Confidence</th><th>Cal.</th><th>Trust</th>
-            <th>SNPs</th><th>Uncertainty</th><th>Limitations</th><th>Risk Bar</th>
-        </tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    </div>
-    <p style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:0.75rem;line-height:1.5">
-    ⚠️ <strong>Limitations:</strong> PRS estimates <em>relative</em> genetic predisposition — it does <strong>not</strong> predict absolute disease risk.
-    Effect sizes are derived primarily from European-ancestry GWAS and may have reduced accuracy in other populations.
-    Gene-environment interactions, rare variants, and structural variants are not captured.
-    <strong>Research use only — not clinical diagnosis.</strong>
-    </p>
-    """
+    return render_partial("prs_table.html.j2",
+        port_banner=port_banner, trust_tier_legend_html=trust_tier_legend(),
+        summary_bar=summary_bar, rows=rows)
 
 
 def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv"):

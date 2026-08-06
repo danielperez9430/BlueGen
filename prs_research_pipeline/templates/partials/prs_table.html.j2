@@ -1,0 +1,33 @@
+{{ port_banner|safe }}
+{{ trust_tier_legend_html|safe }}
+{{ summary_bar|safe }}
+<div style="overflow-x:auto">
+<table>
+    <thead><tr>
+        <th>Trait</th><th>Z</th><th>%ile</th><th>Risk</th>
+        <th>Confidence</th><th>Cal.</th><th>Trust</th>
+        <th>SNPs</th><th>Uncertainty</th><th>Limitations</th><th>Risk Bar</th>
+    </tr></thead>
+    <tbody>{% for r in rows %}
+        <tr id="{{ r.anchor_id }}">
+            <td><strong>{{ r.trait }}</strong></td>
+            <td style="color:{{ r.color }};font-weight:700">{{ r.z }}</td>
+            <td>{{ r.pctl }}%</td>
+            <td>{{ r.risk_badge|safe }}</td>
+            <td>{{ r.confidence_stars|safe }}</td>
+            <td>{{ r.calibration_flag|safe }}</td>
+            <td>{{ r.trust_badge|safe }}</td>
+            <td>{{ r.snp_coverage_bar|safe }}</td>
+            <td>{{ r.mini_decomp_bar|safe }}</td>
+            <td>{{ r.limitations_badges|safe }}</td>
+            <td style="min-width:120px">{{ r.risk_bar|safe }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>
+</div>
+<p style="font-size:0.75rem;color:var(--color-text-secondary);margin-top:0.75rem;line-height:1.5">
+⚠️ <strong>Limitations:</strong> PRS estimates <em>relative</em> genetic predisposition — it does <strong>not</strong> predict absolute disease risk.
+Effect sizes are derived primarily from European-ancestry GWAS and may have reduced accuracy in other populations.
+Gene-environment interactions, rare variants, and structural variants are not captured.
+<strong>Research use only — not clinical diagnosis.</strong>
+</p>
