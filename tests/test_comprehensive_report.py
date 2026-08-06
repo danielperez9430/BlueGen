@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(
     "..", "prs_research_pipeline", "scripts", "publication"
 ))
 
-from comprehensive_report import (
+from report.interpretations import (
     compute_per_trait_confidence,
     confidence_stars,
     calibration_flag,
@@ -22,12 +22,14 @@ from comprehensive_report import (
     safe_float,
     risk_color,
     risk_badge,
-    build_radar_chart_js,
     trust_tier_legend,
     portability_banner,
     evidence_letter,
     evidence_badge,
     trait_anchor_id,
+)
+from comprehensive_report import (
+    build_radar_chart_js,
     build_top_findings,
     build_summary_cards,
     build_clinvar_section,
