@@ -21,6 +21,7 @@ from comprehensive_report import (
     trait_limitations_badges,
     safe_float,
     risk_color,
+    risk_badge,
     build_radar_chart_js,
     trust_tier_legend,
     portability_banner,
@@ -28,6 +29,7 @@ from comprehensive_report import (
     evidence_badge,
     trait_anchor_id,
     build_top_findings,
+    build_summary_cards,
     build_clinvar_section,
     UI,
 )
@@ -62,6 +64,51 @@ class TestRiskColor:
 
     def test_low(self):
         assert risk_color(0.3) == "#27ae60"
+
+    def test_inverted_never_returns_red(self):
+        """Polarity-inverted traits (e.g. Morning chronotype, Cognitive
+        function - risk_category=='high' means favorable) never represent
+        danger even at their unfavorable end, so red must never appear."""
+        for z in (-5.0, -2.0, -0.1, 0.0, 0.1, 2.0, 5.0):
+            assert risk_color(z, inverted=True) != "#e74c3c"
+
+    def test_inverted_large_positive_z_is_green(self):
+        """A strongly favorable result (e.g. high z on Morning chronotype)
+        must render green, not the red a large |z| would get by default."""
+        assert risk_color(3.0, inverted=True) == "#27ae60"
+        assert risk_color(3.0, inverted=False) == "#e74c3c"  # sanity: default path is unaffected
+
+    def test_inverted_negative_z_is_amber_not_red(self):
+        assert risk_color(-3.0, inverted=True) == "#f39c12"
+
+
+class TestRiskBadge:
+    def test_default_high_says_risk(self):
+        html = risk_badge("high", UI["en"])
+        assert UI["en"]["risk_high"] in html
+        assert "#c0392b" in html  # red text
+
+    def test_inverted_high_says_favorable_not_risk(self):
+        html = risk_badge("high", UI["en"], inverted=True)
+        assert "RISK" not in html.upper()
+        assert UI["en"]["favorable_high"] in html
+        assert "#1e8449" in html  # green text, same as the non-inverted "low" (good) styling
+
+    def test_inverted_low_is_not_red(self):
+        """The unfavorable end of an inverted trait still isn't red - these
+        traits don't represent danger, just 'less of a good thing'."""
+        html = risk_badge("low", UI["en"], inverted=True)
+        assert "#c0392b" not in html
+        assert UI["en"]["favorable_low"] in html
+
+    def test_inverted_medium_is_neutral(self):
+        html = risk_badge("medium", UI["en"], inverted=True)
+        assert UI["en"]["favorable_medium"] in html
+
+    def test_bilingual_es_inverted(self):
+        html = risk_badge("high", UI["es"], inverted=True)
+        assert UI["es"]["favorable_high"] in html
+        assert "RIESGO" not in html.upper()
 
 
 class TestComputePerTraitConfidence:
@@ -544,6 +591,67 @@ class TestBuildTopFindings:
                                    evidence_lookup={"lactose intolerance": [100]})
         assert UI["es"]["top_findings_action_fallback"] in html
 
+    def test_polarity_inverted_trait_gets_favorable_badge_not_risk_badge(self):
+        """The bug this project shipped for months: a favorable finding
+        (e.g. Morning chronotype, risk_category=='high' meaning genetically
+        morning-type/protective) rendered as a red 'HIGHER RISK' badge.
+        Passing the trait in polarity_inverted must suppress that."""
+        entries = [_entry("Morning chronotype (early bird)", z=2.5, pctl=98, risk="high")]
+        html = build_top_findings(
+            entries, UI["en"],
+            evidence_lookup={"morning chronotype (early bird)": [100]},
+            polarity_inverted={"morning chronotype (early bird)"},
+        )
+        assert UI["en"]["risk_high"] not in html
+        assert UI["en"]["favorable_high"] in html
+
+    def test_trait_not_in_polarity_inverted_set_is_unaffected(self):
+        entries = [_entry("Lactose intolerance", z=2.5, pctl=98, risk="high")]
+        html = build_top_findings(
+            entries, UI["en"], evidence_lookup={"lactose intolerance": [100]},
+            polarity_inverted={"morning chronotype (early bird)"},
+        )
+        assert UI["en"]["risk_high"] in html
+
+
+class TestBuildSummaryCards:
+    @staticmethod
+    def _prs_result(entries):
+        return {"prs_entries": entries}
+
+    def test_high_risk_trait_counts_as_high(self):
+        html = build_summary_cards(
+            self._prs_result([_entry("Lactose intolerance", z=2.0, pctl=95, risk="high")]),
+            ancestry={}, integrity={}, validation={}, ui=UI["en"],
+        )
+        assert ">1<" in html.split(UI["en"]["risk_high"])[0][-60:]
+
+    def test_polarity_inverted_high_counts_as_favorable_not_risky(self):
+        """A trait where 'high' is a good result must not inflate the
+        executive summary's 'HIGHER RISK' count - that count is meant to
+        flag traits worth a closer look for elevated risk, and a favorable
+        finding is the opposite of that."""
+        entries = [_entry("Morning chronotype (early bird)", z=2.0, pctl=95, risk="high")]
+        html_default = build_summary_cards(
+            self._prs_result(entries), ancestry={}, integrity={}, validation={}, ui=UI["en"],
+        )
+        html_inverted = build_summary_cards(
+            self._prs_result(entries), ancestry={}, integrity={}, validation={}, ui=UI["en"],
+            polarity_inverted={"morning chronotype (early bird)"},
+        )
+        # Without the polarity fix, this "high" trait is counted under risk_high.
+        assert ">1<" in html_default.split(UI["en"]["risk_high"])[0][-60:]
+        # With it, the same entry counts under risk_low instead.
+        assert ">1<" in html_inverted.split(UI["en"]["risk_low"])[0][-60:]
+
+    def test_medium_is_unaffected_by_polarity(self):
+        entries = [_entry("Morning chronotype (early bird)", z=0.1, pctl=52, risk="medium")]
+        html = build_summary_cards(
+            self._prs_result(entries), ancestry={}, integrity={}, validation={}, ui=UI["en"],
+            polarity_inverted={"morning chronotype (early bird)"},
+        )
+        assert ">1<" in html.split(UI["en"]["risk_medium"])[0][-60:]
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CURATED RECOMMENDATIONS DATA FILE TEST (IMPROVEMENT_PLAN.md 1.4)
@@ -575,17 +683,29 @@ class TestTraitRecommendationsData:
         data = self._load()
         real_traits = self._real_trait_categories()
         for trait in data:
-            if trait == "_meta":
+            if trait.startswith("_"):
                 continue
             assert trait in real_traits, f"{trait!r} is not a real trait_category in the panel"
 
     def test_every_entry_has_both_languages_evidence_and_reference(self):
         data = self._load()
         for trait, entry in data.items():
-            if trait == "_meta":
+            if trait.startswith("_"):
                 continue
             for field in ("recommendation_en", "recommendation_es", "evidence_level", "reference"):
                 assert entry.get(field), f"{trait!r} is missing {field!r}"
+
+    def test_polarity_inverted_traits_exist_in_the_panel(self):
+        """_polarity_inverted (consumed by risk_badge/risk_color for traits where
+        'high' means favorable, not risky - IMPROVEMENT_PLAN.md follow-up fixed
+        2026-08-06) must only name real trait_categories, same invariant as the
+        curated recommendations above."""
+        data = self._load()
+        real_traits = self._real_trait_categories()
+        inverted = data.get("_polarity_inverted", [])
+        assert inverted, "_polarity_inverted should not be empty - Morning chronotype/Cognitive function are known cases"
+        for trait in inverted:
+            assert trait in real_traits, f"{trait!r} in _polarity_inverted is not a real trait_category in the panel"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

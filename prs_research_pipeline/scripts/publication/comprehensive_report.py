@@ -62,6 +62,11 @@ UI = {
             "limitations": "Limitations & Disclaimers",
         },
         "risk_high": "HIGHER RISK", "risk_medium": "AVERAGE RISK", "risk_low": "LOWER RISK",
+        # For traits where "high" genuinely means a favorable direction (e.g. Morning
+        # chronotype, Cognitive function - see _polarity_inverted in trait_recommendations.json)
+        # rather than elevated health risk. Never uses red/"RISK" wording, since these
+        # traits don't represent danger even at their "low" end.
+        "favorable_high": "FAVORABLE", "favorable_medium": "TYPICAL", "favorable_low": "LESS FAVORABLE",
         "passed": "PASSED", "failed": "FAILED", "warning": "WARNING",
         "yes": "Yes", "no": "No",
         "top_findings_title": "🔍 Your Top Findings",
@@ -118,6 +123,7 @@ UI = {
             "limitations": "Limitaciones y Avisos",
         },
         "risk_high": "RIESGO ELEVADO", "risk_medium": "RIESGO PROMEDIO", "risk_low": "RIESGO BAJO",
+        "favorable_high": "FAVORABLE", "favorable_medium": "TÍPICO", "favorable_low": "MENOS FAVORABLE",
         "passed": "APROBADO", "failed": "FALLIDO", "warning": "ADVERTENCIA",
         "yes": "Sí", "no": "No",
         "top_findings_title": "🔍 Tus Hallazgos Principales",
@@ -181,22 +187,43 @@ def trait_anchor_id(trait: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", trait.lower()).strip("-")
     return f"trait-{slug}"
 
-def risk_color(z_score):
-    """Return CSS color based on z-score magnitude."""
+def risk_color(z_score, inverted=False):
+    """Return CSS color based on z-score.
+
+    `inverted=True` is for traits where a high score is a favorable
+    finding, not elevated risk (e.g. Morning chronotype, Cognitive
+    function - see _polarity_inverted in trait_recommendations.json).
+    For those, color follows direction (green=favorable, amber=less
+    favorable) rather than |z| magnitude, and never turns red - these
+    traits don't represent danger even at their "low" end.
+    """
+    if inverted:
+        return "#27ae60" if z_score >= 0 else "#f39c12"
     az = abs(z_score)
     if az >= 2.0: return "#e74c3c"
     if az >= 1.0: return "#f39c12"
     return "#27ae60"
 
-def risk_badge(risk, ui):
-    labels = {"high": ui["risk_high"], "medium": ui["risk_medium"], "low": ui["risk_low"]}
-    colors = {"high": ("#fadbd8", "#c0392b"), "medium": ("#fdebd0", "#b7950b"), "low": ("#d5f5e3", "#1e8449")}
+def risk_badge(risk, ui, inverted=False):
+    """Render the risk/direction badge.
+
+    `inverted=True` swaps the badge to neutral "favorable/typical/less
+    favorable" wording and colors instead of "risk" language, for
+    traits where risk_category=="high" means a good result (see
+    risk_color docstring).
+    """
+    if inverted:
+        labels = {"high": ui["favorable_high"], "medium": ui["favorable_medium"], "low": ui["favorable_low"]}
+        colors = {"high": ("#d5f5e3", "#1e8449"), "medium": ("#fdebd0", "#b7950b"), "low": ("#fdebd0", "#b7950b")}
+    else:
+        labels = {"high": ui["risk_high"], "medium": ui["risk_medium"], "low": ui["risk_low"]}
+        colors = {"high": ("#fadbd8", "#c0392b"), "medium": ("#fdebd0", "#b7950b"), "low": ("#d5f5e3", "#1e8449")}
     bg, fg = colors.get(risk, colors["medium"])
     return f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{labels.get(risk, risk)}</span>'
 
-def risk_bar(pct, z_score):
+def risk_bar(pct, z_score, inverted=False):
     """Render a horizontal risk bar."""
-    color = risk_color(z_score)
+    color = risk_color(z_score, inverted=inverted)
     return (
         f'<div style="display:flex;align-items:center;gap:6px;margin:4px 0">'
         f'<span style="font-size:0.65rem;color:#27ae60">Low</span>'
@@ -522,7 +549,7 @@ def trust_tier_legend():
 # RADAR CHART (Chart.js — interactive)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None):
+def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, polarity_inverted=None):
     """Build an interactive radar chart using Chart.js.
 
     Features: tooltips (z-score + percentile + trust tier), animation on load,
@@ -534,6 +561,8 @@ def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evide
         uncert_lookup = {}
     if evidence_lookup is None:
         evidence_lookup = {}
+    if polarity_inverted is None:
+        polarity_inverted = set()
 
     traits = [(e.get("trait", ""),
                safe_float(e.get("population_zscore", e.get("raw_score", 0))),
@@ -556,7 +585,7 @@ def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evide
     point_colors = []
     tier_labels = []
     for i, (trait_name, z, risk, pctl) in enumerate(traits):
-        color = risk_color(z)
+        color = risk_color(z, inverted=trait_name.lower() in polarity_inverted)
         point_colors.append(color)
         n_used = entries[i].get("n_snps_used", 0)
         n_total = entries[i].get("n_snps_total", 0)
@@ -706,7 +735,8 @@ def evidence_badge(evidence_avg_score):
     return f'<span style="background:{bg};color:{fg};padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:700">Evidence {letter}</span>'
 
 def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncert_lookup=None,
-                        recommendation_lookup=None, ancestry=None, max_findings=8):
+                        recommendation_lookup=None, ancestry=None, max_findings=8,
+                        polarity_inverted=None):
     """Prioritized, plain-language 'top findings' list (IMPROVEMENT_PLAN.md 1.1).
 
     Priority = |z-score| x evidence quality x confidence — the closest proxy
@@ -727,6 +757,7 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
     if cal_lookup is None: cal_lookup = {}
     if uncert_lookup is None: uncert_lookup = {}
     if recommendation_lookup is None: recommendation_lookup = {}
+    if polarity_inverted is None: polarity_inverted = set()
     ancestry = ancestry or {}
     pop = POP_NAMES.get(ui.get("_lang", "en"), POP_NAMES["en"]).get(
         ancestry.get("assigned_population", "EUR"), ancestry.get("assigned_population", "EUR"))
@@ -770,12 +801,13 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
         lang = ui.get("_lang", "en")
         curated = recommendation_lookup.get(trait.lower()) if risk == "high" else None
         recommendation = (curated or {}).get("recommendation_" + lang) or ui["top_findings_action_fallback"]
-        color = risk_color(z)
+        inverted = trait.lower() in polarity_inverted
+        color = risk_color(z, inverted=inverted)
         cards += f"""
         <div class="info-card" style="border-left:3px solid {color}">
             <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
                 <strong style="font-size:0.95rem">{trait}</strong>
-                <div style="display:flex;gap:4px;flex-wrap:wrap">{risk_badge(risk, ui)}{evidence_badge(ev_avg)}</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">{risk_badge(risk, ui, inverted=inverted)}{evidence_badge(ev_avg)}</div>
             </div>
             <p style="font-size:0.8rem;margin:0.4rem 0;color:var(--color-text-secondary)">{meaning}</p>
             <p style="font-size:0.8rem;margin:0.4rem 0"><strong>→</strong> {recommendation}</p>
@@ -798,7 +830,7 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
     <div class="info-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">{cards}</div>
     """
 
-def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, portability=None):
+def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, portability=None, polarity_inverted=None):
     """Executive summary cards with confidence overview."""
     if cal_lookup is None:
         cal_lookup = {}
@@ -806,11 +838,23 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_loo
         uncert_lookup = {}
     if evidence_lookup is None:
         evidence_lookup = {}
+    if polarity_inverted is None:
+        polarity_inverted = set()
 
     entries = prs_result.get("prs_entries", [])
-    n_high = sum(1 for e in entries if e.get("risk_category") == "high")
-    n_medium = sum(1 for e in entries if e.get("risk_category") == "medium")
-    n_low = sum(1 for e in entries if e.get("risk_category") == "low")
+    # For polarity-inverted traits (risk_category=="high" means a favorable
+    # result, not elevated risk - see risk_badge docstring), count them under
+    # the opposite bucket so this "n traits at higher/lower risk" summary
+    # isn't itself misleading. "medium" is unaffected - polarity only flips
+    # which end is favorable, not the middle.
+    def _bucket(e):
+        risk = e.get("risk_category")
+        if risk in ("high", "low") and e.get("trait", "").lower() in polarity_inverted:
+            return "low" if risk == "high" else "high"
+        return risk
+    n_high = sum(1 for e in entries if _bucket(e) == "high")
+    n_medium = sum(1 for e in entries if _bucket(e) == "medium")
+    n_low = sum(1 for e in entries if _bucket(e) == "low")
 
     pop = ancestry.get("assigned_population", "EUR")
     pop_name = POP_NAMES["en"].get(pop, pop)
@@ -996,7 +1040,8 @@ def build_ancestry_section(ancestry, pca_data, ui):
     """
 
 
-def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portability=None, evidence_lookup=None):
+def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portability=None, evidence_lookup=None,
+                     polarity_inverted=None):
     """Full PRS results table with risk bars and confidence metrics."""
     if cal_lookup is None:
         cal_lookup = {}
@@ -1004,6 +1049,8 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         uncert_lookup = {}
     if evidence_lookup is None:
         evidence_lookup = {}
+    if polarity_inverted is None:
+        polarity_inverted = set()
 
     rows = ""
     confidences = []
@@ -1036,21 +1083,22 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         tier_counts[tier] = tier_counts.get(tier, 0) + 1
 
         bar_pct = max(5, min(95, pctl))
-        color = risk_color(z)
+        inverted = trait.lower() in polarity_inverted
+        color = risk_color(z, inverted=inverted)
 
         rows += f"""
         <tr id="{trait_anchor_id(trait)}">
             <td><strong>{trait}</strong></td>
             <td style="color:{color};font-weight:700">{z:+.2f}</td>
             <td>{pctl:.1f}%</td>
-            <td>{risk_badge(risk, ui)}</td>
+            <td>{risk_badge(risk, ui, inverted=inverted)}</td>
             <td>{confidence_stars(conf_score)}</td>
             <td>{calibration_flag(cal_entry)}</td>
             <td>{trust_badge(tier)}</td>
             <td>{snp_coverage_bar(n_used, n_total)}</td>
             <td>{mini_decomp_bar(decomp)}</td>
             <td>{trait_limitations_badges(e, cal_entry)}</td>
-            <td style="min-width:120px">{risk_bar(bar_pct, z)}</td>
+            <td style="min-width:120px">{risk_bar(bar_pct, z, inverted=inverted)}</td>
         </tr>"""
 
     # Portability banner
@@ -2437,7 +2485,7 @@ DRUG_PRS_INTERSECTIONS = [
      "recommendation_es": "Monitorizar presión arterial si se necesita terapia con AINEs. Considerar reducción de dosis de celecoxib en metabolizadores intermedios de CYP2C9."},
 ]
 
-def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entries, ui):
+def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entries, ui, polarity_inverted=None):
     """Cross-reference ClinVar + PharmGKB + high-risk PRS into a unified clinical summary.
 
     Three subsections:
@@ -2447,6 +2495,7 @@ def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entrie
     """
     lang = ui.get("_lang", "en")
     is_en = lang == "en"
+    polarity_inverted = polarity_inverted or set()
 
     T = {
         "en": {
@@ -2532,13 +2581,19 @@ def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entrie
             f'<span class="clinical-convergence-gene">{g}</span>' for g in mapping.get("pharmgkb_genes", []))
         ctx = mapping.get("context_en" if is_en else "context_es", "")
 
-        z_color = risk_color(z)
-        risk_label = "HIGHER RISK" if is_en else "RIESGO ELEVADO"
+        inverted = trait.lower() in polarity_inverted
+        z_color = risk_color(z, inverted=inverted)
+        if inverted:
+            risk_label = ui["favorable_high"]
+            label_bg, label_fg = "#d5f5e3", "#1e8449"
+        else:
+            risk_label = "HIGHER RISK" if is_en else "RIESGO ELEVADO"
+            label_bg, label_fg = "#fadbd8", "#c0392b"
 
         conv_rows += (
             f'<tr><td><strong>{trait}</strong></td>'
             f'<td style="color:{z_color};font-weight:700">{z:+.2f}</td>'
-            f'<td><span style="background:#fadbd8;color:#c0392b;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{risk_label}</span></td>'
+            f'<td><span style="background:{label_bg};color:{label_fg};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{risk_label}</span></td>'
             f'<td>{cv_genes_html or "—"}</td>'
             f'<td>{pg_genes_html or "—"}</td>'
             f'<td style="font-size:0.78rem;color:var(--color-text-secondary)">{ctx}</td></tr>'
@@ -2765,7 +2820,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
                            cal_lookup=data.get("_cal_lookup", {}),
                            uncert_lookup=data.get("_uncert_lookup", {}),
                            recommendation_lookup=data.get("_recommendation_lookup", {}),
-                           ancestry=data["ancestry"]),
+                           ancestry=data["ancestry"],
+                           polarity_inverted=data.get("_polarity_inverted", set())),
         open_by_default=True)
 
     # 1. Summary (always open)
@@ -2775,7 +2831,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
                            cal_lookup=data.get("_cal_lookup", {}),
                            uncert_lookup=data.get("_uncert_lookup", {}),
                            evidence_lookup=data.get("_evidence_lookup", {}),
-                           portability=data.get("portability", {})),
+                           portability=data.get("portability", {}),
+                           polarity_inverted=data.get("_polarity_inverted", set())),
         open_by_default=True)
 
     # 2. Ancestry
@@ -2869,7 +2926,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
                        cal_lookup=data.get("_cal_lookup", {}),
                        uncert_lookup=data.get("_uncert_lookup", {}),
                        portability=data.get("portability", {}),
-                       evidence_lookup=data.get("_evidence_lookup", {})),
+                       evidence_lookup=data.get("_evidence_lookup", {}),
+                       polarity_inverted=data.get("_polarity_inverted", set())),
         open_by_default=True)
 
     # 4. Uncertainty Decomposition
@@ -2911,7 +2969,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
             data.get("clinvar", {}),
             data.get("pharmgkb", {}),
             data["prs_result"].get("prs_entries", []),
-            ui))
+            ui, polarity_inverted=data.get("_polarity_inverted", set())))
 
     # 7. Population Portability
     sections_html += collapsible_section("portability", f"🌐 {s['portability']}",
@@ -2954,7 +3012,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         build_radar_chart_js(data["prs_result"].get("prs_entries", []), ui,
                              cal_lookup=data.get("_cal_lookup"),
                              uncert_lookup=data.get("_uncert_lookup"),
-                             evidence_lookup=data.get("_evidence_lookup")))
+                             evidence_lookup=data.get("_evidence_lookup"),
+                             polarity_inverted=data.get("_polarity_inverted", set())))
 
     # 16. Reproducibility
     sections_html += collapsible_section("reproducibility", f"🔁 {s['reproducibility']}",
@@ -3142,16 +3201,25 @@ def main():
     # Curated, evidence-cited per-trait action recommendations (IMPROVEMENT_PLAN.md
     # 1.4). Deliberately a small hand-verified subset, not auto-generated - see
     # data/trait_recommendations.json's _meta for the curation scope/rationale.
+    #
+    # _polarity_inverted lists traits where risk_category=="high" means a
+    # favorable result, not elevated risk (e.g. Morning chronotype, Cognitive
+    # function) - see risk_badge()'s docstring. Both this and
+    # recommendation_lookup are keyed by lowercased trait name; any other
+    # top-level "_"-prefixed key (just _meta today) is metadata, not a trait.
     recommendation_lookup = {}
+    polarity_inverted = set()
     trait_reco_path = os.path.join(os.path.dirname(args.snp_db), "trait_recommendations.json")
     if os.path.exists(trait_reco_path):
         try:
             with open(trait_reco_path) as fh:
                 raw = json.load(fh)
-            recommendation_lookup = {k.lower(): v for k, v in raw.items() if k != "_meta"}
+            recommendation_lookup = {k.lower(): v for k, v in raw.items() if not k.startswith("_")}
+            polarity_inverted = {t.lower() for t in raw.get("_polarity_inverted", [])}
         except Exception:
             pass
     data["_recommendation_lookup"] = recommendation_lookup
+    data["_polarity_inverted"] = polarity_inverted
 
     # Build PGS coverage lookup from pgs_results.csv
     pgs_coverage_lookup = {}
