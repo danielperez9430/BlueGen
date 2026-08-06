@@ -1,0 +1,20 @@
+{% for t in trait_sections %}
+<h4>{{ t.trait }} <span style="font-weight:400;color:#7f8c8d">({{ t.n_used }}/{{ t.n_total }} SNPs used)</span></h4>
+<table>
+    <thead><tr><th>rsID</th><th>Gene</th><th>Effect Allele</th><th>Weight (β)</th><th>Evidence</th></tr></thead>
+    <tbody>{% for v in t.variants %}
+        <tr><td>{{ v.rsid }}</td><td>{{ v.gene }}</td><td>{{ v.effect_allele }}</td><td>{{ v.weight }}</td><td>{{ v.ev_badge|safe }}</td></tr>{% else %}
+        <tr><td colspan='5' style='color:#7f8c8d'>SNP database not available. Run with --snp-db to populate.</td></tr>{% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+<div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:0.8rem 1.2rem;margin-top:0.5rem">
+    <p style="font-size:0.8rem;margin:0">
+    <strong>📖 Evidence Levels:</strong>
+    <span style="background:#d5f5e3;color:#27ae60;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">A</span> = Strong GWAS evidence (p &lt; 5×10⁻⁸), replicated in multiple populations.<br>
+    <span style="background:#d6eaf8;color:#2e86c1;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">B</span> = Moderate evidence (p &lt; 10⁻⁵), supported by functional studies.<br>
+    <span style="background:#fdebd0;color:#f39c12;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">C</span> = Candidate gene study or suggestive GWAS (p &lt; 10⁻³).<br>
+    <span style="background:#eaecee;color:#95a5a6;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">D</span> = Preliminary evidence or literature-based association.<br>
+    <span style="font-size:0.72rem;color:var(--color-text-secondary)">Weights are normalized effect sizes (β coefficients). Higher |β| = stronger SNP contribution to the PRS.</span>
+    </p>
+</div>

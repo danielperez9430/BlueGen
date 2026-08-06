@@ -738,11 +738,10 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
         try: snp_db = pd.read_csv(snp_db_path, dtype=str)
         except Exception: pass
 
-    sections = ""
+    ev_colors = {"A": ("#27ae60", "#d5f5e3"), "B": ("#2e86c1", "#d6eaf8"), "C": ("#f39c12", "#fdebd0"), "D": ("#95a5a6", "#eaecee")}
+    trait_sections = []
     for e in entries:
         trait = e.get("trait", "")
-        n_used = e.get("n_snps_used", 0)
-        n_total = e.get("n_snps_total", 0)
 
         # Detect trait column name (snake_case variants)
         trait_col = None
@@ -754,48 +753,27 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
 
         if trait_col:
             trait_snps = snp_db[snp_db[trait_col].str.lower() == trait.lower()]
-            if len(trait_snps) == 0:
-                trait_snps = snp_db.head(0)  # empty match
         else:
             trait_snps = None
 
-        variant_rows = ""
+        variants = []
         if trait_snps is not None and len(trait_snps) > 0:
             for _, row in trait_snps.iterrows():
-                rsid = row.get("rsid", "—")
-                gene = row.get("gene", "—")
-                effect_allele = row.get("effect_allele", "—")
-                weight = row.get("weight", row.get("beta", "—"))
                 evidence = row.get("evidence_level", row.get("evidence", "—")).strip().upper()
-                ev_colors = {"A": ("#27ae60", "#d5f5e3"), "B": ("#2e86c1", "#d6eaf8"), "C": ("#f39c12", "#fdebd0"), "D": ("#95a5a6", "#eaecee")}
                 fg, bg = ev_colors.get(evidence, ("#7f8c8d", "#e9ecef"))
-                ev_badge = f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700">{evidence}</span>'
-                variant_rows += f"<tr><td>{rsid}</td><td>{gene}</td><td>{effect_allele}</td><td>{weight}</td><td>{ev_badge}</td></tr>"
-        else:
-            variant_rows = f"<tr><td colspan='5' style='color:#7f8c8d'>SNP database not available. Run with --snp-db to populate.</td></tr>"
+                variants.append({
+                    "rsid": row.get("rsid", "—"), "gene": row.get("gene", "—"),
+                    "effect_allele": row.get("effect_allele", "—"),
+                    "weight": row.get("weight", row.get("beta", "—")),
+                    "ev_badge": f'<span style="background:{bg};color:{fg};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700">{evidence}</span>',
+                })
 
-        sections += f"""
-        <h4>{trait} <span style="font-weight:400;color:#7f8c8d">({n_used}/{n_total} SNPs used)</span></h4>
-        <table>
-            <thead><tr><th>rsID</th><th>Gene</th><th>Effect Allele</th><th>Weight (β)</th><th>Evidence</th></tr></thead>
-            <tbody>{variant_rows}</tbody>
-        </table>
-        """
+        trait_sections.append({
+            "trait": trait, "n_used": e.get("n_snps_used", 0), "n_total": e.get("n_snps_total", 0),
+            "variants": variants,
+        })
 
-    # Add evidence level legend
-    legend = """
-    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:0.8rem 1.2rem;margin-top:0.5rem">
-        <p style="font-size:0.8rem;margin:0">
-        <strong>📖 Evidence Levels:</strong>
-        <span style="background:#d5f5e3;color:#27ae60;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">A</span> = Strong GWAS evidence (p &lt; 5×10⁻⁸), replicated in multiple populations.<br>
-        <span style="background:#d6eaf8;color:#2e86c1;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">B</span> = Moderate evidence (p &lt; 10⁻⁵), supported by functional studies.<br>
-        <span style="background:#fdebd0;color:#f39c12;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">C</span> = Candidate gene study or suggestive GWAS (p &lt; 10⁻³).<br>
-        <span style="background:#eaecee;color:#95a5a6;padding:1px 6px;border-radius:3px;font-size:0.7rem;font-weight:700">D</span> = Preliminary evidence or literature-based association.<br>
-        <span style="font-size:0.72rem;color:var(--color-text-secondary)">Weights are normalized effect sizes (β coefficients). Higher |β| = stronger SNP contribution to the PRS.</span>
-        </p>
-    </div>
-    """
-    return sections + legend
+    return render_partial("variant_detail.html.j2", trait_sections=trait_sections)
 
 
 def build_validation_section(validation, ui):
