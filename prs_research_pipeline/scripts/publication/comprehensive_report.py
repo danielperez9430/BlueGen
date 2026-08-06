@@ -835,52 +835,6 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
     return sections + legend
 
 
-def build_uncertainty_section(entries):
-    """Uncertainty analysis with visual indicators."""
-    rows = ""
-    for e in entries:
-        trait = e.get("trait", "")
-        raw = safe_float(e.get("raw_score", 0))
-        ci_low = safe_float(e.get("ci_95_lower", 0))
-        ci_high = safe_float(e.get("ci_95_upper", 0))
-        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
-        se = (ci_high - ci_low) / 3.92  # approximate SE from CI
-
-        # Uncertainty color
-        if uncertainty < 0.5: u_color = "#27ae60"
-        elif uncertainty < 0.8: u_color = "#f39c12"
-        else: u_color = "#e74c3c"
-
-        # CI bar: map CI range within [-3, +3]
-        left_norm = max(0, (ci_low + 3) / 6 * 100)
-        right_norm = min(100, (ci_high + 3) / 6 * 100)
-
-        rows += f"""
-        <tr>
-            <td><strong>{trait}</strong></td>
-            <td>{raw:.3f} ± {se:.3f}</td>
-            <td>[{ci_low:.3f}, {ci_high:.3f}]</td>
-            <td>
-                <div style="position:relative;height:20px;background:#e9ecef;border-radius:3px;margin:2px 0">
-                    <div style="position:absolute;left:{left_norm:.1f}%;width:{right_norm-left_norm:.1f}%;height:100%;background:{'#3498db44' if ci_low*ci_high > 0 else '#e74c3c44'};border:1px solid {'#3498db' if ci_low*ci_high > 0 else '#e74c3c'};border-radius:3px"></div>
-                    <div style="position:absolute;left:50%;top:0;width:2px;height:100%;background:#2c3e50"></div>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:#7f8c8d">
-                    <span>-3σ</span><span>0</span><span>+3σ</span>
-                </div>
-            </td>
-            <td style="color:{u_color};font-weight:700">{uncertainty:.2f}</td>
-        </tr>"""
-
-    return f"""
-    <p>Uncertainty scores below 0.5 indicate high-confidence estimates. Scores above 0.8 indicate substantial uncertainty — treat results with caution.</p>
-    <table>
-        <thead><tr><th>Trait</th><th>PRS ± SE</th><th>95% CI</th><th>CI Visualization</th><th>Uncert.</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
-
-
 def build_validation_section(validation, ui):
     """Validation checks table."""
     checks = validation.get("checks", [])
@@ -1060,40 +1014,6 @@ def build_failure_map_section(failure_map, ui):
     </div>
     <table>
         <thead><tr><th>ID</th><th>Component</th><th>Failure Mode</th><th>Severity</th><th>Validated</th><th>Effect</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
-
-
-def build_leakage_section(leakage, ui):
-    """Leakage prevention gates."""
-    checks = leakage.get("checks", [])
-    rows = ""
-    for c in checks:
-        passed = c.get("passed", False)
-        sev = c.get("severity", "INFO")
-        icon = "✅" if passed else "❌"
-        sev_color = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
-        rows += f"""
-        <tr>
-            <td><strong>{c.get('gate', '')}</strong></td>
-            <td>{c.get('description', '')}</td>
-            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
-            <td>{icon}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('detail', '')}</td>
-        </tr>"""
-
-    can_proceed = leakage.get("pipeline_can_proceed", False)
-    all_passed = leakage.get("all_passed", False)
-
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Pipeline Safe</h4><div class="big-stat" style="color:{'#27ae60' if can_proceed else '#e74c3c'}">{'YES' if can_proceed else 'NO'}</div></div>
-        <div class="info-card"><h4>All Passed</h4><div class="big-stat" style="color:{'#27ae60' if all_passed else '#f39c12'}">{'YES' if all_passed else 'NO'}</div></div>
-        <div class="info-card"><h4>Gates</h4><div class="big-stat">{leakage.get('n_checks', 0)}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>Gate</th><th>Description</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
         <tbody>{rows}</tbody>
     </table>
     """
