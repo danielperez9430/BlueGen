@@ -1351,84 +1351,17 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
             parts.append("".join(build_row(v) for v in group))
         return "".join(parts)
 
-    match_rate = meta.get("match_rate", 0)
-    n_overlap = meta.get("positional_overlaps", 0)
-    n_exact = meta.get("exact_matches", 0)
+    high_rows_html = build_grouped_rows(high_mod, 200) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">✅ No high-confidence pathogenic variants found. This is normal.</td></tr>'
+    low_rows_html = build_grouped_rows(low_variants, 300) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">No lower-confidence variants.</td></tr>'
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    return f"""
-    <!-- ═══ VERACITY ALERT ═══ -->
-    <div class="highlight-box" style="background:#fdedec;border:2px solid #e74c3c;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1.5rem">
-        <h4 style="margin-top:0;color:#c0392b">{t['veracity_alert']}</h4>
-        <p style="font-size:0.9rem;margin:0">{t['veracity_text']}</p>
-    </div>
-
-    <!-- ═══ CONFIDENCE TIER LEGEND ═══ -->
-    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem">
-        <h4 style="margin-top:0">📖 {t['legend_title']}</h4>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem 1.5rem;font-size:0.82rem">
-            <div>{tier_badge('high')} — {t['tier_high']}</div>
-            <div>{tier_badge('moderate')} — {t['tier_moderate']}</div>
-            <div>{tier_badge('low')} — {t['tier_low']}</div>
-            <div>{tier_badge('very_low')} — {t['tier_very_low']}</div>
-        </div>
-        <p style="font-size:0.8rem;color:var(--color-text-secondary);margin:0.5rem 0 0">{t['source_note']}</p>
-    </div>
-
-    <!-- ═══ SUMMARY CARDS ═══ -->
-    <div class="info-grid">
-        <div class="info-card" style="border-left:3px solid #27ae60">
-            <h4>{t['high_conf_title']}</h4>
-            <div class="big-stat" style="color:#27ae60">{n_high_conf}</div>
-            <div class="stat-sub">{t['high_conf_desc']}</div>
-        </div>
-        <div class="info-card" style="border-left:3px solid #95a5a6">
-            <h4>{t['low_conf_title']}</h4>
-            <div class="big-stat" style="color:#95a5a6">{total - n_high_conf}</div>
-            <div class="stat-sub">{t['low_conf_desc']}</div>
-        </div>
-        <div class="info-card">
-            <h4>{t['clinvar_version']}</h4>
-            <div class="big-stat" style="font-size:1rem">{clinvar_date or 'N/A'}</div>
-            <div class="stat-sub">NCBI ClinVar GRCh37 · {meta.get('user_vcf_total_variants', 0):,} variants analyzed</div>
-        </div>
-        <div class="info-card" style="border-left:3px solid #f39c12">
-            <h4>Alelos de Riesgo</h4>
-            <div class="big-stat" style="color:#f39c12">{n_risk}</div>
-            <div class="stat-sub">Susceptibilidad — NO causan enfermedad</div>
-        </div>
-    </div>
-
-    <!-- ═══ HIGH CONFIDENCE TABLE ═══ -->
-    <h4 style="margin-top:1.5rem;color:#27ae60">🏅 {t['high_conf_title']} — {len(high_mod)} {t['reliable_count']}</h4>
-    <div style="overflow-x:auto">
-    <table>
-        <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
-        <tbody>{build_grouped_rows(high_mod, 200) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">✅ No high-confidence pathogenic variants found. This is normal.</td></tr>'}</tbody>
-    </table>
-    </div>
-
-    <!-- ═══ LOWER CONFIDENCE TABLE ═══ -->
-    <h4 style="margin-top:1.5rem;color:#95a5a6">❓ {t['low_conf_title']} — {len(low_variants)} {t['uncertain_count']}</h4>
-    <div style="overflow-x:auto">
-    <table>
-        <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
-        <tbody>{build_grouped_rows(low_variants, 300) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">No lower-confidence variants.</td></tr>'}</tbody>
-    </table>
-    </div>
-    {f'<p style="color:var(--color-text-secondary);font-size:0.8rem;margin-top:0.5rem">{len(low_variants) - 300} more not shown. See clinvar/clinvar_pathogenic_variants.json for complete list.</p>' if len(low_variants) > 300 else ''}
-
-    <!-- ═══ LIMITATIONS ═══ -->
-    <div class="highlight-box" style="background:#fef9e7;border:1px solid #f9e79f;border-radius:8px;padding:1rem 1.5rem;margin-top:1.5rem">
-        <h4 style="margin-top:0">{t['limitations_title']}</h4>
-        <p style="font-size:0.82rem;margin:0;white-space:pre-line;color:var(--color-text-secondary)">{t['limitations_text']}</p>
-    </div>
-
-    <!-- ═══ FULL DISCLAIMER ═══ -->
-    <div class="disclaimer-box" style="margin-top:1rem">
-        <p style="white-space:pre-line;font-size:0.82rem;margin:0">⚠️ RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS. NO PARA DIAGNÓSTICO CLÍNICO.</p>
-    </div>
-    """
+    return render_partial("clinvar.html.j2",
+        t=t, tier_badge_high=tier_badge('high'), tier_badge_moderate=tier_badge('moderate'),
+        tier_badge_low=tier_badge('low'), tier_badge_very_low=tier_badge('very_low'),
+        n_high_conf=n_high_conf, n_low_conf=total - n_high_conf,
+        clinvar_date=clinvar_date or 'N/A', user_vcf_total_variants=f"{meta.get('user_vcf_total_variants', 0):,}",
+        n_risk=n_risk, n_high_mod=len(high_mod), high_rows_html=high_rows_html,
+        n_low_variants=len(low_variants), low_rows_html=low_rows_html,
+        more_not_shown=len(low_variants) - 300 if len(low_variants) > 300 else None)
 
 
 def build_pharmgkb_section(pharmgkb_data: dict, ui: dict) -> str:
