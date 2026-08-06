@@ -235,7 +235,7 @@ def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evide
 
     # Serialize data as JSON for Chart.js
     import json as _json
-    chart_data = _json.dumps({
+    chart_data_json = _json.dumps({
         "labels": short_labels,
         "zScores": z_scores,
         "fullNames": full_names,
@@ -245,94 +245,7 @@ def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evide
         "tierLabels": tier_labels,
     })
 
-    return f"""
-    <div style="max-width:500px;margin:0 auto">
-        <canvas id="radarChart" style="max-height:450px"></canvas>
-    </div>
-    <script>
-    (function() {{
-        var d = {chart_data};
-        var ctx = document.getElementById('radarChart').getContext('2d');
-        var riskColorMap = {{'high': '#e74c3c', 'medium': '#f39c12', 'low': '#27ae60'}};
-        var maxAbsZ = Math.max.apply(null, d.zScores.map(Math.abs));
-        var fillColor = maxAbsZ >= 2 ? '#e74c3c' : (maxAbsZ >= 1 ? '#f39c12' : '#27ae60');
-
-        new Chart(ctx, {{
-            type: 'radar',
-            data: {{
-                labels: d.labels,
-                datasets: [{{
-                    label: 'PRS Profile',
-                    data: d.zScores,
-                    backgroundColor: fillColor.replace(')', ',0.12)').replace('rgb', 'rgba'),
-                    borderColor: fillColor,
-                    borderWidth: 2,
-                    pointBackgroundColor: d.pointColors,
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 1.5,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
-                }}]
-            }},
-            options: {{
-                responsive: true,
-                maintainAspectRatio: true,
-                animation: {{ duration: 800, easing: 'easeOutQuart' }},
-                plugins: {{
-                    legend: {{ display: true, position: 'bottom', labels: {{ font: {{ size: 11 }} }} }},
-                    tooltip: {{
-                        callbacks: {{
-                            label: function(ctx) {{
-                                var i = ctx.dataIndex;
-                                var z = d.zScores[i];
-                                var p = d.pctls[i];
-                                var tier = d.tierLabels[i];
-                                return [
-                                    d.fullNames[i],
-                                    'z-score: ' + (z >= 0 ? '+' : '') + z.toFixed(2),
-                                    'Percentile: ' + p.toFixed(1) + '%',
-                                    'Trust: ' + tier
-                                ];
-                            }}
-                        }}
-                    }}
-                }},
-                onClick: function(e, elements) {{
-                    if (elements.length > 0) {{
-                        var i = elements[0].index;
-                        var trait = d.fullNames[i];
-                        // Find and scroll to the PRS table row
-                        var table = document.querySelector('#prs table');
-                        if (table) {{
-                            var rows = table.querySelectorAll('tbody tr');
-                            rows.forEach(function(row) {{
-                                var cell = row.querySelector('td:first-child strong');
-                                if (cell && cell.textContent.trim() === trait) {{
-                                    row.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                                    row.style.transition = 'background 0.5s';
-                                    row.style.background = '#fef9e7';
-                                    setTimeout(function() {{ row.style.background = ''; }}, 1500);
-                                }}
-                            }});
-                        }}
-                    }}
-                }},
-                scales: {{
-                    r: {{
-                        beginAtZero: true,
-                        min: -3,
-                        max: 3,
-                        ticks: {{ stepSize: 1, backdropColor: 'transparent', font: {{ size: 10 }} }},
-                        grid: {{ color: '#dee2e6' }},
-                        angleLines: {{ color: '#dee2e6' }},
-                        pointLabels: {{ font: {{ size: 10, weight: '600' }} }}
-                    }}
-                }}
-            }}
-        }});
-    }})();
-    </script>
-    """
+    return render_partial("radar_chart.html.j2", chart_data_json=chart_data_json)
 
 
 def collapsible_section(section_id, title, content, open_by_default=False):
