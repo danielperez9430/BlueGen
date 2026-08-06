@@ -1423,53 +1423,21 @@ def build_pharmgkb_section(pharmgkb_data: dict, ui: dict) -> str:
     }
     t = T.get(lang, T["en"])
 
-    rows = ""
+    rows = []
     for f in findings:
         rec = f.get(f"recommendation_{lang}", f.get("recommendation_en", ""))
         if len(rec) > 150:
             rec = rec[:147] + "..."
-        rows += (
-            f'<tr>'
-            f'<td style="font-weight:600">{f["gene"]}</td>'
-            f'<td><code>{f["rsid"]}</code> {f.get("star_allele","")}</td>'
-            f'<td style="font-weight:600">{f["drug"]} ({f.get("drug_class","")})</td>'
-            f'<td style="font-size:0.85rem">{f["phenotype"]} ({f["copies"]} copia{"s" if f["copies"]>1 else ""})</td>'
-            f'<td style="font-size:0.82rem">{rec}</td>'
-            f'<td style="font-size:0.72rem;color:var(--color-text-secondary)">{f["cpic_level"]}</td>'
-            f'</tr>'
-        )
+        rows.append({
+            "gene": f["gene"], "rsid": f["rsid"], "star_allele": f.get("star_allele", ""),
+            "drug": f["drug"], "drug_class": f.get("drug_class", ""), "phenotype": f["phenotype"],
+            "copies": f["copies"], "copies_label": "s" if f["copies"] > 1 else "",
+            "recommendation": rec, "cpic_level": f["cpic_level"],
+        })
 
-    return f"""
-    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1.5rem">
-        <p style="font-size:0.9rem;margin:0">{t['explain']}</p>
-    </div>
-
-    <div class="info-grid" style="grid-template-columns:repeat(3,1fr)">
-        {f'<div class="info-card" style="border-left:3px solid #c0392b"><h4>🔴 {t["critical"]}</h4><div class="big-stat" style="color:#c0392b">{n_critical}</div></div>' if n_critical else ''}
-        {f'<div class="info-card" style="border-left:3px solid #d35400"><h4>🟠 {t["important"]}</h4><div class="big-stat" style="color:#d35400">{n_important}</div></div>' if n_important else ''}
-        <div class="info-card" style="border-left:3px solid #2980b9"><h4>🟡 {t["informative"]}</h4><div class="big-stat" style="color:#2980b9">{n_info}</div></div>
-    </div>
-
-    <h4 style="margin-top:1.5rem">💊 {t['title']} ({len(findings)} hallazgos)</h4>
-    <div style="overflow-x:auto">
-    <table>
-        <thead><tr><th>{t['gene']}</th><th>{t['variant']}</th><th>{t['drug']}</th><th>{t['phenotype']}</th><th>{t['recommendation']}</th><th>{t['cpic_source']}</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    </div>
-
-    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:0.8rem 1.2rem;margin-top:1rem">
-        <p style="font-size:0.82rem;margin:0">
-        <strong>📖 CPIC Guideline column:</strong> Indicates which clinical guideline supports this recommendation.<br>
-        <strong>CPIC</strong> = Clinical Pharmacogenetics Implementation Consortium (U.S. NIH-funded). <strong>DPWG</strong> = Dutch Pharmacogenetics Working Group (European).<br>
-        <strong>Level A/B</strong> = strongest evidence; actionable prescribing change recommended. <strong>Level C/D</strong> = weaker evidence; consider but not mandatory.
-        </p>
-    </div>
-
-    <div class="disclaimer-box" style="margin-top:1rem">
-        <p style="white-space:pre-line;font-size:0.82rem;margin:0">{t['disclaimer']}</p>
-    </div>
-    """
+    return render_partial("pharmgkb.html.j2",
+        t=t, n_critical=n_critical, n_important=n_important, n_info=n_info,
+        n_findings=len(findings), rows=rows)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
