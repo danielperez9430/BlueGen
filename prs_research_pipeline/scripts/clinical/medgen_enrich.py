@@ -34,6 +34,9 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import disease_taxonomy  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 MEDGEN_FTP = "https://ftp.ncbi.nlm.nih.gov/pub/medgen"
@@ -426,6 +429,13 @@ def enrich_clinvar_output(
     # Enrich variants
     n_enriched = 0
     for v in variants:
+        # body_system is computed for every variant regardless of whether
+        # MedGen has a definition for it (gene symbol alone is often enough) -
+        # IMPROVEMENT_PLAN.md 1.3 "agrupar por sistema/organo".
+        v["body_system"] = disease_taxonomy.classify_body_system(
+            v.get("genes") or v.get("gene_info", ""), v.get("disease_name", "")
+        )
+
         dname = v.get("disease_name", "")
         if not dname or dname in (".", "not_provided"):
             v["disease_description"] = ""

@@ -28,6 +28,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.constants import PIPELINE_VERSION
+from clinical.disease_taxonomy import BODY_SYSTEM_ORDER, system_label
 
 logger = logging.getLogger(__name__)
 
@@ -2247,6 +2248,30 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
     high_mod = [v for v in variants if v.get("confidence_tier") in ("high", "moderate")]
     low_variants = [v for v in variants if v.get("confidence_tier") in ("low", "very_low")]
 
+    def build_grouped_rows(variant_list, limit):
+        """Group variants by body_system (IMPROVEMENT_PLAN.md 1.3) within a
+        confidence tier, largest group first, so related findings (e.g. all
+        cardiovascular hits) read together instead of in raw file order."""
+        shown = variant_list[:limit]
+        by_system = {}
+        for v in shown:
+            key = v.get("body_system") or "other"
+            by_system.setdefault(key, []).append(v)
+        ordered_keys = sorted(
+            by_system.keys(),
+            key=lambda k: (k == "other", -len(by_system[k]), BODY_SYSTEM_ORDER.index(k) if k in BODY_SYSTEM_ORDER else 99),
+        )
+        parts = []
+        for key in ordered_keys:
+            group = by_system[key]
+            parts.append(
+                f'<tr style="background:var(--color-bg-secondary,#f4f6f7)">'
+                f'<td colspan="8" style="font-weight:700;font-size:0.8rem;padding:6px 12px">'
+                f'{system_label(key, lang)} ({len(group)})</td></tr>'
+            )
+            parts.append("".join(build_row(v) for v in group))
+        return "".join(parts)
+
     match_rate = meta.get("match_rate", 0)
     n_overlap = meta.get("positional_overlaps", 0)
     n_exact = meta.get("exact_matches", 0)
@@ -2300,7 +2325,7 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
     <div style="overflow-x:auto">
     <table>
         <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
-        <tbody>{''.join(build_row(v) for v in high_mod[:200]) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">✅ No high-confidence pathogenic variants found. This is normal.</td></tr>'}</tbody>
+        <tbody>{build_grouped_rows(high_mod, 200) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">✅ No high-confidence pathogenic variants found. This is normal.</td></tr>'}</tbody>
     </table>
     </div>
 
@@ -2309,7 +2334,7 @@ def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
     <div style="overflow-x:auto">
     <table>
         <thead><tr><th>rsID</th><th>Pos</th><th>Gene</th><th>Disease</th><th>Significance</th><th>Confidence</th><th>Review</th><th>Freq</th></tr></thead>
-        <tbody>{''.join(build_row(v) for v in low_variants[:300]) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">No lower-confidence variants.</td></tr>'}</tbody>
+        <tbody>{build_grouped_rows(low_variants, 300) or '<tr><td colspan="8" style="color:var(--color-text-secondary);text-align:center;padding:1rem">No lower-confidence variants.</td></tr>'}</tbody>
     </table>
     </div>
     {f'<p style="color:var(--color-text-secondary);font-size:0.8rem;margin-top:0.5rem">{len(low_variants) - 300} more not shown. See clinvar/clinvar_pathogenic_variants.json for complete list.</p>' if len(low_variants) > 300 else ''}

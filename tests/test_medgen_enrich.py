@@ -69,3 +69,39 @@ class TestEnrichClinvarOutputPersistsCui:
         saved = json.loads(clinvar_json.read_text())
         variant = saved["pathogenic_variants"][0]
         assert variant["medgen_cui"] == ""
+
+
+class TestEnrichClinvarOutputPersistsBodySystem:
+    def test_body_system_is_computed_even_without_disease_match(self, tmp_path, monkeypatch):
+        """gene symbol alone should classify a variant even when MedGen has
+        no definition for it and disease_name is not_provided (IMPROVEMENT_PLAN.md 1.3)."""
+        clinvar_json = tmp_path / "clinvar_pathogenic_variants.json"
+        clinvar_json.write_text(json.dumps({
+            "pathogenic_variants": [
+                {"rsid": "rs1", "genes": ["BRCA1"], "disease_name": "not_provided"},
+            ]
+        }))
+
+        monkeypatch.setattr(medgen_enrich, "check_medgen_update", lambda ref_dir: {"status": "ok"})
+        monkeypatch.setattr(medgen_enrich, "load_medgen_database", lambda ref_dir: FAKE_DB)
+
+        medgen_enrich.enrich_clinvar_output(str(clinvar_json), ref_dir="unused")
+
+        saved = json.loads(clinvar_json.read_text())
+        assert saved["pathogenic_variants"][0]["body_system"] == "oncology"
+
+    def test_unclassifiable_variant_gets_other(self, tmp_path, monkeypatch):
+        clinvar_json = tmp_path / "clinvar_pathogenic_variants.json"
+        clinvar_json.write_text(json.dumps({
+            "pathogenic_variants": [
+                {"rsid": "rs2", "genes": ["ZZZNOTAGENE"], "disease_name": "not_provided"},
+            ]
+        }))
+
+        monkeypatch.setattr(medgen_enrich, "check_medgen_update", lambda ref_dir: {"status": "ok"})
+        monkeypatch.setattr(medgen_enrich, "load_medgen_database", lambda ref_dir: FAKE_DB)
+
+        medgen_enrich.enrich_clinvar_output(str(clinvar_json), ref_dir="unused")
+
+        saved = json.loads(clinvar_json.read_text())
+        assert saved["pathogenic_variants"][0]["body_system"] == "other"

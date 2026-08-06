@@ -740,3 +740,45 @@ class TestClinvarMedgenLink:
     def test_no_broken_link_when_cui_absent(self):
         html = build_clinvar_section(self._clinvar_data(medgen_cui=""), UI["en"])
         assert "ncbi.nlm.nih.gov/medgen/" not in html
+
+
+class TestClinvarBodySystemGrouping:
+    """medgen_enrich.py persists body_system on each variant (IMPROVEMENT_PLAN.md
+    1.3 - "agrupar por sistema/organo"); the report should render a system
+    header per group instead of one flat table in raw file order."""
+
+    def _clinvar_data(self, variants):
+        return {
+            "pathogenic_variants": variants,
+            "pathogenic_variant_summary": {"high_confidence_count": len(variants), "by_confidence_tier": {}},
+            "metadata": {},
+        }
+
+    def _variant(self, rsid, body_system, confidence_tier="high"):
+        return {
+            "rsid": rsid, "chrom": "1", "pos": 1, "genes": ["X"],
+            "disease_name": "not_provided", "clinical_significance": "Pathogenic",
+            "confidence_tier": confidence_tier, "body_system": body_system,
+        }
+
+    def test_renders_a_header_per_distinct_system(self):
+        html = build_clinvar_section(self._clinvar_data([
+            self._variant("rs1", "oncology"),
+            self._variant("rs2", "cardiovascular"),
+        ]), UI["en"])
+        assert "Oncology" in html
+        assert "Cardiovascular" in html
+
+    def test_larger_group_renders_before_smaller_group(self):
+        html = build_clinvar_section(self._clinvar_data([
+            self._variant("rs1", "cardiovascular"),
+            self._variant("rs2", "oncology"),
+            self._variant("rs3", "oncology"),
+        ]), UI["en"])
+        assert html.index("Oncology") < html.index("Cardiovascular")
+
+    def test_missing_body_system_falls_back_to_other_not_a_crash(self):
+        variant = self._variant("rs1", body_system=None)
+        del variant["body_system"]
+        html = build_clinvar_section(self._clinvar_data([variant]), UI["en"])
+        assert "Other" in html
