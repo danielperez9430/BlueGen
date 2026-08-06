@@ -1,0 +1,22 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Robustness Score</h4><div class="big-stat">{{ score }}/100</div></div>
+    <div class="info-card"><h4>Tests Run</h4><div class="big-stat">{{ n_tests }}</div></div>
+    <div class="info-card"><h4>Robust</h4><div class="big-stat" style="color:#27ae60">{{ n_robust }}</div></div>
+    <div class="info-card"><h4>Vulnerable</h4><div class="big-stat" style="color:#e74c3c">{{ n_vulnerable }}</div></div>
+</div>
+{% if critical_findings %}
+<div class="highlight-box" style="background:#fadbd8"><strong>Critical Findings:</strong> {{ critical_findings }}</div>
+{% endif %}
+<table>
+    <thead><tr><th>Test ID</th><th>Description</th><th>Severity</th><th>Result</th><th>Change</th><th>Detail</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.test_id }}</strong></td>
+            <td>{{ r.description }}</td>
+            <td style="color:{{ r.sev_color }};font-weight:700">{{ r.sev }}</td>
+            <td>{{ r.icon }} {{ r.robust_label }}</td>
+            <td>{{ r.change }}</td>
+            <td style="font-size:0.8rem">{{ r.detail }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

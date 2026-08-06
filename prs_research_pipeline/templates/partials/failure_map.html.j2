@@ -1,0 +1,19 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Total Failures</h4><div class="big-stat">{{ n_failures }}</div></div>
+    <div class="info-card"><h4>Critical</h4><div class="big-stat" style="color:#e74c3c">{{ n_critical }}</div></div>
+    <div class="info-card"><h4>High</h4><div class="big-stat" style="color:#e67e22">{{ n_high }}</div></div>
+    <div class="info-card"><h4>Vulnerable Component</h4><div class="big-stat" style="font-size:1rem">{{ most_vulnerable }}</div></div>
+</div>
+<table>
+    <thead><tr><th>ID</th><th>Component</th><th>Failure Mode</th><th>Severity</th><th>Validated</th><th>Effect</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.id }}</strong></td>
+            <td>{{ r.component }}</td>
+            <td>{{ r.failure }}</td>
+            <td style="color:{{ r.sev_color }};font-weight:700">{{ r.sev }}</td>
+            <td>{{ r.v_icon }}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{{ r.effect }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

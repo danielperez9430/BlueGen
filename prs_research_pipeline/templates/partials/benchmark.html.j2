@@ -1,0 +1,40 @@
+<h4>Validation Classification</h4>
+<div class="info-grid">
+    <div class="info-card"><h4>Total</h4><div class="big-stat">{{ vs.total_validations }}</div></div>
+    <div class="info-card"><h4>Internal</h4><div class="big-stat">{{ vs.internal }}</div></div>
+    <div class="info-card"><h4>External</h4><div class="big-stat" style="color:#3498db">{{ vs.external }}</div></div>
+    <div class="info-card"><h4>Circular</h4><div class="big-stat" style="color:#e74c3c">{{ vs.circular }}</div></div>
+</div>
+<table>
+    <thead><tr><th>ID</th><th>Description</th><th>Type</th><th>Classification</th><th>Status</th></tr></thead>
+    <tbody>{% for r in bench_rows %}
+        <tr>
+            <td><strong>{{ r.validation_id }}</strong></td>
+            <td>{{ r.description }}</td>
+            <td>{{ r.vtype }}</td>
+            <td>{{ r.circ_badge|safe }}</td>
+            <td>{{ r.status }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>
+
+<h4 style="margin-top:2rem">Quality Delta — Internal vs External Benchmarks</h4>
+<div class="info-grid">
+    <div class="info-card"><h4>Mean Delta</h4><div class="big-stat" style="color:{{ mean_delta_color }}">{{ mean_delta }}</div></div>
+    <div class="info-card"><h4>Overperform</h4><div class="big-stat" style="color:#27ae60">{{ qd.overperform }}</div></div>
+    <div class="info-card"><h4>At Par</h4><div class="big-stat">{{ qd.at_par }}</div></div>
+    <div class="info-card"><h4>Underperform</h4><div class="big-stat" style="color:#e74c3c">{{ qd.underperform }}</div></div>
+</div>
+<table>
+    <thead><tr><th>Dimension</th><th>Internal</th><th>External</th><th>Δ</th><th>Direction</th><th>Explanation</th></tr></thead>
+    <tbody>{% for r in delta_rows %}
+        <tr>
+            <td>{{ r.dimension }}</td>
+            <td>{{ r.internal_score }}</td>
+            <td>{{ r.external_benchmark }}</td>
+            <td style="color:{{ r.d_color }};font-weight:700">{{ r.delta }}</td>
+            <td>{{ r.direction }}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{{ r.explanation }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

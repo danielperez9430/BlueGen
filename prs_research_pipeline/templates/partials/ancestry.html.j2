@@ -1,0 +1,38 @@
+<div class="info-grid">
+    <div class="info-card">
+        <h4>Assigned Population</h4>
+        <div class="big-stat">{{ pop_display }}</div>
+        <div class="stat-sub">Confidence: {{ confidence }}</div>
+    </div>
+    <div class="info-card">
+        <h4>Reference Panel</h4>
+        <div class="big-stat">{{ n_ref }}</div>
+        <div class="stat-sub">1000 Genomes Phase 3 samples</div>
+    </div>
+    <div class="info-card">
+        <h4>PCA Dimensions</h4>
+        <div class="big-stat">{{ n_pcs }}</div>
+        <div class="stat-sub">Principal components</div>
+    </div>
+    <div class="info-card">
+        <h4>Populations</h4>
+        <div class="big-stat">5</div>
+        <div class="stat-sub">EUR · AFR · EAS · SAS · AMR</div>
+    </div>
+</div>
+<h4>Population Probability Distribution</h4>
+<table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead>
+<tbody>{% for r in prob_rows %}
+    <tr>
+        <td>{{ r.label }}</td>
+        <td>{{ r.pct }}%</td>
+        <td>
+            <div style="display:flex;align-items:center;gap:6px">
+                <div style="flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden">
+                    <div style="width:{{ r.bar_w }}%;height:100%;background:{{ r.bar_color }};border-radius:3px"></div>
+                </div>
+            </div>
+        </td>
+    </tr>{% endfor %}
+</tbody></table>
+{{ pca_table_html|safe }}

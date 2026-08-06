@@ -1,0 +1,35 @@
+<div class="info-grid">
+    <div class="info-card">
+        <h4>Overall Score</h4>
+        <div class="big-stat">{{ overall_score }}</div>
+        <div class="stat-sub">/ 100 — {{ overall_status }}</div>
+    </div>
+    <div class="info-card">
+        <h4>Passed</h4>
+        <div class="big-stat" style="color:#27ae60">{{ passed }}</div>
+        <div class="stat-sub">of {{ total_checks }} checks</div>
+    </div>
+    <div class="info-card">
+        <h4>Warnings</h4>
+        <div class="big-stat" style="color:#f39c12">{{ warnings }}</div>
+        <div class="stat-sub">non-critical issues</div>
+    </div>
+    <div class="info-card">
+        <h4>Errors</h4>
+        <div class="big-stat" style="color:#e74c3c">{{ errors }}</div>
+        <div class="stat-sub">critical issues</div>
+    </div>
+</div>
+<table>
+    <thead><tr><th>ID</th><th>Category</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.check_id }}</strong></td>
+            <td>{{ r.category }}</td>
+            <td>{{ r.description }}</td>
+            <td style="color:{{ r.sev_color }};font-weight:700">{{ r.sev }}</td>
+            <td>{{ r.icon }}</td>
+            <td style="font-size:0.8rem;color:#7f8c8d">{{ r.detail }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

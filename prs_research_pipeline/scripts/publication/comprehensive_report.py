@@ -178,7 +178,7 @@ from report.interpretations import (
     evidence_letter, evidence_badge,
 )
 from report.data_loader import load_report_data
-from report.render import build_html_report as render_document
+from report.render import build_html_report as render_document, render_partial
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RADAR CHART (Chart.js — interactive)
@@ -590,28 +590,15 @@ def build_ancestry_section(ancestry, pca_data, ui):
     n_pcs = ancestry.get("n_pcs", 20)
 
     pop_names = POP_NAMES["en"]
-    prob_rows = ""
+    prob_rows = []
     for p in ["EUR", "AFR", "EAS", "SAS", "AMR"]:
         prob = probs.get(p, 0) * 100 if isinstance(probs.get(p, 0), (int, float)) else 0
-        bar_w = max(prob, 1)
-        prob_rows += f"""
-        <tr>
-            <td>{pop_names.get(p, p)} ({p})</td>
-            <td>{prob:.1f}%</td>
-            <td>
-                <div style="display:flex;align-items:center;gap:6px">
-                    <div style="flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden">
-                        <div style="width:{bar_w}%;height:100%;background:{'#3498db' if p==pop else '#bdc3c7'};border-radius:3px"></div>
-                    </div>
-                </div>
-            </td>
-        </tr>"""
-
-    # Try to load PCA eigenvalues
-    pca_eigenval = load_json("pca/pca_results.eigenval") if False else {}
-    pca_var_explained = ""
-    if False:  # eigenval file format differs
-        pass
+        prob_rows.append({
+            "label": f"{pop_names.get(p, p)} ({p})",
+            "pct": f"{prob:.1f}",
+            "bar_w": max(prob, 1),
+            "bar_color": "#3498db" if p == pop else "#bdc3c7",
+        })
 
     # Load 1000G PCA coordinates if available
     pca_table = ""
@@ -631,34 +618,9 @@ def build_ancestry_section(ancestry, pca_data, ui):
     except Exception:
         pass
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card">
-            <h4>Assigned Population</h4>
-            <div class="big-stat">{pop_names.get(pop, pop)}</div>
-            <div class="stat-sub">Confidence: {confidence}</div>
-        </div>
-        <div class="info-card">
-            <h4>Reference Panel</h4>
-            <div class="big-stat">{n_ref}</div>
-            <div class="stat-sub">1000 Genomes Phase 3 samples</div>
-        </div>
-        <div class="info-card">
-            <h4>PCA Dimensions</h4>
-            <div class="big-stat">{n_pcs}</div>
-            <div class="stat-sub">Principal components</div>
-        </div>
-        <div class="info-card">
-            <h4>Populations</h4>
-            <div class="big-stat">5</div>
-            <div class="stat-sub">EUR · AFR · EAS · SAS · AMR</div>
-        </div>
-    </div>
-    <h4>Population Probability Distribution</h4>
-    <table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead>
-    <tbody>{prob_rows}</tbody></table>
-    {pca_table}
-    """
+    return render_partial("ancestry.html.j2",
+        pop_display=pop_names.get(pop, pop), confidence=confidence,
+        n_ref=n_ref, n_pcs=n_pcs, prob_rows=prob_rows, pca_table_html=pca_table)
 
 
 def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portability=None, evidence_lookup=None,
@@ -839,185 +801,109 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
 def build_validation_section(validation, ui):
     """Validation checks table."""
     checks = validation.get("checks", [])
-    rows = ""
-    for c in checks:
-        passed = c.get("passed", False)
-        sev = c.get("severity", "INFO")
-        sev_colors = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
-        icon = "✅" if passed else "❌"
-        rows += f"""
-        <tr>
-            <td><strong>{c.get("check_id", "")}</strong></td>
-            <td>{c.get("category", "")}</td>
-            <td>{c.get("description", "")}</td>
-            <td style="color:{sev_colors.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
-            <td>{icon}</td>
-            <td style="font-size:0.8rem;color:#7f8c8d">{c.get("detail", "")}</td>
-        </tr>"""
+    sev_colors = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
+    rows = [{
+        "check_id": c.get("check_id", ""), "category": c.get("category", ""),
+        "description": c.get("description", ""),
+        "sev": c.get("severity", "INFO"),
+        "sev_color": sev_colors.get(c.get("severity", "INFO"), "#7f8c8d"),
+        "icon": "✅" if c.get("passed", False) else "❌",
+        "detail": c.get("detail", ""),
+    } for c in checks]
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card">
-            <h4>Overall Score</h4>
-            <div class="big-stat">{validation.get('overall_score', 0):.0f}</div>
-            <div class="stat-sub">/ 100 — {validation.get('overall_status', '').replace('_', ' ').title()}</div>
-        </div>
-        <div class="info-card">
-            <h4>Passed</h4>
-            <div class="big-stat" style="color:#27ae60">{validation.get('passed', 0)}</div>
-            <div class="stat-sub">of {validation.get('total_checks', 0)} checks</div>
-        </div>
-        <div class="info-card">
-            <h4>Warnings</h4>
-            <div class="big-stat" style="color:#f39c12">{validation.get('warnings', 0)}</div>
-            <div class="stat-sub">non-critical issues</div>
-        </div>
-        <div class="info-card">
-            <h4>Errors</h4>
-            <div class="big-stat" style="color:#e74c3c">{validation.get('errors', 0)}</div>
-            <div class="stat-sub">critical issues</div>
-        </div>
-    </div>
-    <table>
-        <thead><tr><th>ID</th><th>Category</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("validation.html.j2",
+        overall_score=f"{validation.get('overall_score', 0):.0f}",
+        overall_status=validation.get('overall_status', '').replace('_', ' ').title(),
+        passed=validation.get('passed', 0), total_checks=validation.get('total_checks', 0),
+        warnings=validation.get('warnings', 0), errors=validation.get('errors', 0),
+        rows=rows)
 
 
 def build_benchmark_section(benchmark, quality_delta, ui):
     """GWAS & external benchmarking."""
     entries = benchmark.get("entries", [])
-    bench_rows = ""
+    bench_rows = []
     for e in entries:
-        status = e.get("status", "VALID")
-        vtype = e.get("validation_type", "unknown")
         is_circ = e.get("is_circular", False)
         circ_badge = '<span style="background:#fdebd0;color:#b7950b;padding:1px 5px;border-radius:3px;font-size:0.65rem">CIRCULAR</span>' if is_circ else '<span style="background:#d5f5e3;color:#1e8449;padding:1px 5px;border-radius:3px;font-size:0.65rem">INDEPENDENT</span>'
-        bench_rows += f"""
-        <tr>
-            <td><strong>{e.get('validation_id', '')}</strong></td>
-            <td>{e.get('description', '')}</td>
-            <td>{vtype}</td>
-            <td>{circ_badge}</td>
-            <td>{status}</td>
-        </tr>"""
+        bench_rows.append({
+            "validation_id": e.get('validation_id', ''), "description": e.get('description', ''),
+            "vtype": e.get("validation_type", "unknown"), "circ_badge": circ_badge,
+            "status": e.get("status", "VALID"),
+        })
 
     # Quality delta
     qd = quality_delta
     components = qd.get("components", [])
-    delta_rows = ""
+    delta_rows = []
     for c in components:
         delta = c.get("delta", 0)
         direction = c.get("direction", "at_par")
         d_color = "#27ae60" if direction == "overperform" else ("#e74c3c" if direction == "underperform" else "#f39c12")
-        delta_rows += f"""
-        <tr>
-            <td>{c.get('dimension', '')}</td>
-            <td>{safe_float(c.get('internal_score', 0)):.0f}</td>
-            <td>{safe_float(c.get('external_benchmark', 0)):.0f}</td>
-            <td style="color:{d_color};font-weight:700">{delta:+.0f}</td>
-            <td>{direction.replace('_', ' ').title()}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('explanation', '')[:150]}</td>
-        </tr>"""
+        delta_rows.append({
+            "dimension": c.get('dimension', ''),
+            "internal_score": f"{safe_float(c.get('internal_score', 0)):.0f}",
+            "external_benchmark": f"{safe_float(c.get('external_benchmark', 0)):.0f}",
+            "d_color": d_color, "delta": f"{delta:+.0f}",
+            "direction": direction.replace('_', ' ').title(),
+            "explanation": c.get('explanation', '')[:150],
+        })
 
-    return f"""
-    <h4>Validation Classification</h4>
-    <div class="info-grid">
-        <div class="info-card"><h4>Total</h4><div class="big-stat">{benchmark.get('validation_summary', {}).get('total_validations', 0)}</div></div>
-        <div class="info-card"><h4>Internal</h4><div class="big-stat">{benchmark.get('validation_summary', {}).get('internal', 0)}</div></div>
-        <div class="info-card"><h4>External</h4><div class="big-stat" style="color:#3498db">{benchmark.get('validation_summary', {}).get('external', 0)}</div></div>
-        <div class="info-card"><h4>Circular</h4><div class="big-stat" style="color:#e74c3c">{benchmark.get('validation_summary', {}).get('circular', 0)}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>ID</th><th>Description</th><th>Type</th><th>Classification</th><th>Status</th></tr></thead>
-        <tbody>{bench_rows}</tbody>
-    </table>
-
-    <h4 style="margin-top:2rem">Quality Delta — Internal vs External Benchmarks</h4>
-    <div class="info-grid">
-        <div class="info-card"><h4>Mean Delta</h4><div class="big-stat" style="color:{'#27ae60' if qd.get('mean_delta', 0) >= 0 else '#e74c3c'}">{qd.get('mean_delta', 0):+.1f}</div></div>
-        <div class="info-card"><h4>Overperform</h4><div class="big-stat" style="color:#27ae60">{qd.get('overperform', 0)}</div></div>
-        <div class="info-card"><h4>At Par</h4><div class="big-stat">{qd.get('at_par', 0)}</div></div>
-        <div class="info-card"><h4>Underperform</h4><div class="big-stat" style="color:#e74c3c">{qd.get('underperform', 0)}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>Dimension</th><th>Internal</th><th>External</th><th>Δ</th><th>Direction</th><th>Explanation</th></tr></thead>
-        <tbody>{delta_rows}</tbody>
-    </table>
-    """
+    return render_partial("benchmark.html.j2",
+        vs=benchmark.get('validation_summary', {}), bench_rows=bench_rows,
+        mean_delta_color="#27ae60" if qd.get('mean_delta', 0) >= 0 else "#e74c3c",
+        mean_delta=f"{qd.get('mean_delta', 0):+.1f}", qd=qd, delta_rows=delta_rows)
 
 
 def build_adversarial_section(adversarial, ui):
     """Adversarial stress testing results."""
     results = adversarial.get("results", [])
-    rows = ""
+    sev_color_map = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
+    rows = []
     for r in results:
         robust = r.get("is_robust", False)
         if isinstance(robust, str):
             robust = robust.lower() == "true"
         sev = r.get("severity", "MODERATE")
-        sev_color = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
-        icon = "✅" if robust else "❌"
-        change = safe_float(r.get("relative_change", 0))
-        rows += f"""
-        <tr>
-            <td><strong>{r.get('test_id', '')}</strong></td>
-            <td>{r.get('description', '')}</td>
-            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
-            <td>{icon} {'Robust' if robust else 'Vulnerable'}</td>
-            <td>{change:+.2f}</td>
-            <td style="font-size:0.8rem">{r.get('detail', '')}</td>
-        </tr>"""
+        rows.append({
+            "test_id": r.get('test_id', ''), "description": r.get('description', ''),
+            "sev": sev, "sev_color": sev_color_map.get(sev, "#7f8c8d"),
+            "icon": "✅" if robust else "❌",
+            "robust_label": "Robust" if robust else "Vulnerable",
+            "change": f"{safe_float(r.get('relative_change', 0)):+.2f}",
+            "detail": r.get('detail', ''),
+        })
 
     critical_findings = adversarial.get("critical_findings", [])
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Robustness Score</h4><div class="big-stat">{adversarial.get('overall_robustness_score', 0):.0f}/100</div></div>
-        <div class="info-card"><h4>Tests Run</h4><div class="big-stat">{adversarial.get('n_tests', 0)}</div></div>
-        <div class="info-card"><h4>Robust</h4><div class="big-stat" style="color:#27ae60">{adversarial.get('n_robust', 0)}</div></div>
-        <div class="info-card"><h4>Vulnerable</h4><div class="big-stat" style="color:#e74c3c">{adversarial.get('n_vulnerable', 0)}</div></div>
-    </div>
-    {f'<div class="highlight-box" style="background:#fadbd8"><strong>Critical Findings:</strong> {", ".join(critical_findings)}</div>' if critical_findings else ''}
-    <table>
-        <thead><tr><th>Test ID</th><th>Description</th><th>Severity</th><th>Result</th><th>Change</th><th>Detail</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("adversarial.html.j2",
+        score=f"{adversarial.get('overall_robustness_score', 0):.0f}",
+        n_tests=adversarial.get('n_tests', 0), n_robust=adversarial.get('n_robust', 0),
+        n_vulnerable=adversarial.get('n_vulnerable', 0),
+        critical_findings=", ".join(critical_findings) if critical_findings else "",
+        rows=rows)
 
 
 def build_failure_map_section(failure_map, ui):
     """Failure mode coverage."""
     failures = failure_map.get("failures", [])
-    rows = ""
+    sev_color_map = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
+    rows = []
     for f in failures:
         sev = f.get("severity", "MODERATE")
-        sev_color = {"CRITICAL": "#e74c3c", "HIGH": "#e67e22", "MODERATE": "#f39c12"}
         validated = f.get("adversarial_validated", False)
-        v_icon = "✅" if validated else "⬚"
-        rows += f"""
-        <tr>
-            <td><strong>{f.get('id', '')}</strong></td>
-            <td>{f.get('component', '')}</td>
-            <td>{f.get('failure', '')}</td>
-            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
-            <td>{v_icon}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{f.get('effect', '')[:120]}</td>
-        </tr>"""
+        rows.append({
+            "id": f.get('id', ''), "component": f.get('component', ''),
+            "failure": f.get('failure', ''), "sev": sev,
+            "sev_color": sev_color_map.get(sev, "#7f8c8d"),
+            "v_icon": "✅" if validated else "⬚",
+            "effect": f.get('effect', '')[:120],
+        })
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Total Failures</h4><div class="big-stat">{failure_map.get('n_failures', 0)}</div></div>
-        <div class="info-card"><h4>Critical</h4><div class="big-stat" style="color:#e74c3c">{failure_map.get('n_critical', 0)}</div></div>
-        <div class="info-card"><h4>High</h4><div class="big-stat" style="color:#e67e22">{failure_map.get('n_high', 0)}</div></div>
-        <div class="info-card"><h4>Vulnerable Component</h4><div class="big-stat" style="font-size:1rem">{failure_map.get('most_vulnerable_component', 'N/A')}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>ID</th><th>Component</th><th>Failure Mode</th><th>Severity</th><th>Validated</th><th>Effect</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("failure_map.html.j2",
+        n_failures=failure_map.get('n_failures', 0), n_critical=failure_map.get('n_critical', 0),
+        n_high=failure_map.get('n_high', 0),
+        most_vulnerable=failure_map.get('most_vulnerable_component', 'N/A'), rows=rows)
 
 
 def build_integrity_section(integrity, ui):

@@ -32,6 +32,15 @@ def _read_static(name: str) -> str:
     return (STATIC_DIR / name).read_text(encoding="utf-8")
 
 
+def render_partial(name: str, **context) -> str:
+    """Render one section partial from templates/partials/{name}.
+
+    Used by every build_*_section function in sections.py/comprehensive_report.py
+    (IMPROVEMENT_PLAN.md 1.6 Phase 3) instead of hand-built f-strings.
+    """
+    return _env.get_template(f"partials/{name}").render(**context)
+
+
 def build_html_report(lang: str, data: Dict, sample_id: str, sections_html: str,
                        reference_coverage_banner_html: str, ui: dict) -> str:
     """Render the full HTML document shell around already-built sections_html."""
