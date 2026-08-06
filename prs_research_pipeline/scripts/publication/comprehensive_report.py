@@ -1529,6 +1529,118 @@ def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entrie
         conv_rows=conv_rows, drug_rows=drug_rows)
 
 
+def build_deep_ancestry_section(deep: dict) -> str:
+    """Haplogroups (mtDNA/Y-DNA), archaic admixture, and sub-continental
+    ancestry - extracted from build_html_report's inline body
+    (IMPROVEMENT_PLAN.md 1.6 Phase 3) for consistency with every other
+    section, which is built via a named function, not inlined in the
+    orchestrator."""
+    ydna = deep.get("y_dna", {})
+    mtdna = deep.get("mt_dna", {})
+    subcont = deep.get("sub_continental", {})
+    neand = deep.get("neanderthal", {})
+
+    deep_html = "<div class='info-grid' style='grid-template-columns:1fr 1fr 1fr'>"
+    deep_html += f"<div class='info-card'><h4>🧬 mtDNA Haplogroup</h4><div class='big-stat' style='font-size:1.2rem'>{mtdna.get('haplogroup','?')}</div><div class='stat-sub'>{mtdna.get('description','')}</div></div>"
+    deep_html += f"<div class='info-card'><h4>🧬 Y-DNA Haplogroup</h4><div class='big-stat' style='font-size:1rem'>{ydna.get('haplogroup','?')}</div><div class='stat-sub'>{ydna.get('description','')[:80]}</div></div>"
+    if neand.get("reliable"):
+        pct = neand.get("percentage", "?")
+        method = neand.get("method", "snp_panel")
+        closest = neand.get("closest_population", "EUR")
+        pop_label = neand.get("population_comparisons", {}).get(closest, {}).get("label", closest)
+
+        if "AADR" in method:
+            affinity = neand.get("admix_ratio", neand.get("archaic_affinity_ratio", "?"))
+            deep_html += (f'<div class="info-card"><h4>🦴 Archaic DNA</h4>'
+                          f'<div class="big-stat">{pct}%</div>'
+                          f'<div class="stat-sub">AADR-based (1.23M SNPs) | Affinity: {affinity}x</div></div>')
+        else:
+            deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                          f'<div class="big-stat">{pct}%</div>'
+                          f'<div class="stat-sub">Closest to {pop_label} | 133-SNP panel</div></div>')
+    elif neand.get("snps_found", 0) > 0:
+        nf = neand.get("snps_found", 0)
+        nt = neand.get("snps_total", "?")
+        deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                      f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
+                      f'<div class="stat-sub">Insufficient coverage ({nf}/{nt} SNPs). Need WGS VCF.</div></div>')
+    else:
+        deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
+                      f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
+                      f'<div class="stat-sub">No archaic SNPs found in VCF</div></div>')
+    deep_html += "</div>"
+
+    # Sub-continental populations
+    if subcont:
+        assigned_sub = subcont.get("assigned_sub_population", "")
+        if assigned_sub:
+            # Real sub-continental classification available
+            sub_name = subcont.get("sub_population_name", assigned_sub)
+            confidence = subcont.get("confidence", "MODERATE")
+            conf_color = {"HIGH": "#27ae60", "MODERATE": "#f39c12", "LOW": "#e74c3c"}.get(confidence, "#7f8c8d")
+            deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Ancestry</h4>"
+            deep_html += "<div class='info-grid' style='grid-template-columns:1fr 1fr'>"
+            deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Assigned Population</h4><div class='big-stat' style='font-size:1.3rem'>{assigned_sub}</div><div class='stat-sub'>{sub_name}</div></div>"
+            deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Confidence</h4><div class='big-stat' style='font-size:1.3rem;color:{conf_color}'>{confidence}</div><div class='stat-sub'>Max probability: {subcont.get('max_probability', 0):.0%}</div></div>"
+            deep_html += "</div>"
+            # Show probabilities per sub-population
+            probs = subcont.get("posterior_probabilities", {})
+            if probs:
+                deep_html += "<h4>Sub-Population Probabilities</h4>"
+                prob_rows = ""
+                for pop, prob in sorted(probs.items(), key=lambda x: -x[1]):
+                    pct = prob * 100
+                    prob_rows += f"<tr><td><strong>{pop}</strong></td><td>{pct:.1f}%</td><td><div style='height:6px;background:#e9ecef;border-radius:3px;overflow:hidden'><div style='width:{pct:.0f}%;height:100%;background:#3498db;border-radius:3px'></div></div></td></tr>"
+                deep_html += f"<table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead><tbody>{prob_rows}</tbody></table>"
+            # Still show available reference populations
+            subs = subcont.get("sub_populations_available", [])
+            if subs:
+                deep_html += "<h4 style='margin-top:0.5rem'>Reference Populations</h4>"
+                deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
+                for p in subs[:5]:
+                    deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
+                deep_html += "</div>"
+        else:
+            # Fallback: informational listing only
+            assigned = subcont.get("assigned_super_population", "EUR")
+            subs = subcont.get("sub_populations_available", [])
+            deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Reference Populations ({assigned})</h4>"
+            deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
+            for p in subs[:5]:
+                deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
+            deep_html += "</div>"
+            deep_html += f"<p style='font-size:0.72rem;color:var(--color-text-secondary);margin-top:0.3rem'>{subcont.get('note','')}</p>"
+
+    return render_partial("deep_ancestry.html.j2", deep_html=deep_html)
+
+
+def build_limitations_section(entries, cal_lookup, disclaimer: str) -> str:
+    """Per-trait confidence notes + the full research-use disclaimer -
+    extracted from build_html_report's inline body (IMPROVEMENT_PLAN.md 1.6
+    Phase 3), same rationale as build_deep_ancestry_section above."""
+    trait_notes = []
+    for e in entries:
+        trait = e.get("trait", "")
+        n_used = e.get("n_snps_used", 0)
+        n_total = e.get("n_snps_total", 0)
+        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
+        cal_entry = cal_lookup.get(trait.lower(), {})
+        issues = []
+        if n_total > 0 and n_used / n_total < 0.5:
+            issues.append(f"Only {n_used} of {n_total} SNPs available — result may not capture full genetic risk")
+        if cal_entry and safe_float(cal_entry.get("calibration_slope", 1.0)) < 0:
+            slope = safe_float(cal_entry.get("calibration_slope", 0))
+            issues.append(f"Calibration direction is reversed (slope={slope:.2f}) — percentile may be unreliable")
+        if uncertainty >= 0.8:
+            issues.append("Effect size uncertainty dominates — use with caution")
+        trait_notes.append({
+            "trait": trait,
+            "text": "; ".join(issues) if issues else "No significant limitations detected",
+        })
+
+    return render_partial("limitations.html.j2", trait_notes=trait_notes, disclaimer=disclaimer)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN REPORT BUILDER
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1573,83 +1685,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     # 2b. Deep Ancestry (haplogroups, sub-continental)
     deep = data.get("deep_ancestry", {})
     if deep:
-        ydna = deep.get("y_dna", {})
-        mtdna = deep.get("mt_dna", {})
-        subcont = deep.get("sub_continental", {})
-        neand = deep.get("neanderthal", {})
-
-        deep_html = "<div class='info-grid' style='grid-template-columns:1fr 1fr 1fr'>"
-        deep_html += f"<div class='info-card'><h4>🧬 mtDNA Haplogroup</h4><div class='big-stat' style='font-size:1.2rem'>{mtdna.get('haplogroup','?')}</div><div class='stat-sub'>{mtdna.get('description','')}</div></div>"
-        deep_html += f"<div class='info-card'><h4>🧬 Y-DNA Haplogroup</h4><div class='big-stat' style='font-size:1rem'>{ydna.get('haplogroup','?')}</div><div class='stat-sub'>{ydna.get('description','')[:80]}</div></div>"
-        if neand.get("reliable"):
-            pct = neand.get("percentage", "?")
-            method = neand.get("method", "snp_panel")
-            closest = neand.get("closest_population", "EUR")
-            pop_label = neand.get("population_comparisons", {}).get(closest, {}).get("label", closest)
-
-            if "AADR" in method:
-                affinity = neand.get("admix_ratio", neand.get("archaic_affinity_ratio", "?"))
-                deep_html += (f'<div class="info-card"><h4>🦴 Archaic DNA</h4>'
-                              f'<div class="big-stat">{pct}%</div>'
-                              f'<div class="stat-sub">AADR-based (1.23M SNPs) | Affinity: {affinity}x</div></div>')
-            else:
-                deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
-                              f'<div class="big-stat">{pct}%</div>'
-                              f'<div class="stat-sub">Closest to {pop_label} | 133-SNP panel</div></div>')
-        elif neand.get("snps_found", 0) > 0:
-            nf = neand.get("snps_found", 0)
-            nt = neand.get("snps_total", "?")
-            deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
-                          f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
-                          f'<div class="stat-sub">Insufficient coverage ({nf}/{nt} SNPs). Need WGS VCF.</div></div>')
-        else:
-            deep_html += (f'<div class="info-card"><h4>🦴 Neanderthal DNA</h4>'
-                          f'<div class="big-stat" style="font-size:0.9rem">N/A</div>'
-                          f'<div class="stat-sub">No archaic SNPs found in VCF</div></div>')
-        deep_html += "</div>"
-
-        # Sub-continental populations
-        if subcont:
-            assigned_sub = subcont.get("assigned_sub_population", "")
-            if assigned_sub:
-                # Real sub-continental classification available
-                sub_name = subcont.get("sub_population_name", assigned_sub)
-                confidence = subcont.get("confidence", "MODERATE")
-                conf_color = {"HIGH": "#27ae60", "MODERATE": "#f39c12", "LOW": "#e74c3c"}.get(confidence, "#7f8c8d")
-                deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Ancestry</h4>"
-                deep_html += "<div class='info-grid' style='grid-template-columns:1fr 1fr'>"
-                deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Assigned Population</h4><div class='big-stat' style='font-size:1.3rem'>{assigned_sub}</div><div class='stat-sub'>{sub_name}</div></div>"
-                deep_html += f"<div class='info-card' style='border-left:3px solid {conf_color}'><h4>Confidence</h4><div class='big-stat' style='font-size:1.3rem;color:{conf_color}'>{confidence}</div><div class='stat-sub'>Max probability: {subcont.get('max_probability', 0):.0%}</div></div>"
-                deep_html += "</div>"
-                # Show probabilities per sub-population
-                probs = subcont.get("posterior_probabilities", {})
-                if probs:
-                    deep_html += "<h4>Sub-Population Probabilities</h4>"
-                    prob_rows = ""
-                    for pop, prob in sorted(probs.items(), key=lambda x: -x[1]):
-                        pct = prob * 100
-                        prob_rows += f"<tr><td><strong>{pop}</strong></td><td>{pct:.1f}%</td><td><div style='height:6px;background:#e9ecef;border-radius:3px;overflow:hidden'><div style='width:{pct:.0f}%;height:100%;background:#3498db;border-radius:3px'></div></div></td></tr>"
-                    deep_html += f"<table><thead><tr><th>Population</th><th>Probability</th><th>Distribution</th></tr></thead><tbody>{prob_rows}</tbody></table>"
-                # Still show available reference populations
-                subs = subcont.get("sub_populations_available", [])
-                if subs:
-                    deep_html += "<h4 style='margin-top:0.5rem'>Reference Populations</h4>"
-                    deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
-                    for p in subs[:5]:
-                        deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
-                    deep_html += "</div>"
-            else:
-                # Fallback: informational listing only
-                assigned = subcont.get("assigned_super_population", "EUR")
-                subs = subcont.get("sub_populations_available", [])
-                deep_html += f"<h4 style='margin-top:1rem'>🌍 Sub-Continental Reference Populations ({assigned})</h4>"
-                deep_html += "<div class='info-grid' style='grid-template-columns:repeat(auto-fit, minmax(150px, 1fr))'>"
-                for p in subs[:5]:
-                    deep_html += f"<div class='info-card'><h4>{p['code']}</h4><div class='stat-sub'>{p['name']}</div><div style='font-size:0.7rem;color:var(--color-text-secondary)'>{p.get('description','')[:100]}</div></div>"
-                deep_html += "</div>"
-                deep_html += f"<p style='font-size:0.72rem;color:var(--color-text-secondary);margin-top:0.3rem'>{subcont.get('note','')}</p>"
-
-        sections_html += collapsible_section("deep_ancestry", "🧬 Deep Ancestry — Haplogroups & Sub-Continental", deep_html)
+        sections_html += collapsible_section("deep_ancestry", "🧬 Deep Ancestry — Haplogroups & Sub-Continental",
+            build_deep_ancestry_section(deep))
 
     # 3. PRS Results (always open)
     sections_html += collapsible_section("prs", f"📈 {s['prs']}",
@@ -1755,39 +1792,9 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         build_methodology_section(data["prs_result"], data["ancestry"]))
 
     # 18. Limitations (always open)
-    # Build per-trait limitation notes
-    entries = data["prs_result"].get("prs_entries", [])
-    cal_lookup = data.get("_cal_lookup", {})
-    trait_notes = ""
-    for e in entries:
-        trait = e.get("trait", "")
-        n_used = e.get("n_snps_used", 0)
-        n_total = e.get("n_snps_total", 0)
-        uncertainty = safe_float(e.get("uncertainty_score", 1.0))
-        cal_entry = cal_lookup.get(trait.lower(), {})
-        issues = []
-        if n_total > 0 and n_used / n_total < 0.5:
-            issues.append(f"Only {n_used} of {n_total} SNPs available — result may not capture full genetic risk")
-        if cal_entry and safe_float(cal_entry.get("calibration_slope", 1.0)) < 0:
-            slope = safe_float(cal_entry.get("calibration_slope", 0))
-            issues.append(f"Calibration direction is reversed (slope={slope:.2f}) — percentile may be unreliable")
-        if uncertainty >= 0.8:
-            issues.append("Effect size uncertainty dominates — use with caution")
-        if issues:
-            trait_notes += f"<li><strong>{trait}:</strong> {'; '.join(issues)}</li>"
-        else:
-            trait_notes += f"<li><strong>{trait}:</strong> No significant limitations detected</li>"
-
-    limitations_html = (
-        f'<h4>Per-Trait Confidence Notes</h4>'
-        f'<ul style="font-size:0.82rem;line-height:1.6;margin-bottom:1.5rem">{trait_notes}</ul>'
-        f'<div class="disclaimer-box">'
-        f'<h3>⚠️ Important Disclaimer</h3>'
-        f'<p style="white-space:pre-line">{ui["disclaimer"]}</p>'
-        f'</div>'
-    )
     sections_html += collapsible_section("limitations", f"⚠️ {s['limitations']}",
-        limitations_html,
+        build_limitations_section(data["prs_result"].get("prs_entries", []),
+                                   data.get("_cal_lookup", {}), ui["disclaimer"]),
         open_by_default=True)
 
     return render_document(
