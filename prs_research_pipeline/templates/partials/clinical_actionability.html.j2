@@ -1,0 +1,41 @@
+<div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem">
+    <p style="font-size:0.9rem;margin:0">{{ t.desc|safe }}</p>
+</div>
+<div class="info-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="info-card" style="border-left:3px solid #27ae60"><h4>{{ t.clinvar_count }}</h4><div class="big-stat" style="color:#27ae60">{{ n_clinvar }}</div></div>
+    <div class="info-card" style="border-left:3px solid #3498db"><h4>{{ t.pharmgkb_count }}</h4><div class="big-stat" style="color:#3498db">{{ n_pharmgkb }}</div></div>
+    <div class="info-card" style="border-left:3px solid #e74c3c"><h4>{{ t.prs_high_count }}</h4><div class="big-stat" style="color:#e74c3c">{{ n_prs_high }}</div></div>
+    <div class="info-card" style="border-left:3px solid #9b59b6"><h4>{{ t.findings_total }}</h4><div class="big-stat" style="color:#9b59b6">{{ total_findings }}</div></div>
+</div>
+<h4 style="margin-top:1.5rem">📊 {{ t.subsection_b }}</h4>
+{% if conv_rows %}
+<div style="overflow-x:auto"><table>
+<thead><tr><th>{{ t.trait }}</th><th>{{ t.z_score }}</th><th>{{ t.risk }}</th>
+<th>{{ t.clinvar_genes }}</th><th>{{ t.pharmgkb_genes }}</th><th>{{ t.context }}</th></tr></thead>
+<tbody>{% for r in conv_rows %}
+    <tr><td><strong>{{ r.trait }}</strong></td>
+    <td style="color:{{ r.z_color }};font-weight:700">{{ r.z }}</td>
+    <td><span style="background:{{ r.label_bg }};color:{{ r.label_fg }};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{{ r.risk_label }}</span></td>
+    <td>{{ r.cv_genes_html|safe }}</td>
+    <td>{{ r.pg_genes_html|safe }}</td>
+    <td style="font-size:0.78rem;color:var(--color-text-secondary)">{{ r.context }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}
+<p style="color:var(--color-text-secondary)">No elevated PRS traits to cross-reference.</p>
+{% endif %}
+<h4 style="margin-top:1.5rem">💊 {{ t.subsection_c }}</h4>
+<div style="overflow-x:auto"><table>
+<thead><tr><th>{{ t.drug_class }}</th><th>{{ t.gene }}</th><th>{{ t.trait }}</th>
+<th>{{ t.interaction }}</th><th>{{ t.recommendation }}</th></tr></thead>
+<tbody>{% for d in drug_rows %}
+    <tr><td><strong>{{ d.drug_class }}</strong><br><span style="font-size:0.72rem;color:var(--color-text-secondary)">{{ d.drugs }}</span></td>
+    <td><span class="clinical-convergence-gene">{{ d.gene }}</span></td>
+    <td><strong>{{ d.prs_trait }}</strong></td>
+    <td style="font-size:0.78rem">{{ d.interaction }}</td>
+    <td style="font-size:0.78rem;color:#b7950b">{{ d.recommendation }}</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="disclaimer-box" style="margin-top:1.5rem">
+    <p style="font-size:0.82rem;margin:0;white-space:pre-line">⚠️ RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS. NO PARA DIAGNÓSTICO CLÍNICO.
+These findings are computational intersections of public databases. They do NOT constitute medical advice.
+Always consult a qualified healthcare professional before making any medical decisions.</p>
+</div>

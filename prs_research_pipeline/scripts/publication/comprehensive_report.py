@@ -1574,7 +1574,7 @@ def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entrie
     )
 
     # ── (b) PRS-Gene Convergence ──
-    conv_rows = ""
+    conv_rows = []
     for e in high_risk_traits:
         trait = e.get("trait", "")
         z = safe_float(e.get("population_zscore", e.get("raw_score", 0)))
@@ -1595,57 +1595,25 @@ def build_clinical_actionability_section(clinvar_data, pharmgkb_data, prs_entrie
             risk_label = "HIGHER RISK" if is_en else "RIESGO ELEVADO"
             label_bg, label_fg = "#fadbd8", "#c0392b"
 
-        conv_rows += (
-            f'<tr><td><strong>{trait}</strong></td>'
-            f'<td style="color:{z_color};font-weight:700">{z:+.2f}</td>'
-            f'<td><span style="background:{label_bg};color:{label_fg};padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700">{risk_label}</span></td>'
-            f'<td>{cv_genes_html or "—"}</td>'
-            f'<td>{pg_genes_html or "—"}</td>'
-            f'<td style="font-size:0.78rem;color:var(--color-text-secondary)">{ctx}</td></tr>'
-        )
-
-    subsection_b = (
-        f'<div style="overflow-x:auto"><table>'
-        f'<thead><tr><th>{t["trait"]}</th><th>{t["z_score"]}</th><th>{t["risk"]}</th>'
-        f'<th>{t["clinvar_genes"]}</th><th>{t["pharmgkb_genes"]}</th><th>{t["context"]}</th></tr></thead>'
-        f'<tbody>{conv_rows}</tbody></table></div>'
-    ) if high_risk_traits else f'<p style="color:var(--color-text-secondary)">No elevated PRS traits to cross-reference.</p>'
+        conv_rows.append({
+            "trait": trait, "z_color": z_color, "z": f"{z:+.2f}",
+            "risk_label": risk_label, "label_bg": label_bg, "label_fg": label_fg,
+            "cv_genes_html": cv_genes_html or "—", "pg_genes_html": pg_genes_html or "—", "context": ctx,
+        })
 
     # ── (c) Drug-Gene-PRS Intersections ──
-    drug_rows = ""
+    drug_rows = []
     for d in DRUG_PRS_INTERSECTIONS:
-        interaction = d["interaction_en"] if is_en else d["interaction_es"]
-        recommendation = d["recommendation_en"] if is_en else d["recommendation_es"]
-        drug_rows += (
-            f'<tr><td><strong>{d["drug_class"]}</strong><br><span style="font-size:0.72rem;color:var(--color-text-secondary)">{d["drugs"]}</span></td>'
-            f'<td><span class="clinical-convergence-gene">{d["gene"]}</span></td>'
-            f'<td><strong>{d["prs_trait"]}</strong></td>'
-            f'<td style="font-size:0.78rem">{interaction}</td>'
-            f'<td style="font-size:0.78rem;color:#b7950b">{recommendation}</td></tr>'
-        )
+        drug_rows.append({
+            "drug_class": d["drug_class"], "drugs": d["drugs"], "gene": d["gene"], "prs_trait": d["prs_trait"],
+            "interaction": d["interaction_en"] if is_en else d["interaction_es"],
+            "recommendation": d["recommendation_en"] if is_en else d["recommendation_es"],
+        })
 
-    subsection_c = (
-        f'<div style="overflow-x:auto"><table>'
-        f'<thead><tr><th>{t["drug_class"]}</th><th>{t["gene"]}</th><th>{t["trait"]}</th>'
-        f'<th>{t["interaction"]}</th><th>{t["recommendation"]}</th></tr></thead>'
-        f'<tbody>{drug_rows}</tbody></table></div>'
-    )
-
-    return f"""
-    <div class="highlight-box" style="background:#eaf2f8;border:1px solid #aed6f1;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem">
-        <p style="font-size:0.9rem;margin:0">{t["desc"]}</p>
-    </div>
-    {subsection_a}
-    <h4 style="margin-top:1.5rem">📊 {t["subsection_b"]}</h4>
-    {subsection_b}
-    <h4 style="margin-top:1.5rem">💊 {t["subsection_c"]}</h4>
-    {subsection_c}
-    <div class="disclaimer-box" style="margin-top:1.5rem">
-        <p style="font-size:0.82rem;margin:0;white-space:pre-line">⚠️ RESEARCH USE ONLY — NOT FOR CLINICAL DIAGNOSIS. NO PARA DIAGNÓSTICO CLÍNICO.
-These findings are computational intersections of public databases. They do NOT constitute medical advice.
-Always consult a qualified healthcare professional before making any medical decisions.</p>
-    </div>
-    """
+    return render_partial("clinical_actionability.html.j2",
+        t=t, n_clinvar=len(high_conf_variants), n_pharmgkb=len(actionable_pharm),
+        n_prs_high=len(high_risk_traits), total_findings=total_findings,
+        conv_rows=conv_rows, drug_rows=drug_rows)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
