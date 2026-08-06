@@ -1,0 +1,54 @@
+<div class="info-grid">
+    <div class="info-card">
+        <h4>Reference Panel</h4>
+        <div class="big-stat" style="font-size:1rem">{{ reference_panel }}</div>
+    </div>
+    <div class="info-card">
+        <h4>Normalization</h4>
+        <div class="big-stat" style="font-size:0.9rem">{{ normalization }}</div>
+    </div>
+    <div class="info-card">
+        <h4>Populations</h4>
+        <div class="big-stat">{{ n_populations }}</div>
+        <div class="stat-sub">{{ populations_list }}</div>
+    </div>
+    <div class="info-card">
+        <h4>Traits Analyzed</h4>
+        <div class="big-stat">{{ traits_analyzed }}</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+    <div>
+        <h4>Risk Thresholds</h4>
+        <table>
+            <thead><tr><th>Category</th><th>Percentile Range</th></tr></thead>
+            <tbody>
+                <tr><td style="color:#e74c3c;font-weight:700">High Risk</td><td>{{ threshold_high }}</td></tr>
+                <tr><td style="color:#f39c12;font-weight:700">Medium Risk</td><td>{{ threshold_medium }}</td></tr>
+                <tr><td style="color:#27ae60;font-weight:700">Low Risk</td><td>{{ threshold_low }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div>
+        <h4>Assigned Population: {{ assigned_population }}</h4>
+        <p style="font-size:0.8rem;color:#7f8c8d">{{ calibration_note }}</p>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+    <div>
+        <h4>Elevated Risk Traits ({{ n_high }})</h4>
+        <table><thead><tr><th>Trait</th></tr></thead><tbody>{% for t in high_traits %}
+            <tr><td>{{ t }}</td></tr>{% else %}
+            <tr><td style='color:#7f8c8d'>None</td></tr>{% endfor %}
+        </tbody></table>
+    </div>
+    <div>
+        <h4>Lower Risk Traits ({{ n_low }})</h4>
+        <table><thead><tr><th>Trait</th></tr></thead><tbody>{% for t in low_traits %}
+            <tr><td>{{ t }}</td></tr>{% else %}
+            <tr><td style='color:#7f8c8d'>None</td></tr>{% endfor %}
+        </tbody></table>
+    </div>
+</div>

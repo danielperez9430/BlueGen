@@ -1277,91 +1277,17 @@ def build_calibration_detail_section(calibration_report):
     low_traits = calibration_report.get("low_risk_traits", [])
     populations = methodology.get("population_strata", [])
 
-    high_rows = "".join(f"<tr><td>{t}</td></tr>" for t in high_traits) or "<tr><td style='color:#7f8c8d'>None</td></tr>"
-    low_rows = "".join(f"<tr><td>{t}</td></tr>" for t in low_traits) or "<tr><td style='color:#7f8c8d'>None</td></tr>"
-
-    return f"""
-    <div class="info-grid">
-        <div class="info-card">
-            <h4>Reference Panel</h4>
-            <div class="big-stat" style="font-size:1rem">{methodology.get('reference_panel', 'N/A')}</div>
-        </div>
-        <div class="info-card">
-            <h4>Normalization</h4>
-            <div class="big-stat" style="font-size:0.9rem">{methodology.get('normalization', 'N/A').replace('_', ' ').title()}</div>
-        </div>
-        <div class="info-card">
-            <h4>Populations</h4>
-            <div class="big-stat">{len(populations)}</div>
-            <div class="stat-sub">{', '.join(populations)}</div>
-        </div>
-        <div class="info-card">
-            <h4>Traits Analyzed</h4>
-            <div class="big-stat">{calibration_report.get('traits_analyzed', 0)}</div>
-        </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
-        <div>
-            <h4>Risk Thresholds</h4>
-            <table>
-                <thead><tr><th>Category</th><th>Percentile Range</th></tr></thead>
-                <tbody>
-                    <tr><td style="color:#e74c3c;font-weight:700">High Risk</td><td>{thresholds.get('high', '>75th')}</td></tr>
-                    <tr><td style="color:#f39c12;font-weight:700">Medium Risk</td><td>{thresholds.get('medium', '25-75th')}</td></tr>
-                    <tr><td style="color:#27ae60;font-weight:700">Low Risk</td><td>{thresholds.get('low', '<25th')}</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div>
-            <h4>Assigned Population: {calibration_report.get('assigned_population', 'EUR')}</h4>
-            <p style="font-size:0.8rem;color:#7f8c8d">{calibration_report.get('calibration_note', '')[:300]}</p>
-        </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
-        <div>
-            <h4>Elevated Risk Traits ({len(high_traits)})</h4>
-            <table><thead><tr><th>Trait</th></tr></thead><tbody>{high_rows}</tbody></table>
-        </div>
-        <div>
-            <h4>Lower Risk Traits ({len(low_traits)})</h4>
-            <table><thead><tr><th>Trait</th></tr></thead><tbody>{low_rows}</tbody></table>
-        </div>
-    </div>
-    """
-    """Pipeline methodology summary."""
-    meta = prs_result.get("metadata", {})
-    n_variants = meta.get("n_variants", prs_result.get("prs_core", {}).get("n_variants", 109))
-    n_traits = meta.get("n_traits", 10)
-    formula = meta.get("prs_formula", "PRS = Σ(βⱼ × Gᵢⱼ)")
-    method = meta.get("computation_method", "PLINK --score (dosage-weighted)")
-    pipeline_ver = meta.get("pipeline_version", "1.1.0")
-    n_ref = ancestry.get("n_reference_samples", 2504)
-    n_pcs = ancestry.get("n_pcs", 20)
-
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Pipeline</h4><div class="big-stat">v{pipeline_ver}</div><div class="stat-sub">BlueGen</div></div>
-        <div class="info-card"><h4>PRS Formula</h4><div class="big-stat" style="font-size:0.9rem">{formula}</div><div class="stat-sub">{method}</div></div>
-        <div class="info-card"><h4>Variants</h4><div class="big-stat">{n_variants}</div><div class="stat-sub">across {n_traits} traits</div></div>
-        <div class="info-card"><h4>Reference</h4><div class="big-stat">{n_ref}</div><div class="stat-sub">1000G Phase 3, {n_pcs} PCs</div></div>
-    </div>
-    <h4>Pipeline Stages</h4>
-    <table>
-        <thead><tr><th>Stage</th><th>Process</th><th>Method</th><th>Output</th></tr></thead>
-        <tbody>
-            <tr><td>A</td><td>VCF → PLINK</td><td>PLINK 1.9, GQ≥20, DP≥10</td><td>.bed/.bim/.fam</td></tr>
-            <tr><td>B</td><td>Quality Control</td><td>geno 0.05, maf 0.01, HWE 1e-6</td><td>Filtered genotypes</td></tr>
-            <tr><td>C</td><td>LD Pruning</td><td>Per-population (EUR/AFR/EAS/SAS/AMR), conservative intersection</td><td>Ancestry-matched independent SNPs</td></tr>
-            <tr><td>D</td><td>PCA + Projection</td><td>1000G-trained PCA, target sample projection</td><td>20 PCs, ancestry inference</td></tr>
-            <tr><td>F</td><td>PRS Computation</td><td>PLINK --score (dosage-weighted)</td><td>Raw PRS per trait</td></tr>
-            <tr><td>G</td><td>PCA Adjustment</td><td>PRS_adj = PRS_raw − Σ(βₖ × PCₖ)</td><td>Ancestry-adjusted PRS</td></tr>
-            <tr><td>H</td><td>Population Calibration</td><td>Empirical 1000G population distributions</td><td>Z-scores + percentiles</td></tr>
-            <tr><td>7-10</td><td>Validation & Lock</td><td>8-dimension validation, adversarial stress, publication lock</td><td>Scientific integrity score</td></tr>
-        </tbody>
-    </table>
-    """
+    return render_partial("calibration_detail.html.j2",
+        reference_panel=methodology.get('reference_panel', 'N/A'),
+        normalization=methodology.get('normalization', 'N/A').replace('_', ' ').title(),
+        n_populations=len(populations), populations_list=', '.join(populations),
+        traits_analyzed=calibration_report.get('traits_analyzed', 0),
+        threshold_high=thresholds.get('high', '>75th'), threshold_medium=thresholds.get('medium', '25-75th'),
+        threshold_low=thresholds.get('low', '<25th'),
+        assigned_population=calibration_report.get('assigned_population', 'EUR'),
+        calibration_note=calibration_report.get('calibration_note', '')[:300],
+        n_high=len(high_traits), high_traits=high_traits,
+        n_low=len(low_traits), low_traits=low_traits)
 
 
 def build_clinvar_section(clinvar_data: dict, ui: dict) -> str:
