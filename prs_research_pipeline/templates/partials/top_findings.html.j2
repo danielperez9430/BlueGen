@@ -1,0 +1,20 @@
+{% if empty_message %}
+<p style="color:var(--color-text-secondary)">{{ empty_message }}</p>
+{% else %}
+<p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:0.75rem">{{ intro }}</p>
+<details style="margin-bottom:1rem;background:var(--color-bg-secondary,#f8f9fa);border-radius:6px;padding:0.6rem 1rem">
+    <summary style="cursor:pointer;font-size:0.8rem;font-weight:600">{{ disclaimer_summary }}</summary>
+    <p style="white-space:pre-line;font-size:0.78rem;margin:0.6rem 0 0;color:var(--color-text-secondary)">{{ disclaimer_text }}</p>
+</details>
+<div class="info-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">{% for c in cards %}
+    <div class="info-card" style="border-left:3px solid {{ c.color }}">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
+            <strong style="font-size:0.95rem">{{ c.trait }}</strong>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">{{ c.risk_badge|safe }}{{ c.evidence_badge|safe }}</div>
+        </div>
+        <p style="font-size:0.8rem;margin:0.4rem 0;color:var(--color-text-secondary)">{{ c.meaning }}</p>
+        <p style="font-size:0.8rem;margin:0.4rem 0"><strong>→</strong> {{ c.recommendation }}</p>
+        <a href="#{{ c.anchor }}" style="font-size:0.7rem" onclick="document.getElementById('prs').style.display='block'">{{ jump_label }}</a>
+    </div>{% endfor %}
+</div>
+{% endif %}

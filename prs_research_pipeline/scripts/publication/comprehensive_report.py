@@ -408,13 +408,12 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
     top = scored[:max_findings]
 
     if not top:
-        return f'<p style="color:var(--color-text-secondary)">{ui["top_findings_empty"]}</p>'
+        return render_partial("top_findings.html.j2", empty_message=ui["top_findings_empty"])
 
     risk_words = {"high": ui["risk_word_high"], "medium": ui["risk_word_medium"], "low": ui["risk_word_low"]}
-    cards = ""
+    cards = []
     for priority, e, z, pctl, risk, ev_avg, conf, n_used, n_total in top:
         trait = e.get("trait", "")
-        anchor = trait_anchor_id(trait)
         meaning = ui["top_findings_meaning"].format(
             trait=trait, risk_word=risk_words.get(risk, risk_words["medium"]),
             pctl=pctl, pop=pop, z=z, n_used=n_used, n_total=n_total,
@@ -423,33 +422,20 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
         curated = recommendation_lookup.get(trait.lower()) if risk == "high" else None
         recommendation = (curated or {}).get("recommendation_" + lang) or ui["top_findings_action_fallback"]
         inverted = trait.lower() in polarity_inverted
-        color = risk_color(z, inverted=inverted)
-        cards += f"""
-        <div class="info-card" style="border-left:3px solid {color}">
-            <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
-                <strong style="font-size:0.95rem">{trait}</strong>
-                <div style="display:flex;gap:4px;flex-wrap:wrap">{risk_badge(risk, ui, inverted=inverted)}{evidence_badge(ev_avg)}</div>
-            </div>
-            <p style="font-size:0.8rem;margin:0.4rem 0;color:var(--color-text-secondary)">{meaning}</p>
-            <p style="font-size:0.8rem;margin:0.4rem 0"><strong>→</strong> {recommendation}</p>
-            <a href="#{anchor}" style="font-size:0.7rem" onclick="document.getElementById('prs').style.display='block'">{ui["top_findings_jump"]}</a>
-        </div>"""
+        cards.append({
+            "color": risk_color(z, inverted=inverted), "trait": trait,
+            "risk_badge": risk_badge(risk, ui, inverted=inverted), "evidence_badge": evidence_badge(ev_avg),
+            "meaning": meaning, "recommendation": recommendation, "anchor": trait_anchor_id(trait),
+        })
 
     # Compact, collapsible confidence-context note (IMPROVEMENT_PLAN.md 1.5)
     # — the full disclaimer + per-trait confidence notes already exist at
     # the bottom of the report (Limitations & Disclaimers section); this is
     # the same text, just also reachable without scrolling past everything.
-    disclaimer_html = f"""
-    <details style="margin-bottom:1rem;background:var(--color-bg-secondary,#f8f9fa);border-radius:6px;padding:0.6rem 1rem">
-        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600">{ui["top_findings_disclaimer_summary"]}</summary>
-        <p style="white-space:pre-line;font-size:0.78rem;margin:0.6rem 0 0;color:var(--color-text-secondary)">{ui["disclaimer"]}</p>
-    </details>"""
-
-    return f"""
-    <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:0.75rem">{ui["top_findings_intro"]}</p>
-    {disclaimer_html}
-    <div class="info-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">{cards}</div>
-    """
+    return render_partial("top_findings.html.j2",
+        empty_message=None, intro=ui["top_findings_intro"],
+        disclaimer_summary=ui["top_findings_disclaimer_summary"], disclaimer_text=ui["disclaimer"],
+        cards=cards, jump_label=ui["top_findings_jump"])
 
 def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_lookup=None, uncert_lookup=None, evidence_lookup=None, portability=None, polarity_inverted=None):
     """Executive summary cards with confidence overview."""
