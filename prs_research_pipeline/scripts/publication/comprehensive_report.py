@@ -178,6 +178,7 @@ from report.interpretations import (
     evidence_letter, evidence_badge,
 )
 from report.data_loader import load_report_data
+from report.render import build_html_report as render_document
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RADAR CHART (Chart.js — interactive)
@@ -2211,161 +2212,6 @@ Always consult a qualified healthcare professional before making any medical dec
 # MAIN REPORT BUILDER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-CSS = """
-:root {
-    --color-low: #27ae60; --color-medium: #f39c12; --color-high: #e74c3c;
-    --color-bg: #f5f6fa; --color-surface: #ffffff; --color-text: #2c3e50;
-    --color-text-secondary: #7f8c8d; --color-border: #dee2e6;
-    --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,.08);
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: var(--color-text); background: var(--color-bg); line-height: 1.6;
-}
-@media print { body { background: #fff; } .collapsible-section { break-inside: avoid; } }
-.report-header {
-    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
-    color: #fff; padding: 3rem 2rem; text-align: center;
-}
-.report-header h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: .5rem; }
-.report-header .subtitle { font-size: 1.1rem; opacity: .9; }
-.report-header .meta { margin-top: 1rem; font-size: .85rem; opacity: .7; }
-.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
-
-/* Collapsible sections */
-.collapsible-section { margin-bottom: 1.5rem; }
-.section-header {
-    cursor: pointer; display: flex; align-items: center; gap: .75rem;
-    padding: 1rem 1.25rem; background: var(--color-surface);
-    border-radius: var(--radius); box-shadow: var(--shadow);
-    border-left: 4px solid #3498db; user-select: none;
-    transition: background .15s;
-}
-.section-header:hover { background: #eaf2f8; }
-.section-header h2 { font-size: 1.1rem; font-weight: 600; }
-.section-arrow { font-size: .8rem; transition: transform .2s; color: #3498db; }
-.section-body { padding: 1.25rem; background: var(--color-surface);
-    border-radius: 0 0 var(--radius) var(--radius);
-    box-shadow: var(--shadow); margin-top: -2px; }
-
-/* Summary cards */
-.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-.summary-card {
-    background: var(--color-surface); border-radius: var(--radius);
-    padding: 1.25rem; text-align: center; box-shadow: var(--shadow);
-    border-left: 4px solid var(--color-border);
-}
-.summary-card .card-number { font-size: 2.2rem; font-weight: 800; }
-.summary-card .card-label { font-size: .75rem; color: var(--color-text-secondary); margin-top: .25rem; }
-
-/* Info grid */
-.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
-.info-card {
-    background: var(--color-surface); border-radius: var(--radius); padding: 1rem 1.25rem;
-    box-shadow: var(--shadow); text-align: center;
-}
-.info-card h4 { font-size: .75rem; text-transform: uppercase; color: var(--color-text-secondary); letter-spacing: .5px; margin-bottom: .5rem; }
-.info-card .big-stat { font-size: 1.8rem; font-weight: 800; }
-.info-card .stat-sub { font-size: .75rem; color: var(--color-text-secondary); margin-top: .25rem; }
-
-/* Highlight box */
-.highlight-box {
-    background: #eaf2f8; border-radius: var(--radius);
-    padding: .75rem 1rem; margin: .75rem 0; font-size: .85rem;
-}
-
-/* Tables */
-table { width: 100%; border-collapse: collapse; background: var(--color-surface);
-    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); margin: .75rem 0; font-size: .85rem; }
-th { background: #f1f3f5; padding: .55rem .65rem; text-align: left; font-weight: 600;
-    font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; color: var(--color-text-secondary); }
-td { padding: .55rem .65rem; border-top: 1px solid var(--color-border); }
-tr:hover { background: #f8f9fa; }
-
-/* Risk badges */
-.risk-high { background: #fadbd8; color: #c0392b; }
-.risk-medium { background: #fdebd0; color: #b7950b; }
-.risk-low { background: #d5f5e3; color: #1e8449; }
-
-/* Disclaimer */
-.disclaimer-box {
-    background: #fef9e7; border: 1px solid #f9e79f;
-    border-radius: var(--radius); padding: 1.25rem; margin-top: 2rem;
-    font-size: .8rem; color: #7d6608;
-}
-
-/* Buttons */
-.btn-row { display: flex; gap: .5rem; justify-content: flex-end; margin-bottom: 1rem; }
-.btn {
-    padding: .4rem .8rem; border: 1px solid var(--color-border); border-radius: 4px;
-    background: var(--color-surface); cursor: pointer; font-size: .78rem;
-    transition: background .15s;
-}
-.btn:hover { background: #eaf2f8; }
-.btn.active { background: #3498db; color: #fff; border-color: #3498db; }
-
-/* Footer */
-.report-footer {
-    text-align: center; padding: 2rem; font-size: .75rem;
-    color: var(--color-text-secondary); border-top: 1px solid var(--color-border); margin-top: 2rem;
-}
-
-/* Print styles */
-@media print {
-    .section-body { display: block !important; }
-    .btn-row { display: none; }
-}
-
-/* Confidence & trust tier elements */
-.confidence-stars { display: flex; align-items: center; gap: 4px; min-width: 110px; }
-.tier-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
-.tier-1 { background: #d5f5e3; color: #1e8449; }
-.tier-2 { background: #fdebd0; color: #b7950b; }
-.tier-3 { background: #fadbd8; color: #c0392b; }
-.decomp-bar { display: flex; height: 8px; border-radius: 3px; overflow: hidden; }
-.decomp-bar-gen { background: #3498db; }
-.decomp-bar-anc { background: #e74c3c; }
-.decomp-bar-eff { background: #f39c12; }
-.snp-coverage-bar { height: 6px; border-radius: 3px; overflow: hidden; flex: 1; }
-.confidence-bar { height: 6px; border-radius: 3px; overflow: hidden; min-width: 50px; }
-.confidence-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
-.portability-banner { background: #fef9e7; border: 2px solid #f39c12; border-radius: 8px; }
-.cal-badge { padding: 2px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
-.limit-badge { padding: 1px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: 700; margin-right: 2px; white-space: nowrap; }
-.trust-legend { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.8rem; font-size: 0.72rem; }
-.radar-container { display: flex; justify-content: center; margin: 1rem 0; }
-.radar-svg { max-width: 420px; height: auto; }
-
-/* Clinical actionability */
-.clinical-convergence-card { background: var(--color-surface); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); margin: 0.5rem 0; }
-.clinical-convergence-gene { display: inline-block; padding: 1px 6px; background: #eaf2f8; border-radius: 3px; font-size: 0.72rem; font-weight: 600; margin: 1px; }
-.clinical-convergence-drug { display: inline-block; padding: 1px 6px; background: #fef9e7; border-radius: 3px; font-size: 0.72rem; font-weight: 600; margin: 1px; }
-"""
-
-JS = """
-function toggleSection(id, header) {
-    const body = document.getElementById(id);
-    const arrow = document.getElementById(id + '_arrow');
-    if (body.style.display === 'none') {
-        body.style.display = 'block';
-        arrow.textContent = '▼';
-    } else {
-        body.style.display = 'none';
-        arrow.textContent = '▶';
-    }
-}
-function expandAll() {
-    document.querySelectorAll('.section-body').forEach(b => b.style.display = 'block');
-    document.querySelectorAll('.section-arrow').forEach(a => a.textContent = '▼');
-}
-function collapseAll() {
-    document.querySelectorAll('.section-body').forEach(b => b.style.display = 'none');
-    document.querySelectorAll('.section-arrow').forEach(a => a.textContent = '▶');
-}
-"""
-
-
 def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     """Build the complete HTML report."""
     ui = UI.get(lang, UI["en"])
@@ -2623,43 +2469,10 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         limitations_html,
         open_by_default=True)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
-    pop = data["ancestry"].get("assigned_population", "EUR")
-    integrity_score = data["integrity"].get("scientific_integrity_score", 0)
-
-    return f"""<!DOCTYPE html>
-<html lang="{lang}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{ui['title']} — {sample_id}</title>
-    <style>{CSS}</style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-    <header class="report-header">
-        <h1>{ui['title']}</h1>
-        <div class="subtitle">{ui['subtitle']}</div>
-        <div class="meta">
-            Sample: {sample_id} | Population: {pop} | Integrity: {integrity_score:.0f}/100<br>
-            Generated: {now} | BlueGen v{PIPELINE_VERSION} | GRCh37/hg19
-        </div>
-    </header>
-    <div class="container">
-        {reference_coverage_banner(data["prs_result"], lang)}
-        <div class="btn-row">
-            <button class="btn" onclick="expandAll()">📖 Expand All</button>
-            <button class="btn" onclick="collapseAll()">📕 Collapse All</button>
-        </div>
-        {sections_html}
-    </div>
-    <footer class="report-footer">
-        <p>BlueGen Report — Generated {now}</p>
-        <p>BlueGen v{PIPELINE_VERSION} | Sample: {sample_id} | Research Use Only</p>
-    </footer>
-    <script>{JS}</script>
-</body>
-</html>"""
+    return render_document(
+        lang, data, sample_id, sections_html,
+        reference_coverage_banner(data["prs_result"], lang), ui,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

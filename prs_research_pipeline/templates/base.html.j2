@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ui.title }} — {{ sample_id }}</title>
+    <style>{{ css|safe }}</style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header class="report-header">
+        <h1>{{ ui.title }}</h1>
+        <div class="subtitle">{{ ui.subtitle }}</div>
+        <div class="meta">
+            Sample: {{ sample_id }} | Population: {{ pop }} | Integrity: {{ integrity_score_fmt }}/100<br>
+            Generated: {{ now }} | BlueGen v{{ pipeline_version }} | GRCh37/hg19
+        </div>
+    </header>
+    <div class="container">
+        {{ reference_coverage_banner_html|safe }}
+        <div class="btn-row">
+            <button class="btn" onclick="expandAll()">📖 Expand All</button>
+            <button class="btn" onclick="collapseAll()">📕 Collapse All</button>
+        </div>
+        {{ sections_html|safe }}
+    </div>
+    <footer class="report-footer">
+        <p>BlueGen Report — Generated {{ now }}</p>
+        <p>BlueGen v{{ pipeline_version }} | Sample: {{ sample_id }} | Research Use Only</p>
+    </footer>
+    <script>{{ js|safe }}</script>
+</body>
+</html>
