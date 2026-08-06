@@ -1,0 +1,20 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Global Bias Index</h4><div class="big-stat">{{ global_bias }}</div></div>
+    <div class="info-card"><h4>Most Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#e74c3c">{{ most_biased }}</div></div>
+    <div class="info-card"><h4>Least Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#27ae60">{{ least_biased }}</div></div>
+</div>
+<p style="font-size:0.8rem;color:#7f8c8d">EUR-centric GWAS inherently limit cross-population portability. Lower indices = better portability. AFR shows highest bias (0.300) due to differing LD structure and allele frequencies.</p>
+<table>
+    <thead><tr><th>Population</th><th>Ref Samples</th><th>PRS Shift</th><th>Calib. Drift</th><th>Rank Instability</th><th>Bias Index</th><th>Status</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.population }}</strong></td>
+            <td>{{ r.n_ref }}</td>
+            <td>{{ r.prs_shift }}</td>
+            <td>{{ r.calib_drift }}</td>
+            <td>{{ r.rank_instability }}</td>
+            <td>{{ r.bias_index }}</td>
+            <td style="color:{{ r.color }};font-weight:700">{{ r.status }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

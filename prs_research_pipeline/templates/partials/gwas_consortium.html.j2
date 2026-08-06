@@ -1,0 +1,31 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Consortia</h4><div class="big-stat">{{ n_consortia }}</div><div class="stat-sub">GIANT · GLGC · MAGIC · DIAGRAM</div></div>
+    <div class="info-card"><h4>Validations</h4><div class="big-stat">{{ total_count }}</div><div class="stat-sub">total checks</div></div>
+    <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{{ passed_count }}</div><div class="stat-sub">of {{ total_count }}</div></div>
+    <div class="info-card"><h4>Failed</h4><div class="big-stat" style="color:#e74c3c">{{ failed_count }}</div><div class="stat-sub">no SNP overlap traits</div></div>
+</div>
+
+<h4>Consortium Profiles</h4>
+<div class="info-grid">{% for c in cons_cards %}
+    <div class="info-card">
+        <h4>{{ c.name }}</h4>
+        <div class="big-stat" style="font-size:1rem">{{ c.primary_ancestry }}</div>
+        <div class="stat-sub">n={{ c.n_discovery }} | PMID:{{ c.pmid }}</div>
+        <div class="stat-sub">{{ c.traits }}</div>
+    </div>{% endfor %}
+</div>
+
+<h4>Trait-Level Validation</h4>
+<p style="font-size:0.8rem;color:#7f8c8d">13 of 17 failures are traits with zero SNP overlap between curated panel and consortium GWAS (e.g. BMI, HDL, fasting glucose). The 4 passes are the curated trait categories that DO overlap.</p>
+<table>
+    <thead><tr><th>Consortium</th><th>Trait</th><th>Effect Direction Match</th><th>SNP Overlap</th><th>Status</th></tr></thead>
+    <tbody>{% for v in val_rows %}
+        <tr>
+            <td>{{ v.consortium }}</td>
+            <td>{{ v.trait }}</td>
+            <td>{{ v.match }}%</td>
+            <td>{{ v.overlap_count }} ({{ v.overlap_pct }}%)</td>
+            <td>{{ v.icon }} {{ v.status }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

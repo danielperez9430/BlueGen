@@ -1,0 +1,18 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Integrity Score</h4><div class="big-stat" style="color:{{ cat_color }}">{{ total }}</div><div class="stat-sub">/ 100</div></div>
+    <div class="info-card"><h4>Category</h4><div class="big-stat" style="font-size:1rem;color:{{ cat_color }}">{{ cat_display }}</div></div>
+    <div class="info-card"><h4>Formula</h4><div class="stat-sub" style="font-size:0.7rem">{{ formula }}</div></div>
+    <div class="info-card"><h4>Weights Locked</h4><div class="big-stat">{{ weights_locked_icon }}</div></div>
+</div>
+<table>
+    <thead><tr><th>Component</th><th>Score</th><th>Weight</th><th>Contribution</th><th>Source</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.name }}</strong></td>
+            <td style="color:{{ r.score_color }};font-weight:700">{{ r.score }}</td>
+            <td>{{ r.weight }}%</td>
+            <td>{{ r.contribution }}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{{ r.source }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

@@ -909,18 +909,17 @@ def build_failure_map_section(failure_map, ui):
 def build_integrity_section(integrity, ui):
     """Scientific integrity score breakdown."""
     components = integrity.get("components", [])
-    rows = ""
+    rows = []
     for c in components:
         score = safe_float(c.get("score", 0))
-        score_color = "#27ae60" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c")
-        rows += f"""
-        <tr>
-            <td><strong>{c.get('name', '')}</strong></td>
-            <td style="color:{score_color};font-weight:700">{score:.1f}</td>
-            <td>{safe_float(c.get('weight', 0))*100:.0f}%</td>
-            <td>{safe_float(c.get('contribution', 0)):.1f}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('source', '')}</td>
-        </tr>"""
+        rows.append({
+            "name": c.get('name', ''),
+            "score": f"{score:.1f}",
+            "score_color": "#27ae60" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c"),
+            "weight": f"{safe_float(c.get('weight', 0))*100:.0f}",
+            "contribution": f"{safe_float(c.get('contribution', 0)):.1f}",
+            "source": c.get('source', ''),
+        })
 
     total = integrity.get("scientific_integrity_score", 0)
     cat = integrity.get("category", "Unknown")
@@ -928,18 +927,10 @@ def build_integrity_section(integrity, ui):
                  "NEEDS_REVISION": "#f39c12", "SIGNIFICANT_ISSUES": "#e67e22",
                  "NOT_PUBLISHABLE": "#e74c3c"}.get(cat, "#7f8c8d")
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Integrity Score</h4><div class="big-stat" style="color:{cat_color}">{total:.1f}</div><div class="stat-sub">/ 100</div></div>
-        <div class="info-card"><h4>Category</h4><div class="big-stat" style="font-size:1rem;color:{cat_color}">{cat.replace('_', ' ').title()}</div></div>
-        <div class="info-card"><h4>Formula</h4><div class="stat-sub" style="font-size:0.7rem">{integrity.get('formula', '')}</div></div>
-        <div class="info-card"><h4>Weights Locked</h4><div class="big-stat">{'✅' if integrity.get('weights_locked', False) else '❌'}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>Component</th><th>Score</th><th>Weight</th><th>Contribution</th><th>Source</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("integrity.html.j2",
+        total=f"{total:.1f}", cat_color=cat_color, cat_display=cat.replace('_', ' ').title(),
+        formula=integrity.get('formula', ''),
+        weights_locked_icon="✅" if integrity.get('weights_locked', False) else "❌", rows=rows)
 
 
 def build_uncertainty_decomposition(uncertainty_report):
@@ -948,43 +939,23 @@ def build_uncertainty_decomposition(uncertainty_report):
     if not results:
         return "<p style='color:#7f8c8d'>Uncertainty report not available.</p>"
 
-    rows = ""
+    rows = []
     for r in results:
-        trait = r.get("trait", "")
         decomp = r.get("decomposition", {})
         gen_frac = safe_float(decomp.get("genotype_fraction", 0)) * 100
         anc_frac = safe_float(decomp.get("ancestry_fraction", 0)) * 100
         eff_frac = safe_float(decomp.get("effect_fraction", 0)) * 100
-        total_var = safe_float(decomp.get("total_variance", 0))
-        prs = safe_float(r.get("prs_point_estimate", 0))
-        se = safe_float(r.get("prs_std_error", 0))
+        rows.append({
+            "trait": r.get("trait", ""),
+            "prs": f"{safe_float(r.get('prs_point_estimate', 0)):.3f}",
+            "se": f"{safe_float(r.get('prs_std_error', 0)):.3f}",
+            "total_var": f"{safe_float(decomp.get('total_variance', 0)):.4f}",
+            "gen_frac": f"{gen_frac:.1f}", "anc_frac": f"{anc_frac:.1f}", "eff_frac": f"{eff_frac:.1f}",
+            "gen_frac_int": f"{gen_frac:.0f}", "anc_frac_int": f"{anc_frac:.0f}", "eff_frac_int": f"{eff_frac:.0f}",
+            "n_genotype": r.get('n_snps_with_genotype', 0), "n_effect_se": r.get('n_snps_with_effect_se', 0),
+        })
 
-        rows += f"""
-        <tr>
-            <td><strong>{trait}</strong></td>
-            <td>{prs:.3f} ± {se:.3f}</td>
-            <td>{total_var:.4f}</td>
-            <td>
-                <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;background:#e9ecef">
-                    <div style="width:{gen_frac:.0f}%;background:#3498db" title="Genotype: {gen_frac:.1f}%"></div>
-                    <div style="width:{anc_frac:.0f}%;background:#e74c3c" title="Ancestry: {anc_frac:.1f}%"></div>
-                    <div style="width:{eff_frac:.0f}%;background:#f39c12" title="Effect SE: {eff_frac:.1f}%"></div>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:#7f8c8d;margin-top:2px">
-                    <span>Gen: {gen_frac:.0f}%</span><span>Anc: {anc_frac:.0f}%</span><span>Eff: {eff_frac:.0f}%</span>
-                </div>
-            </td>
-            <td>{r.get('n_snps_with_genotype', 0)}/{r.get('n_snps_with_effect_se', 0)}</td>
-        </tr>"""
-
-    return f"""
-    <p>Three-layer variance propagation decomposes PRS uncertainty into genotype quality,
-    ancestry ambiguity, and effect size standard error. Blue=genotype, Red=ancestry, Yellow=effect.</p>
-    <table>
-        <thead><tr><th>Trait</th><th>PRS ± SE</th><th>Total Var</th><th>Variance Decomposition</th><th>SNPs (genotype/effect)</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("uncertainty_decomposition.html.j2", rows=rows)
 
 
 def build_gwas_consortium_section(gwas_consortium):
@@ -992,87 +963,50 @@ def build_gwas_consortium_section(gwas_consortium):
     consortia = gwas_consortium.get("consortia", {})
     validations = gwas_consortium.get("validations", [])
 
-    # Consortium summary cards
-    cons_cards = ""
-    for name, c in consortia.items():
-        cons_cards += f"""
-        <div class="info-card">
-            <h4>{name}</h4>
-            <div class="big-stat" style="font-size:1rem">{c.get('primary_ancestry', 'EUR')}</div>
-            <div class="stat-sub">n={c.get('n_discovery', 0):,} | PMID:{c.get('pmid', '')}</div>
-            <div class="stat-sub">{', '.join(c.get('traits', [])[:3])}</div>
-        </div>"""
+    cons_cards = [{
+        "name": name, "primary_ancestry": c.get('primary_ancestry', 'EUR'),
+        "n_discovery": f"{c.get('n_discovery', 0):,}", "pmid": c.get('pmid', ''),
+        "traits": ', '.join(c.get('traits', [])[:3]),
+    } for name, c in consortia.items()]
 
-    # Validation results
-    val_rows = ""
+    val_rows = []
     for v in validations:
         passed = v.get("overall_status") == "PASS"
-        icon = "✅" if passed else "❌"
-        match = safe_float(v.get("effect_direction_match", 0)) * 100
-        val_rows += f"""
-        <tr>
-            <td>{v.get('consortium', '')}</td>
-            <td>{v.get('trait', '')}</td>
-            <td>{match:.0f}%</td>
-            <td>{v.get('snp_overlap_count', 0)} ({safe_float(v.get('snp_overlap_pct', 0))*100:.1f}%)</td>
-            <td>{icon} {v.get('overall_status', '')}</td>
-        </tr>"""
+        val_rows.append({
+            "consortium": v.get('consortium', ''), "trait": v.get('trait', ''),
+            "match": f"{safe_float(v.get('effect_direction_match', 0)) * 100:.0f}",
+            "overlap_count": v.get('snp_overlap_count', 0),
+            "overlap_pct": f"{safe_float(v.get('snp_overlap_pct', 0)) * 100:.1f}",
+            "icon": "✅" if passed else "❌", "status": v.get('overall_status', ''),
+        })
 
-    passed_count = gwas_consortium.get("passed", 0)
-    total_count = gwas_consortium.get("total_checks", 0)
-
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Consortia</h4><div class="big-stat">{len(consortia)}</div><div class="stat-sub">GIANT · GLGC · MAGIC · DIAGRAM</div></div>
-        <div class="info-card"><h4>Validations</h4><div class="big-stat">{total_count}</div><div class="stat-sub">total checks</div></div>
-        <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{passed_count}</div><div class="stat-sub">of {total_count}</div></div>
-        <div class="info-card"><h4>Failed</h4><div class="big-stat" style="color:#e74c3c">{gwas_consortium.get('failed', 0)}</div><div class="stat-sub">no SNP overlap traits</div></div>
-    </div>
-
-    <h4>Consortium Profiles</h4>
-    <div class="info-grid">{cons_cards}</div>
-
-    <h4>Trait-Level Validation</h4>
-    <p style="font-size:0.8rem;color:#7f8c8d">13 of 17 failures are traits with zero SNP overlap between curated panel and consortium GWAS (e.g. BMI, HDL, fasting glucose). The 4 passes are the curated trait categories that DO overlap.</p>
-    <table>
-        <thead><tr><th>Consortium</th><th>Trait</th><th>Effect Direction Match</th><th>SNP Overlap</th><th>Status</th></tr></thead>
-        <tbody>{val_rows}</tbody>
-    </table>
-    """
+    return render_partial("gwas_consortium.html.j2",
+        n_consortia=len(consortia), total_count=gwas_consortium.get("total_checks", 0),
+        passed_count=gwas_consortium.get("passed", 0), failed_count=gwas_consortium.get('failed', 0),
+        cons_cards=cons_cards, val_rows=val_rows)
 
 
 def build_portability_section(portability):
     """Population portability — PRS shift across populations."""
     pops = portability.get("populations", [])
-    rows = ""
+    status_color_map = {"GOOD_PORTABILITY": "#27ae60", "MODERATE_PORTABILITY": "#f39c12", "LIMITED_PORTABILITY": "#e74c3c"}
+    rows = []
     for p in pops:
-        pop = p.get("population", "")
         status = p.get("status", "")
-        status_color = {"GOOD_PORTABILITY": "#27ae60", "MODERATE_PORTABILITY": "#f39c12", "LIMITED_PORTABILITY": "#e74c3c"}
-        color = status_color.get(status, "#7f8c8d")
-        rows += f"""
-        <tr>
-            <td><strong>{pop}</strong></td>
-            <td>{p.get('n_reference_samples', 0)}</td>
-            <td>{safe_float(p.get('mean_prs_shift', 0)):.2f}</td>
-            <td>{safe_float(p.get('calibration_drift', 0)):.2f}</td>
-            <td>{safe_float(p.get('rank_instability', 0)):.2f}</td>
-            <td>{safe_float(p.get('ancestry_bias_index', 0)):.3f}</td>
-            <td style="color:{color};font-weight:700">{status.replace('_', ' ').title()}</td>
-        </tr>"""
+        rows.append({
+            "population": p.get("population", ""), "n_ref": p.get('n_reference_samples', 0),
+            "prs_shift": f"{safe_float(p.get('mean_prs_shift', 0)):.2f}",
+            "calib_drift": f"{safe_float(p.get('calibration_drift', 0)):.2f}",
+            "rank_instability": f"{safe_float(p.get('rank_instability', 0)):.2f}",
+            "bias_index": f"{safe_float(p.get('ancestry_bias_index', 0)):.3f}",
+            "color": status_color_map.get(status, "#7f8c8d"),
+            "status": status.replace('_', ' ').title(),
+        })
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Global Bias Index</h4><div class="big-stat">{safe_float(portability.get('global_bias_index', 0)):.3f}</div></div>
-        <div class="info-card"><h4>Most Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#e74c3c">{portability.get('most_biased', 'N/A')}</div></div>
-        <div class="info-card"><h4>Least Biased</h4><div class="big-stat" style="font-size:1.2rem;color:#27ae60">{portability.get('least_biased', 'N/A')}</div></div>
-    </div>
-    <p style="font-size:0.8rem;color:#7f8c8d">EUR-centric GWAS inherently limit cross-population portability. Lower indices = better portability. AFR shows highest bias (0.300) due to differing LD structure and allele frequencies.</p>
-    <table>
-        <thead><tr><th>Population</th><th>Ref Samples</th><th>PRS Shift</th><th>Calib. Drift</th><th>Rank Instability</th><th>Bias Index</th><th>Status</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("portability.html.j2",
+        global_bias=f"{safe_float(portability.get('global_bias_index', 0)):.3f}",
+        most_biased=portability.get('most_biased', 'N/A'),
+        least_biased=portability.get('least_biased', 'N/A'), rows=rows)
 
 
 def build_reproducibility_section(repro):
@@ -1196,33 +1130,19 @@ def build_consistency_section(consistency):
 def build_leakage_detail_section(leakage_audit):
     """Detailed leakage audit — 7 checks."""
     checks = leakage_audit.get("checks", [])
-    rows = ""
-    for c in checks:
-        passed = c.get("passed", False)
-        sev = c.get("severity", "INFO")
-        sev_color = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
-        icon = "✅" if passed else "❌"
-        rows += f"""
-        <tr>
-            <td><strong>{c.get('check_id', '')}</strong></td>
-            <td>{c.get('description', '')}</td>
-            <td style="color:{sev_color.get(sev, '#7f8c8d')};font-weight:700">{sev}</td>
-            <td>{icon}</td>
-            <td style="font-size:0.78rem;color:#7f8c8d">{c.get('detail', '')}</td>
-        </tr>"""
+    sev_color_map = {"ERROR": "#e74c3c", "WARNING": "#f39c12", "INFO": "#3498db"}
+    rows = [{
+        "check_id": c.get('check_id', ''), "description": c.get('description', ''),
+        "sev": c.get("severity", "INFO"),
+        "sev_color": sev_color_map.get(c.get("severity", "INFO"), "#7f8c8d"),
+        "icon": "✅" if c.get("passed", False) else "❌", "detail": c.get('detail', ''),
+    } for c in checks]
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Pipeline Safe</h4><div class="big-stat" style="color:{'#27ae60' if leakage_audit.get('pipeline_safe') else '#e74c3c'}">{'YES' if leakage_audit.get('pipeline_safe') else 'NO'}</div></div>
-        <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{leakage_audit.get('passed', 0)}/{leakage_audit.get('total_checks', 0)}</div></div>
-        <div class="info-card"><h4>Warnings</h4><div class="big-stat" style="color:#f39c12">{leakage_audit.get('warnings', 0)}</div></div>
-        <div class="info-card"><h4>Errors</h4><div class="big-stat" style="color:#e74c3c">{leakage_audit.get('errors', 0)}</div></div>
-    </div>
-    <table>
-        <thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
-        <tbody>{rows}</tbody>
-    </table>
-    """
+    return render_partial("leakage_detail.html.j2",
+        safe_color="#27ae60" if leakage_audit.get('pipeline_safe') else "#e74c3c",
+        safe_label="YES" if leakage_audit.get('pipeline_safe') else "NO",
+        passed=leakage_audit.get('passed', 0), total_checks=leakage_audit.get('total_checks', 0),
+        warnings=leakage_audit.get('warnings', 0), errors=leakage_audit.get('errors', 0), rows=rows)
 
 
 def build_methodology_section(prs_result, ancestry):

@@ -1,0 +1,18 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Pipeline Safe</h4><div class="big-stat" style="color:{{ safe_color }}">{{ safe_label }}</div></div>
+    <div class="info-card"><h4>Passed</h4><div class="big-stat" style="color:#27ae60">{{ passed }}/{{ total_checks }}</div></div>
+    <div class="info-card"><h4>Warnings</h4><div class="big-stat" style="color:#f39c12">{{ warnings }}</div></div>
+    <div class="info-card"><h4>Errors</h4><div class="big-stat" style="color:#e74c3c">{{ errors }}</div></div>
+</div>
+<table>
+    <thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.check_id }}</strong></td>
+            <td>{{ r.description }}</td>
+            <td style="color:{{ r.sev_color }};font-weight:700">{{ r.sev }}</td>
+            <td>{{ r.icon }}</td>
+            <td style="font-size:0.78rem;color:#7f8c8d">{{ r.detail }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>

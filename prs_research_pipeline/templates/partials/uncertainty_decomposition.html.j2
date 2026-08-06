@@ -1,0 +1,23 @@
+<p>Three-layer variance propagation decomposes PRS uncertainty into genotype quality,
+ancestry ambiguity, and effect size standard error. Blue=genotype, Red=ancestry, Yellow=effect.</p>
+<table>
+    <thead><tr><th>Trait</th><th>PRS ± SE</th><th>Total Var</th><th>Variance Decomposition</th><th>SNPs (genotype/effect)</th></tr></thead>
+    <tbody>{% for r in rows %}
+        <tr>
+            <td><strong>{{ r.trait }}</strong></td>
+            <td>{{ r.prs }} ± {{ r.se }}</td>
+            <td>{{ r.total_var }}</td>
+            <td>
+                <div style="display:flex;height:10px;border-radius:3px;overflow:hidden;background:#e9ecef">
+                    <div style="width:{{ r.gen_frac_int }}%;background:#3498db" title="Genotype: {{ r.gen_frac }}%"></div>
+                    <div style="width:{{ r.anc_frac_int }}%;background:#e74c3c" title="Ancestry: {{ r.anc_frac }}%"></div>
+                    <div style="width:{{ r.eff_frac_int }}%;background:#f39c12" title="Effect SE: {{ r.eff_frac }}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:#7f8c8d;margin-top:2px">
+                    <span>Gen: {{ r.gen_frac_int }}%</span><span>Anc: {{ r.anc_frac_int }}%</span><span>Eff: {{ r.eff_frac_int }}%</span>
+                </div>
+            </td>
+            <td>{{ r.n_genotype }}/{{ r.n_effect_se }}</td>
+        </tr>{% endfor %}
+    </tbody>
+</table>
