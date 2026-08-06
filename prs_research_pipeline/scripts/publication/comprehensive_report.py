@@ -1083,32 +1083,28 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
             return '<span style="background:#d5f5e3;color:#1e8449;padding:2px 6px;border-radius:3px;font-size:0.65rem;font-weight:700">✓ Reliable</span>'
         return '<span style="background:#fadbd8;color:#c0392b;padding:2px 6px;border-radius:3px;font-size:0.65rem;font-weight:700">⚠ Unreliable</span>'
 
-    def row(e):
-        r = "🔴" if e.get("z_score",0)>2 else ("🟠" if e.get("z_score",0)>1 else ("🟢" if e.get("z_score",0)<-1 else "🟡"))
-        pctl = round(e.get("percentile",50), 1)
+    def row_ctx(e):
         z = e.get("z_score", 0)
+        pctl = round(e.get("percentile", 50), 1)
         reliable = e.get("reliable", True)
         pgs_id = e.get("pgs_id", "")
         significance = "High risk" if z>2 else ("Elevated" if z>1 else ("Low/Protective" if z<-1 else "Population average"))
 
-        # SNP coverage bar
         cov = pgs_coverage.get(pgs_id, {}) if pgs_coverage else {}
         n_used = cov.get("n_used", 0)
         n_total = cov.get("n_total", 0)
         snp_bar = snp_coverage_bar(n_used, n_total) if n_total > 0 else '<span style="color:#95a5a6;font-size:0.7rem">—</span>'
 
-        # Risk bar
         bar_pct = max(5, min(95, pctl))
-        risk_bar_html = risk_bar(bar_pct, z)
 
-        return f"""<tr>
-            <td>{r}</td><td><strong>{e['trait']}</strong></td><td>{e['pgs_id']}</td>
-            <td>{reliable_badge(reliable)}</td>
-            <td>{snp_bar}</td>
-            <td style="font-weight:700;color:{'#e74c3c' if z>2 else ('#f39c12' if z>1 else ('#27ae60' if z<-1 else '#2c3e50'))}">{z:+.1f}</td>
-            <td>{pctl}%</td><td>{significance}</td><td>{e.get('n_snps',0):,}</td>
-            <td style="min-width:120px">{risk_bar_html}</td>
-        </tr>"""
+        return {
+            "icon": "🔴" if z>2 else ("🟠" if z>1 else ("🟢" if z<-1 else "🟡")),
+            "trait": e['trait'], "pgs_id": e['pgs_id'],
+            "reliable_badge": reliable_badge(reliable), "snp_bar": snp_bar,
+            "z_color": '#e74c3c' if z>2 else ('#f39c12' if z>1 else ('#27ae60' if z<-1 else '#2c3e50')),
+            "z": f"{z:+.1f}", "pctl": pctl, "significance": significance,
+            "n_snps": f"{e.get('n_snps',0):,}", "risk_bar": risk_bar(bar_pct, z),
+        }
 
     # Summary bar
     all_entries = pgs_data.get("all_entries", [])
@@ -1123,65 +1119,25 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
         f'</div>'
     )
 
-    high_rows = "".join(row(e) for e in high_risk) or "<tr><td colspan='10' style='color:#7f8c8d'>None — no traits at elevated risk</td></tr>"
-    elev_rows = "".join(row(e) for e in elevated) or "<tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>"
-    low_rows = "".join(row(e) for e in low_risk) or "<tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>"
-
     # Build detailed interpretations
     detail_parts = []
     for e in high_risk + elevated:
-        detail_parts.append(f"""
-        <div class="trait-section" style="margin-bottom:1rem">
-            <div class="trait-header" style="background:{'#fadbd8' if e.get('z_score',0)>2 else '#fdebd0'}">
-                <span><strong>{e['trait']}</strong> ({e['pgs_id']})</span>
-                <span class="risk-category-badge {'high' if e.get('z_score',0)>2 else 'medium'}">{'HIGHER RISK' if e.get('z_score',0)>2 else 'ELEVATED RISK'}</span>
-            </div>
-            <div class="trait-body">
-                <div class="trait-stats">
-                    <div class="trait-stat"><div class="stat-value" style="color:{'#e74c3c' if e.get('z_score',0)>2 else '#f39c12'}">{e.get('z_score',0):+.1f}σ</div><div class="stat-label">Z-Score vs EUR</div></div>
-                    <div class="trait-stat"><div class="stat-value">{round(e.get('percentile',50),1)}%</div><div class="stat-label">Percentile</div></div>
-                    <div class="trait-stat"><div class="stat-value">{e.get('n_snps',0):,}</div><div class="stat-label">Variants</div></div>
-                </div>
-                <div class="interpretation-box"><strong>Clinical Context:</strong><p style="margin-top:.5rem;white-space:pre-line">{interpret(e)}</p></div>
-            </div>
-        </div>""")
+        z = e.get('z_score', 0)
+        detail_parts.append({
+            "header_bg": '#fadbd8' if z>2 else '#fdebd0', "trait": e['trait'], "pgs_id": e['pgs_id'],
+            "badge_class": 'high' if z>2 else 'medium',
+            "badge_label": 'HIGHER RISK' if z>2 else 'ELEVATED RISK',
+            "z_color": '#e74c3c' if z>2 else '#f39c12', "z": f"{z:+.1f}",
+            "pctl": round(e.get('percentile',50),1), "n_snps": f"{e.get('n_snps',0):,}",
+            "interpretation": interpret(e),
+        })
 
-    return f"""
-    <div class="info-grid">
-        <div class="info-card"><h4>Total Scores</h4><div class="big-stat">{summary.get('total_scores', 0)}</div><div class="stat-sub">from PGS Catalog</div></div>
-        <div class="info-card"><h4>Reliable</h4><div class="big-stat">{summary.get('reliable_scores', 0)}</div><div class="stat-sub">&lt;500K SNPs</div></div>
-        <div class="info-card"><h4>Reference</h4><div class="big-stat">{methodology.get('reference_panel', '1000G')[:20]}</div><div class="stat-sub">{', '.join(methodology.get('populations', []))}</div></div>
-        <div class="info-card"><h4>Method</h4><div class="big-stat" style="font-size:0.7rem">z-score norm</div><div class="stat-sub">Population-stratified</div></div>
-    </div>
-    <p style="margin:1rem 0;line-height:1.6;font-size:0.9rem;background:var(--color-surface);padding:1rem;border-radius:8px;box-shadow:var(--shadow)">
-    <strong>How to interpret these scores:</strong><br>
-    • <strong>Z-score</strong>: How many standard deviations your genetic profile deviates from the EUR population mean.<br>
-    • <strong>Percentile</strong>: Your rank. 95% = you're in the top 5% of genetic risk for that trait.<br>
-    • <strong>Clinical significance</strong>: Z > 2 = notable deviation. Z > 3 = clinically relevant. But <em>genetics is NOT destiny</em> — lifestyle, environment, and medical care often override genetic predisposition.
-    </p>
-    <h4>🔴 Elevated Risk ({len(high_risk)})</h4>
-    {summary_html}
-    <div style="overflow-x:auto">
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{high_rows}</tbody></table>
-    </div>
-    <h4>🟠 Moderate Risk ({len(elevated)})</h4>
-    <div style="overflow-x:auto">
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{elev_rows}</tbody></table>
-    </div>
-    <h4>🟢 Protective / Low Risk ({len(low_risk)})</h4>
-    <div style="overflow-x:auto">
-    <table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{low_rows}</tbody></table>
-    </div>
-
-    {"<h4 style='margin-top:1.5rem'>📋 Detailed Clinical Interpretation</h4>" + ''.join(detail_parts) if detail_parts else ""}
-
-    <p style="font-size:0.75rem;color:#7f8c8d;margin-top:1rem">
-    ⚠️ <strong>Limitations:</strong> Calibrated against 1000 Genomes Phase 3 (2,504 samples, 5 super-populations).
-    PGS scores are from published studies with varying population compositions — cross-population portability may be limited.
-    Scores with >500K SNPs excluded due to distribution artifacts.
-    <strong>All scores are for RESEARCH USE ONLY — not clinical diagnosis.</strong>
-    </p>
-    """
+    return render_partial("pgs_calibration.html.j2",
+        total_scores=summary.get('total_scores', 0), reliable_scores=summary.get('reliable_scores', 0),
+        reference_panel=methodology.get('reference_panel', '1000G')[:20],
+        populations_list=', '.join(methodology.get('populations', [])),
+        high_risk=[row_ctx(e) for e in high_risk], elevated=[row_ctx(e) for e in elevated],
+        low_risk=[row_ctx(e) for e in low_risk], summary_html=summary_html, detail_parts=detail_parts)
 
 
 def build_calibration_detail_section(calibration_report):

@@ -1,0 +1,82 @@
+<div class="info-grid">
+    <div class="info-card"><h4>Total Scores</h4><div class="big-stat">{{ total_scores }}</div><div class="stat-sub">from PGS Catalog</div></div>
+    <div class="info-card"><h4>Reliable</h4><div class="big-stat">{{ reliable_scores }}</div><div class="stat-sub">&lt;500K SNPs</div></div>
+    <div class="info-card"><h4>Reference</h4><div class="big-stat">{{ reference_panel }}</div><div class="stat-sub">{{ populations_list }}</div></div>
+    <div class="info-card"><h4>Method</h4><div class="big-stat" style="font-size:0.7rem">z-score norm</div><div class="stat-sub">Population-stratified</div></div>
+</div>
+<p style="margin:1rem 0;line-height:1.6;font-size:0.9rem;background:var(--color-surface);padding:1rem;border-radius:8px;box-shadow:var(--shadow)">
+<strong>How to interpret these scores:</strong><br>
+• <strong>Z-score</strong>: How many standard deviations your genetic profile deviates from the EUR population mean.<br>
+• <strong>Percentile</strong>: Your rank. 95% = you're in the top 5% of genetic risk for that trait.<br>
+• <strong>Clinical significance</strong>: Z > 2 = notable deviation. Z > 3 = clinically relevant. But <em>genetics is NOT destiny</em> — lifestyle, environment, and medical care often override genetic predisposition.
+</p>
+<h4>🔴 Elevated Risk ({{ high_risk|length }})</h4>
+{{ summary_html|safe }}
+<div style="overflow-x:auto">
+<table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{% for r in high_risk %}
+    <tr>
+        <td>{{ r.icon }}</td><td><strong>{{ r.trait }}</strong></td><td>{{ r.pgs_id }}</td>
+        <td>{{ r.reliable_badge|safe }}</td>
+        <td>{{ r.snp_bar|safe }}</td>
+        <td style="font-weight:700;color:{{ r.z_color }}">{{ r.z }}</td>
+        <td>{{ r.pctl }}%</td><td>{{ r.significance }}</td><td>{{ r.n_snps }}</td>
+        <td style="min-width:120px">{{ r.risk_bar|safe }}</td>
+    </tr>{% else %}
+    <tr><td colspan='10' style='color:#7f8c8d'>None — no traits at elevated risk</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<h4>🟠 Moderate Risk ({{ elevated|length }})</h4>
+<div style="overflow-x:auto">
+<table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{% for r in elevated %}
+    <tr>
+        <td>{{ r.icon }}</td><td><strong>{{ r.trait }}</strong></td><td>{{ r.pgs_id }}</td>
+        <td>{{ r.reliable_badge|safe }}</td>
+        <td>{{ r.snp_bar|safe }}</td>
+        <td style="font-weight:700;color:{{ r.z_color }}">{{ r.z }}</td>
+        <td>{{ r.pctl }}%</td><td>{{ r.significance }}</td><td>{{ r.n_snps }}</td>
+        <td style="min-width:120px">{{ r.risk_bar|safe }}</td>
+    </tr>{% else %}
+    <tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<h4>🟢 Protective / Low Risk ({{ low_risk|length }})</h4>
+<div style="overflow-x:auto">
+<table><thead><tr><th></th><th>Trait</th><th>PGS ID</th><th>Reliable</th><th>Coverage</th><th>Z</th><th>%</th><th>Significance</th><th>SNPs</th><th>Risk Bar</th></tr></thead><tbody>{% for r in low_risk %}
+    <tr>
+        <td>{{ r.icon }}</td><td><strong>{{ r.trait }}</strong></td><td>{{ r.pgs_id }}</td>
+        <td>{{ r.reliable_badge|safe }}</td>
+        <td>{{ r.snp_bar|safe }}</td>
+        <td style="font-weight:700;color:{{ r.z_color }}">{{ r.z }}</td>
+        <td>{{ r.pctl }}%</td><td>{{ r.significance }}</td><td>{{ r.n_snps }}</td>
+        <td style="min-width:120px">{{ r.risk_bar|safe }}</td>
+    </tr>{% else %}
+    <tr><td colspan='10' style='color:#7f8c8d'>None</td></tr>{% endfor %}
+</tbody></table>
+</div>
+
+{% if detail_parts %}
+<h4 style='margin-top:1.5rem'>📋 Detailed Clinical Interpretation</h4>
+{% for d in detail_parts %}
+<div class="trait-section" style="margin-bottom:1rem">
+    <div class="trait-header" style="background:{{ d.header_bg }}">
+        <span><strong>{{ d.trait }}</strong> ({{ d.pgs_id }})</span>
+        <span class="risk-category-badge {{ d.badge_class }}">{{ d.badge_label }}</span>
+    </div>
+    <div class="trait-body">
+        <div class="trait-stats">
+            <div class="trait-stat"><div class="stat-value" style="color:{{ d.z_color }}">{{ d.z }}σ</div><div class="stat-label">Z-Score vs EUR</div></div>
+            <div class="trait-stat"><div class="stat-value">{{ d.pctl }}%</div><div class="stat-label">Percentile</div></div>
+            <div class="trait-stat"><div class="stat-value">{{ d.n_snps }}</div><div class="stat-label">Variants</div></div>
+        </div>
+        <div class="interpretation-box"><strong>Clinical Context:</strong><p style="margin-top:.5rem;white-space:pre-line">{{ d.interpretation }}</p></div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<p style="font-size:0.75rem;color:#7f8c8d;margin-top:1rem">
+⚠️ <strong>Limitations:</strong> Calibrated against 1000 Genomes Phase 3 (2,504 samples, 5 super-populations).
+PGS scores are from published studies with varying population compositions — cross-population portability may be limited.
+Scores with >500K SNPs excluded due to distribution artifacts.
+<strong>All scores are for RESEARCH USE ONLY — not clinical diagnosis.</strong>
+</p>
