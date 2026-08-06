@@ -16,9 +16,9 @@ from pathlib import Path
 
 from scipy import stats as scipy_stats
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "prs_research_pipeline" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "prs_research_pipeline"))
 
-from prs.population_calibrate_v2 import PopulationCalibrationV2, PopulationDistribution
+from bluegen.calibration import PopulationCalibrationV2, PopulationDistribution
 
 
 def _write_sample_prs(tmpdir, trait, prs_raw):
@@ -49,18 +49,18 @@ def _dist(trait, n_samples, mean=0.0, std=1.0):
 def _calibrate(trait, prs_raw, dist):
     calibrator = PopulationCalibrationV2()
     if dist is not None:
-        calibrator._reference_distributions = {trait: {"EUR": dist}}
+        distributions = {trait: {"EUR": dist}}
     else:
-        # calibrate_sample() bails out early if _reference_distributions is
-        # entirely empty, so seed an unrelated trait to keep it non-empty.
-        calibrator._reference_distributions = {"Other trait": {"EUR": _dist("Other trait", 200)}}
+        # calibrate_sample() bails out early if distributions is entirely
+        # empty, so seed an unrelated trait to keep it non-empty.
+        distributions = {"Other trait": {"EUR": _dist("Other trait", 200)}}
 
     with tempfile.TemporaryDirectory() as tmpdir:
         sample_prs = _write_sample_prs(tmpdir, trait, prs_raw)
         ancestry_json = _write_ancestry(tmpdir)
         results = calibrator.calibrate_sample(
             sample_prs=sample_prs, ancestry_json=ancestry_json,
-            output_dir=tmpdir, ref_dist_dir=None,
+            output_dir=tmpdir, ref_dist_dir=None, distributions=distributions,
         )
     assert len(results) == 1
     return results[0]
