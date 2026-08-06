@@ -1,0 +1,42 @@
+<div class="summary-grid">
+    <div class="summary-card" style="border-left-color:#e74c3c">
+        <div class="card-number">{{ n_high }}</div>
+        <div class="card-label">{{ risk_high_label }}</div>
+    </div>
+    <div class="summary-card" style="border-left-color:#f39c12">
+        <div class="card-number">{{ n_medium }}</div>
+        <div class="card-label">{{ risk_medium_label }}</div>
+    </div>
+    <div class="summary-card" style="border-left-color:#27ae60">
+        <div class="card-number">{{ n_low }}</div>
+        <div class="card-label">{{ risk_low_label }}</div>
+    </div>
+    <div class="summary-card" style="border-left-color:{{ conf_color }}">
+        <div class="card-number" style="color:{{ conf_color }}">{{ avg_conf }}%</div>
+        <div class="card-label">Avg Confidence</div>
+    </div>
+    <div class="summary-card" style="border-left-color:#27ae60">
+        <div class="card-number" style="color:#27ae60">{{ tier1_count }}</div>
+        <div class="card-label">High Trust (T1)</div>
+    </div>
+    <div class="summary-card" style="border-left-color:#e74c3c">
+        <div class="card-number" style="color:#e74c3c">{{ tier3_count }}</div>
+        <div class="card-label">Low Trust (T3)</div>
+    </div>
+</div>
+<div class="summary-grid" style="grid-template-columns:repeat(2,1fr)">
+    <div class="summary-card" style="border-left-color:#3498db">
+        <div class="card-number" style="font-size:1.2rem">{{ pop_name }}</div>
+        <div class="card-label">Ancestry ({{ confidence }})</div>
+    </div>
+    <div class="summary-card" style="border-left-color:#9b59b6">
+        <div class="card-number">{{ integrity_score }}</div>
+        <div class="card-label">Integrity / 100</div>
+    </div>
+</div>
+{% if top_trait %}
+<div class="highlight-box"><strong>Top Risk:</strong> {{ top_trait.trait }} — raw score {{ top_trait.raw_score }}, {{ top_trait.n_used }}/{{ top_trait.n_total }} SNPs used</div>
+{% endif %}
+<div class="highlight-box"><strong>Integrity:</strong> {{ integrity_cat }} — {{ integrity_cat_desc }}</div>
+<div class="highlight-box"><strong>Strongest Finding:</strong> {{ best_trait }} — {{ best_conf }}% confidence | <strong>Weakest:</strong> {{ worst_trait }} — {{ worst_conf }}% confidence</div>
+{{ port_note|safe }}

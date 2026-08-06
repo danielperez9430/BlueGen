@@ -537,48 +537,25 @@ def build_summary_cards(prs_result, ancestry, integrity, validation, ui, cal_loo
                 f'</div>'
             )
 
-    return f"""
-    <div class="summary-grid">
-        <div class="summary-card" style="border-left-color:#e74c3c">
-            <div class="card-number">{n_high}</div>
-            <div class="card-label">{ui['risk_high']}</div>
-        </div>
-        <div class="summary-card" style="border-left-color:#f39c12">
-            <div class="card-number">{n_medium}</div>
-            <div class="card-label">{ui['risk_medium']}</div>
-        </div>
-        <div class="summary-card" style="border-left-color:#27ae60">
-            <div class="card-number">{n_low}</div>
-            <div class="card-label">{ui['risk_low']}</div>
-        </div>
-        <div class="summary-card" style="border-left-color:{conf_color}">
-            <div class="card-number" style="color:{conf_color}">{avg_conf:.0f}%</div>
-            <div class="card-label">Avg Confidence</div>
-        </div>
-        <div class="summary-card" style="border-left-color:#27ae60">
-            <div class="card-number" style="color:#27ae60">{tier_counts.get('TIER 1', 0)}</div>
-            <div class="card-label">High Trust (T1)</div>
-        </div>
-        <div class="summary-card" style="border-left-color:#e74c3c">
-            <div class="card-number" style="color:#e74c3c">{tier_counts.get('TIER 3', 0)}</div>
-            <div class="card-label">Low Trust (T3)</div>
-        </div>
-    </div>
-    <div class="summary-grid" style="grid-template-columns:repeat(2,1fr)">
-        <div class="summary-card" style="border-left-color:#3498db">
-            <div class="card-number" style="font-size:1.2rem">{pop_name}</div>
-            <div class="card-label">Ancestry ({confidence})</div>
-        </div>
-        <div class="summary-card" style="border-left-color:#9b59b6">
-            <div class="card-number">{integrity_score:.0f}</div>
-            <div class="card-label">Integrity / 100</div>
-        </div>
-    </div>
-    {f'<div class="highlight-box"><strong>Top Risk:</strong> {top_trait["trait"]} — raw score {safe_float(top_trait.get("raw_score", 0)):.2f}, {top_trait.get("n_snps_used", 0)}/{top_trait.get("n_snps_total", 0)} SNPs used</div>' if top_trait else ''}
-    <div class="highlight-box"><strong>Integrity:</strong> {integrity_cat} — {integrity.get("category_description", "")}</div>
-    <div class="highlight-box"><strong>Strongest Finding:</strong> {best_trait} — {best_conf:.0f}% confidence | <strong>Weakest:</strong> {worst_trait} — {worst_conf:.0f}% confidence</div>
-    {port_note}
-    """
+    top_trait_ctx = None
+    if top_trait:
+        top_trait_ctx = {
+            "trait": top_trait["trait"], "raw_score": f"{safe_float(top_trait.get('raw_score', 0)):.2f}",
+            "n_used": top_trait.get("n_snps_used", 0), "n_total": top_trait.get("n_snps_total", 0),
+        }
+
+    return render_partial("summary_cards.html.j2",
+        n_high=n_high, risk_high_label=ui['risk_high'],
+        n_medium=n_medium, risk_medium_label=ui['risk_medium'],
+        n_low=n_low, risk_low_label=ui['risk_low'],
+        conf_color=conf_color, avg_conf=f"{avg_conf:.0f}",
+        tier1_count=tier_counts.get('TIER 1', 0), tier3_count=tier_counts.get('TIER 3', 0),
+        pop_name=pop_name, confidence=confidence, integrity_score=f"{integrity_score:.0f}",
+        top_trait=top_trait_ctx, integrity_cat=integrity_cat,
+        integrity_cat_desc=integrity.get("category_description", ""),
+        best_trait=best_trait, best_conf=f"{best_conf:.0f}",
+        worst_trait=worst_trait, worst_conf=f"{worst_conf:.0f}",
+        port_note=port_note)
 
 
 def build_ancestry_section(ancestry, pca_data, ui):
