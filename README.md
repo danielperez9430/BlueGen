@@ -37,7 +37,7 @@ venv/bin/streamlit run dashboard.py
 
 | Module | Description | Data Source |
 |--------|-------------|-------------|
-| 🧬 **PRS Engine** | ~56 traits, 205 SNP rows (186 unique rsIDs), population-calibrated z-scores | Curated GWAS + 1000 Genomes |
+| 🧬 **PRS Engine** | ~56 traits, 206 SNP rows (187 unique rsIDs), population-calibrated z-scores | Curated GWAS + 1000 Genomes |
 | 🔬 **ClinVar** | Pathogenic/likely pathogenic variants with confidence tiers | NCBI ClinVar (4.4M records) |
 | 💊 **PharmGKB** | Drug-gene interactions, CPIC guideline recommendations | CPIC/DPWG (218 guidelines) |
 | 🌍 **Ancestry** | PCA + mtDNA/Y-DNA haplogroups + sub-continental | 1000 Genomes (26 populations) |
