@@ -2,7 +2,13 @@
 
 All notable changes to BlueGen.
 
-## [Unreleased] — 2026-07-14 to 2026-08-07
+## [Unreleased]
+
+Nothing yet.
+
+## [2.0.0] — 2026-08-08
+
+_First formally tagged release. `PIPELINE_VERSION` had already been `2.0.0` since the version-unification fix below (TIER 0.1) - this release just gives that version an actual git tag/GitHub Release for the first time, covering everything accumulated since the previous (untagged) `1.2.1`._
 
 ### Added
 - **`bluegen/` importable library package**: `calibration.py` (Stage H, `PopulationCalibrationV2`), `ancestry.py` (Stage G, `PCAAdjustmentV2`), `scoring.py` (Stage F, PLINK PRS computation), `schemas.py` (pydantic contracts, see below). The numbered scripts under `scripts/prs/` are now thin argparse wrappers importing from this package instead of standalone shell-out logic — Stages F–H are now unit-testable Python, not just subprocess black boxes. 26 new tests (`test_pca_adjustment.py`, `test_scoring.py`, plus `test_population_calibration.py` updated in place).
