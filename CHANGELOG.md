@@ -6,6 +6,12 @@ All notable changes to BlueGen.
 
 Nothing yet.
 
+## [2.0.1] — 2026-08-08
+
+### Fixed
+- **Broken half-star glyph in confidence ratings**: `confidence_stars()` rendered half-stars using U+2BE8 (`⯨`, "LEFT HALF BLACK STAR"), a codepoint with essentially no font coverage - it showed up as a broken tofu/fallback box in real browsers despite looking fine in an editor. Replaced with the standard CSS technique: a full star (★) clipped to 50% width over an empty star (☆) background, so rendering never depends on a rare glyph existing in the viewer's font. New regression test guards against the broken character reappearing.
+- **Unindented "Per-Trait Confidence Notes" list**: this `<ul>` (the only one in the entire `templates/` directory) wasn't indented relative to its `<h4>` title, caused by the report's global CSS reset (`* { padding: 0 }`) zeroing the browser's default `<ul>` padding-left, which the template never compensated for. Added `padding-left` directly to the list.
+
 ## [2.0.0] — 2026-08-08
 
 _First formally tagged release. `PIPELINE_VERSION` had already been `2.0.0` since the version-unification fix below (TIER 0.1) - this release just gives that version an actual git tag/GitHub Release for the first time, covering everything accumulated since the previous (untagged) `1.2.1`._

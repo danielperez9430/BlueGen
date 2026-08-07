@@ -349,7 +349,7 @@ from each other.
 
 | Version | Key Features | Min Python |
 |---------|-------------|------------|
-| 2.0.0 | ClinVar, PharmGKB, MedGen, Deep Ancestry, PGS Catalog, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
+| 2.0.1 | ClinVar, PharmGKB, MedGen, Deep Ancestry, PGS Catalog, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
 
 ### Upgrading
 ```bash
