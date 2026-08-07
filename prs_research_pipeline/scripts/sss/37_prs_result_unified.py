@@ -26,47 +26,19 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from utils.constants import PIPELINE_VERSION
+from bluegen.schemas import (  # noqa: E402
+    PRSResultEntry, PRSResult as UnifiedPRSResult, validate_and_write_json,
+)
 
 logger = logging.getLogger(__name__)
-
-@dataclass
-class PRSResultEntry:
-    """Single unified PRS result for one trait."""
-    trait: str
-    raw_score: float
-    pca_adjusted_score: float
-    ancestry_adjusted_score: float
-    population_percentile: float
-    population_zscore: float
-    uncertainty_score: float
-    ci_95_lower: float
-    ci_95_upper: float
-    risk_category: str  # low, medium, high
-    assigned_population: str = "EUR"
-    calibration_mu: float = 0.0
-    calibration_sigma: float = 1.0
-    n_snps_used: int = 0
-    n_snps_total: int = 0
-    computation_method: str = "PLINK --score"
-
-@dataclass
-class UnifiedPRSResult:
-    """Complete unified PRS result — the SSST for all downstream consumers."""
-    sample_id: str
-    pipeline_version: str = PIPELINE_VERSION
-    prs_entries: List[PRSResultEntry] = field(default_factory=list)
-    ancestry: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    generated_date: str = ""
-    result_hash: str = ""
 
 class UnifiedPRSAssembler:
     """
@@ -173,6 +145,7 @@ class UnifiedPRSAssembler:
         # Build unified result
         result = UnifiedPRSResult(
             sample_id=sample_id,
+            pipeline_version=PIPELINE_VERSION,
             prs_entries=entries,
             ancestry={
                 "assigned_population": assigned_pop,
@@ -233,21 +206,12 @@ class UnifiedPRSAssembler:
 
     def _save_json(self, result: UnifiedPRSResult) -> None:
         path = self.output_dir / "PRS_RESULT.json"
-        with open(path, "w") as fh:
-            json.dump({
-                "sample_id": result.sample_id,
-                "pipeline_version": result.pipeline_version,
-                "generated_date": result.generated_date,
-                "result_hash": result.result_hash,
-                "ancestry": result.ancestry,
-                "metadata": result.metadata,
-                "prs_entries": [asdict(e) for e in result.prs_entries],
-            }, fh, indent=2)
+        validate_and_write_json(result, path)
         logger.info(f"  ✅ PRS_RESULT JSON: {path}")
 
     def _save_csv(self, result: UnifiedPRSResult) -> None:
         path = self.output_dir / "PRS_RESULT.csv"
-        pd.DataFrame([asdict(e) for e in result.prs_entries]).to_csv(path, index=False)
+        pd.DataFrame([e.model_dump() for e in result.prs_entries]).to_csv(path, index=False)
         logger.info(f"  ✅ PRS_RESULT CSV: {path}")
 
     def _log_summary(self, result: UnifiedPRSResult) -> None:
