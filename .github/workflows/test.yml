@@ -67,8 +67,14 @@ jobs:
           sudo apt-get install -y bcftools tabix
 
       - name: Install Python dependencies
+        # Keep this list in sync with prs_research_pipeline/requirements.txt -
+        # it's intentionally not `pip install -r requirements.txt` to skip
+        # weasyprint's system-lib-dependent PDF path, but every package a
+        # test file (transitively) imports must be listed here or collection
+        # fails with ModuleNotFoundError (happened for jinja2 in 1.6, then
+        # pydantic in 2.2).
         run: |
-          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest
+          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest jinja2 pydantic
 
       - name: Syntax check
         run: |
