@@ -28,55 +28,20 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field, asdict
 
 import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bluegen.schemas import (  # noqa: E402
+    UncertaintyDecomposition,
+    UncertaintyResultEntry as PRSWithUncertainty,
+    UncertaintyReport,
+    validate_and_write_json,
+)
+
 logger = logging.getLogger(__name__)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Data Structures
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@dataclass
-class UncertaintyDecomposition:
-    """Breakdown of uncertainty sources."""
-    total_variance: float
-    genotype_variance: float
-    ancestry_variance: float
-    effect_variance: float
-    genotype_fraction: float       # % of total variance from genotypes
-    ancestry_fraction: float
-    effect_fraction: float
-
-
-@dataclass
-class PRSWithUncertainty:
-    """PRS value with full uncertainty quantification."""
-    individual_id: str
-    trait: str
-    prs_point_estimate: float
-    prs_std_error: float
-    confidence_interval_95: Tuple[float, float]
-    confidence_interval_68: Tuple[float, float]
-    uncertainty_score: float              # 0–1, normalized
-    decomposition: UncertaintyDecomposition
-    n_snps_with_genotype: int
-    n_snps_with_effect_se: int
-
-
-@dataclass
-class UncertaintyReport:
-    """Complete uncertainty propagation report."""
-    results: List[PRSWithUncertainty]
-    global_uncertainty_score: float
-    method: str
-    genotype_quality_summary: Dict[str, float]
-    ancestry_entropy: float
-    gwas_evidence_summary: Dict[str, Any]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -283,13 +248,16 @@ class UncertaintyPropagationEngine:
         global_score = np.mean([r.uncertainty_score for r in results]) if results else 0.0
 
         # Build report
+        # Note: gwas_evidence_summary is deliberately not included here - it
+        # was never written to uncertainty_report.json (the old json.dump()
+        # below never referenced it either), so bluegen.schemas.UncertaintyReport
+        # doesn't declare it (IMPROVEMENT_PLAN.md 2.2).
         report = UncertaintyReport(
             results=results,
             global_uncertainty_score=round(global_score, 4),
             method="three_layer_variance_propagation",
             genotype_quality_summary=geno_summary,
             ancestry_entropy=round(ancestry_entropy, 4),
-            gwas_evidence_summary=self._summarize_evidence(effect_uncertainty),
         )
 
         # ── Save outputs ──────────────────────────────────────────────────
@@ -317,14 +285,7 @@ class UncertaintyPropagationEngine:
 
         # JSON report
         report_path = output_dir / "uncertainty_report.json"
-        with open(report_path, "w") as fh:
-            json.dump({
-                "global_uncertainty_score": report.global_uncertainty_score,
-                "method": report.method,
-                "genotype_quality_summary": report.genotype_quality_summary,
-                "ancestry_entropy": report.ancestry_entropy,
-                "results": [asdict(r) for r in results],
-            }, fh, indent=2, default=str)
+        validate_and_write_json(report, report_path)
         logger.info(f"  Uncertainty report: {report_path}")
 
         return {

@@ -24,37 +24,22 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bluegen.schemas import (  # noqa: E402
+    CalibrationValidationEntry as CalibrationValidation,
+    CalibrationValidationReport as CalibrationReport,
+    validate_and_write_json,
+)
+
 logger = logging.getLogger(__name__)
 
 SUPER_POPS = ["EUR", "AFR", "EAS", "SAS", "AMR"]
-
-@dataclass
-class CalibrationValidation:
-    trait: str; population: str = "EUR"
-    calibration_slope: float = 1.0
-    intercept_deviation: float = 0.0
-    r_squared: float = 1.0
-    tail_5_accuracy: float = 0.0
-    tail_95_accuracy: float = 0.0
-    mean_absolute_error: float = 0.0
-    is_well_calibrated: bool = True
-    n_samples: int = 0
-    low_confidence: bool = False   # reference distribution missing/<10 samples - excluded from aggregates
-
-@dataclass
-class CalibrationReport:
-    validations: List[CalibrationValidation] = field(default_factory=list)
-    mean_slope: float = 0.0; mean_r2: float = 0.0
-    well_calibrated_count: int = 0; poorly_calibrated_count: int = 0
-    low_confidence_count: int = 0
-    global_status: str = ""; generated_date: str = ""
 
 class CalibrationValidator:
     """Validates PRS calibration against empirical reference distributions."""
@@ -136,32 +121,22 @@ class CalibrationValidator:
             validations=validations,
             mean_slope=round(np.mean([v.calibration_slope for v in scored]), 4) if scored else 0,
             mean_r2=round(np.mean([v.r_squared for v in scored]), 4) if scored else 0,
-            well_calibrated_count=sum(1 for v in scored if v.is_well_calibrated),
-            poorly_calibrated_count=sum(1 for v in scored if not v.is_well_calibrated),
-            low_confidence_count=len(validations) - len(scored),
+            well_calibrated=sum(1 for v in scored if v.is_well_calibrated),
+            poorly_calibrated=sum(1 for v in scored if not v.is_well_calibrated),
+            low_confidence=len(validations) - len(scored),
             global_status="GOOD" if scored and sum(1 for v in scored if v.is_well_calibrated) > len(scored) * 0.7 else "NEEDS_IMPROVEMENT",
-            generated_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"))
+            generated_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+            tolerances={"slope": self.SLOPE_TOLERANCE, "r2": self.R2_THRESHOLD})
 
         self._save_report(report)
         return report
 
     def _save_report(self, report: CalibrationReport) -> None:
         path = self.output_dir / "calibration_validation.json"
-        with open(path, "w") as fh:
-            json.dump({
-                "global_status": report.global_status,
-                "mean_slope": report.mean_slope,
-                "mean_r2": report.mean_r2,
-                "well_calibrated": report.well_calibrated_count,
-                "poorly_calibrated": report.poorly_calibrated_count,
-                "low_confidence": report.low_confidence_count,
-                "generated_date": report.generated_date,
-                "tolerances": {"slope": self.SLOPE_TOLERANCE, "r2": self.R2_THRESHOLD},
-                "validations": [asdict(v) for v in report.validations],
-            }, fh, indent=2)
+        validate_and_write_json(report, path)
         logger.info(f"  ✅ Calibration validation: {path}")
         logger.info(f"  Mean slope: {report.mean_slope:.3f} (ideal=1.0)")
-        logger.info(f"  Well calibrated: {report.well_calibrated_count}/{len(report.validations)}")
+        logger.info(f"  Well calibrated: {report.well_calibrated}/{len(report.validations)}")
 
 def main():
     import argparse
