@@ -247,6 +247,18 @@ class TestConfidenceStars:
         low = confidence_stars(10)
         assert high.count("★") > low.count("★")
 
+    def test_half_star_does_not_use_the_broken_glyph(self):
+        """Regression: half-stars used to render as the U+2BE8 "left half
+        black star" character, which has essentially no font coverage and
+        shows up as a broken box/tofu glyph in real browsers. A half-star
+        case (e.g. score=55 -> 2.75/5 stars) must not contain it, and must
+        use the CSS-clipped-star technique instead (a real ★ character
+        inside a width:0.5em clipping span)."""
+        html = confidence_stars(55)
+        assert "⯨" not in html
+        assert "width:0.5em" in html
+        assert "★" in html and "☆" in html
+
 
 class TestCalibrationFlag:
     """Test the calibration quality badge."""

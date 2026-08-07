@@ -132,10 +132,19 @@ def confidence_stars(score):
     half = 1 if (stars - full) >= 0.5 else 0
     empty = 5 - full - half
     color = "#27ae60" if score >= 75 else ("#f39c12" if score >= 50 else "#e74c3c")
+    # Half star: a full star (★) clipped to 50% width over an empty star (☆)
+    # background, rather than the U+2BE8 "left half black star" glyph - that
+    # codepoint has essentially no font coverage and renders as a broken
+    # tofu/fallback box in most browsers, despite looking fine in an editor.
+    half_star = (
+        '<span style="position:relative;display:inline-block;width:1em">☆'
+        '<span style="position:absolute;left:0;top:0;width:0.5em;overflow:hidden;'
+        'display:inline-block">★</span></span>'
+    ) if half else ""
     return (
         f'<div style="display:flex;align-items:center;gap:4px;min-width:110px">'
         f'<span style="color:{color};font-weight:700;font-size:0.85rem;min-width:2.5em">{score:.0f}%</span>'
-        f'<span style="color:#f1c40f;font-size:0.75rem">{"★" * full}{"⯨" if half else ""}{"☆" * empty}</span>'
+        f'<span style="color:#f1c40f;font-size:0.75rem">{"★" * full}{half_star}{"☆" * empty}</span>'
         f'</div>'
     )
 
