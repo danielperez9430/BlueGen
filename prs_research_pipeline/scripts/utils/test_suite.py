@@ -48,6 +48,9 @@ EXPECTED_JSON_FILES = [
     ("science/pipeline_gate_check.json", ["checks", "pipeline_can_proceed"], "Pipeline gates"),
     ("science/snp_universe.json", ["unified_snp_count"], "SNP universe"),
     ("FINAL_SCIENTIFIC_SCORE.json", ["scientific_integrity_score", "components"], "Final score"),
+    # Only produced with `prs.py run --full --research-mode` since
+    # IMPROVEMENT_PLAN.md 2.3 - a "missing" warning after a plain --full
+    # run is expected, not a regression (audit artifact, not report content).
     ("PUBLICATION_LOCK.md", None, "Publication lock"),
     ("benchmark/VALIDATION_REPORT.json", ["entries", "validation_summary"], "Benchmark validation"),
     ("benchmark/gwas_consortium_validation.json", ["validations", "consortia"], "GWAS consortium"),
@@ -261,6 +264,9 @@ def test_pipeline_artifacts():
         ("interpretations/interpretations_en.json", "Stage K: EN interpretation"),
         ("interpretations/interpretations_es.json", "Stage K: ES interpretation"),
         ("reproducibility/run_fingerprint.json", "Phase 7: Reproducibility"),
+        # Only produced with `prs.py run --full --research-mode` since
+        # IMPROVEMENT_PLAN.md 2.3 - a "missing" warning after a plain --full
+        # run is expected, not a regression (audit artifact, not report content).
         ("science/assumptions.lock.json", "Phase 7: Scientific lock"),
     ]
 

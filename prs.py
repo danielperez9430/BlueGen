@@ -256,6 +256,7 @@ def cmd_run(args):
     DRY_RUN = args.dry_run
     DEBUG = args.debug
     full = args.full
+    research_mode = args.research_mode
     vcf = args.vcf or "input.vcf.gz"
     sample = args.sample or "SAMPLE_001"
     lang = args.lang or "both"
@@ -515,7 +516,11 @@ def cmd_run(args):
     # ── Freeze Layer ──
     hdr("Scientific Freeze (Phase 7)")
     run_script("reproducibility", "--lock", "--fingerprint", "--output-dir", "reproducibility")
-    run_script("scientific_lock", "--import-config", "config.yaml", "--output-dir", "science")
+    # Audit/reproducibility-lock document (science/assumptions.lock.json/.md) -
+    # not read by comprehensive_report.py or any script that feeds it
+    # (IMPROVEMENT_PLAN.md 2.3); still fully available via --research-mode.
+    if research_mode:
+        run_script("scientific_lock", "--import-config", "config.yaml", "--output-dir", "science")
 
     # ── Correction Layers ──
     hdr("Correction Layers (Phase 8)")
@@ -574,19 +579,28 @@ def cmd_run(args):
         run_script("final_score")
 
         hdr("Reports")
-        run_script("report_engine", "--sample-id", sample,
-                   "--prs-core", "science/prs_core_definition.json",
-                   "--ancestry", "science/ANCESTRY_MODEL.json",
-                   "--prs-result", "prs/PRS_RESULT.json",
-                   "--benchmark", "benchmark/VALIDATION_REPORT.json",
-                   "--integrity", "FINAL_SCIENTIFIC_SCORE.json",
-                   "--output-dir", "reports/")
+        # Bilingual manuscript text (reports/SCIENTIFIC_MANUSCRIPT_EN/ES.md) -
+        # despite the name, does NOT feed the interactive HTML report below
+        # (that's comprehensive_report, unconditional); still fully available
+        # via --research-mode, or standalone via `prs.py report`
+        # (IMPROVEMENT_PLAN.md 2.3).
+        if research_mode:
+            run_script("report_engine", "--sample-id", sample,
+                       "--prs-core", "science/prs_core_definition.json",
+                       "--ancestry", "science/ANCESTRY_MODEL.json",
+                       "--prs-result", "prs/PRS_RESULT.json",
+                       "--benchmark", "benchmark/VALIDATION_REPORT.json",
+                       "--integrity", "FINAL_SCIENTIFIC_SCORE.json",
+                       "--output-dir", "reports/")
         run_script("comprehensive_report", "--sample-id", sample, "--lang", lang,
                    "--output-dir", "reports/")
 
-        hdr("Publication Lock")
-        run_script("evidence_pack", "--output-dir", "publication_evidence_pack")
-        run_script("publication_lock")
+        # Audit bundle + readiness declaration, not report content - still
+        # fully available via --research-mode (IMPROVEMENT_PLAN.md 2.3).
+        if research_mode:
+            hdr("Publication Lock")
+            run_script("evidence_pack", "--output-dir", "publication_evidence_pack")
+            run_script("publication_lock")
 
     # ── Summary ──
     print(f"\n{B}{C}{'═'*50}{N}")
@@ -930,6 +944,10 @@ def main():
     parser.add_argument("--lang", default="both", choices=["en", "es", "both"])
     parser.add_argument("--full", action="store_true",
                        help="Run pipeline + validation + benchmarks + reports + lock")
+    parser.add_argument("--research-mode", action="store_true",
+                       help="Also generate audit-trail artifacts (scientific lock, "
+                            "manuscripts, evidence pack, publication lock) - skipped "
+                            "by default, still fully available with this flag")
     parser.add_argument("--with-1000g", action="store_true",
                        help="Include 1000 Genomes PCA projection")
     parser.add_argument("--dry-run", action="store_true",
