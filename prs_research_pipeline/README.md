@@ -170,7 +170,7 @@ BlueGen/
 | `prs/PRS_RESULT.csv` | PRS results as CSV |
 | `prs/prs_raw.csv` | Raw PLINK scores (multi-sample) |
 | `prs/prs_adjusted.csv` | PCA-adjusted PRS |
-| `prs/population_calibration_report.json` | Population-stratified calibration |
+| `prs/population_calibrated_v2.csv` | Population-stratified calibration (z-score, percentile per trait) |
 | `prs/uncertainty_report.json` | 3-layer variance propagation |
 | `pca/ancestry_classification.json` | PCA ensemble ancestry call |
 | `science/ANCESTRY_MODEL.json` | Canonical ancestry model |

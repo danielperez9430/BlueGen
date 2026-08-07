@@ -53,7 +53,9 @@ EXPECTED_JSON_FILES = [
     ("benchmark/gwas_consortium_validation.json", ["validations", "consortia"], "GWAS consortium"),
     ("benchmark/portability_report.json", ["populations", "global_bias_index"], "Portability"),
     ("benchmark/quality_delta.json", ["components", "mean_delta"], "Quality delta"),
-    ("prs/population_calibration_report.json", ["traits_analyzed", "methodology"], "Calibration report"),
+    # prs/population_calibration_report.json intentionally absent: no script
+    # in the codebase produces it (confirmed via git log -S across all
+    # history) - it's a phantom artifact, not a missing test (IMPROVEMENT_PLAN.md 2.2).
     ("prs/uncertainty_report.json", ["results", "global_uncertainty_score"], "Uncertainty report"),
     ("prs/consistency_check_report.json", ["passed", "gwas_ancestry_match"], "Consistency check"),
     ("reproducibility/run_fingerprint.json", ["run_id", "environment"], "Run fingerprint"),
@@ -255,7 +257,6 @@ def test_pipeline_artifacts():
         ("pca/target_pcs.eigenvec", "Stage D: Target sample PCs"),
         ("prs/PRS_RESULT.json", "Stage F-H: PRS output"),
         ("prs/PRS_RESULT.csv", "Stage F-H: PRS CSV"),
-        ("prs/population_calibration_report.json", "Stage H: Calibration"),
         ("prs/uncertainty_report.json", "Stage I: Uncertainty"),
         ("interpretations/interpretations_en.json", "Stage K: EN interpretation"),
         ("interpretations/interpretations_es.json", "Stage K: ES interpretation"),
@@ -471,22 +472,10 @@ def test_prs_edge_cases():
         except Exception as e:
             bad(f"PRS adjusted: parse error — {e}")
 
-    # Population calibration
-    cal = PLATFORM_DIR / "prs" / "population_calibration_report.json"
-    if cal.exists():
-        try:
-            with open(cal) as fh:
-                data = json.load(fh)
-            traits = data.get("traits_analyzed", 0)
-            method = data.get("methodology", "")
-            if traits >= 10:
-                ok(f"Calibration: {traits} traits ({method})")
-            elif traits > 0:
-                warn(f"Calibration: only {traits} traits")
-            else:
-                warn("Calibration: 0 traits")
-        except Exception as e:
-            bad(f"Calibration: parse error — {e}")
+    # Population calibration: prs/population_calibration_report.json has no
+    # producer anywhere in the codebase (IMPROVEMENT_PLAN.md 2.2) - this
+    # used to silently no-op on the `if cal.exists()` guard since the file
+    # never exists; removed rather than checking for a phantom artifact.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

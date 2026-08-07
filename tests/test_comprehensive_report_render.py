@@ -23,21 +23,25 @@ from comprehensive_report import build_html_report  # noqa: E402
 
 
 def _fake_data():
+    # Field names here must match bluegen.schemas.PRSResultEntry / the real
+    # producer (scripts/sss/37_prs_result_unified.py) - population_zscore/
+    # population_percentile, no evidence_level - not the PGS-section's
+    # unrelated z_score/percentile/evidence_level fields (IMPROVEMENT_PLAN.md 2.2).
     prs_entries = [
         {
-            "trait": "Lactose intolerance", "z_score": 2.3, "risk_category": "high",
-            "percentile": 95, "n_snps_used": 3, "n_snps_total": 3,
-            "uncertainty_score": 0.2, "evidence_level": "A",
+            "trait": "Lactose intolerance", "population_zscore": 2.3, "risk_category": "high",
+            "population_percentile": 95, "n_snps_used": 3, "n_snps_total": 3,
+            "uncertainty_score": 0.2,
         },
         {
-            "trait": "Morning chronotype (early bird)", "z_score": 1.8, "risk_category": "high",
-            "percentile": 90, "n_snps_used": 2, "n_snps_total": 2,
-            "uncertainty_score": 0.3, "evidence_level": "B",
+            "trait": "Morning chronotype (early bird)", "population_zscore": 1.8, "risk_category": "high",
+            "population_percentile": 90, "n_snps_used": 2, "n_snps_total": 2,
+            "uncertainty_score": 0.3,
         },
         {
-            "trait": "Vitamin D metabolism", "z_score": -0.5, "risk_category": "low",
-            "percentile": 30, "n_snps_used": 8, "n_snps_total": 12,
-            "uncertainty_score": 0.4, "evidence_level": "A",
+            "trait": "Vitamin D metabolism", "population_zscore": -0.5, "risk_category": "low",
+            "population_percentile": 30, "n_snps_used": 8, "n_snps_total": 12,
+            "uncertainty_score": 0.4,
         },
     ]
     return {
