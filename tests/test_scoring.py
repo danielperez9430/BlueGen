@@ -76,6 +76,34 @@ class TestBuildScoreRowsMatching:
         rows = build_score_rows(panel, bim_ids={"1:1000", "1:2000"})
         assert rows == [("1:1000", "A", 0.1), ("1:2000", "G", 0.2)]
 
+    def test_effect_direction_minus_negates_weight(self):
+        """A protective/risk-lowering effect_allele (effect_direction='-')
+        must be subtracted, not added - PLINK's --score format has no
+        separate direction column, so this has to be baked into the signed
+        weight. Previously silently ignored (every row defaulted to '+' by
+        construction except 3 real ones that needed '-')."""
+        panel = _panel([
+            {"chrom": "1", "pos": "1000", "effect_allele": "A", "weight": "0.2",
+             "effect_direction": "-"},
+        ])
+        rows = build_score_rows(panel, bim_ids={"1:1000"})
+        assert rows == [("1:1000", "A", -0.2)]
+
+    def test_effect_direction_plus_is_unchanged(self):
+        panel = _panel([
+            {"chrom": "1", "pos": "1000", "effect_allele": "A", "weight": "0.2",
+             "effect_direction": "+"},
+        ])
+        rows = build_score_rows(panel, bim_ids={"1:1000"})
+        assert rows == [("1:1000", "A", 0.2)]
+
+    def test_effect_direction_missing_defaults_to_plus(self):
+        panel = _panel([
+            {"chrom": "1", "pos": "1000", "effect_allele": "A", "weight": "0.2"},
+        ])
+        rows = build_score_rows(panel, bim_ids={"1:1000"})
+        assert rows == [("1:1000", "A", 0.2)]
+
 
 class TestWriteScoreFile:
     def test_tab_separated_format(self):

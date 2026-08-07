@@ -69,9 +69,12 @@ def build_reference_distributions(
             pos = row.get("pos", "")
             allele = row.get("effect_allele", "")
             weight = row.get("weight", row.get("beta", "1.0"))
+            direction = str(row.get("effect_direction", "+")).strip()
             if chrom and pos and allele:
                 try:
                     w = float(weight)
+                    if direction == "-":
+                        w = -w
                     var_id = f"{chrom}:{pos}"
                     # Deduplicate: same position, different rsID (multi-allelic/co-located)
                     if var_id in seen_ids:

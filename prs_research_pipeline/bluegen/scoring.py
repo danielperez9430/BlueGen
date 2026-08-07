@@ -74,12 +74,19 @@ def build_score_rows(trait_snps: pd.DataFrame, bim_ids: set) -> List[Tuple[str, 
     Args:
         trait_snps: rows of the curated SNP panel for one trait_category,
             with at least chrom/pos/effect_allele/weight columns (str dtype,
-            matching pd.read_csv(snp_db, dtype=str) upstream).
+            matching pd.read_csv(snp_db, dtype=str) upstream), plus an
+            optional effect_direction column ('+'/'-', defaults to '+').
         bim_ids: set of "chrom:pos" variant ids present in the genotype data.
 
     Returns:
-        List of (vid, effect_allele, weight) tuples ready to write to a
-        PLINK --score file, for SNPs that matched and had a parseable weight.
+        List of (vid, effect_allele, signed_weight) tuples ready to write to
+        a PLINK --score file, for SNPs that matched and had a parseable
+        weight. PLINK's --score format has no separate direction column, so
+        effect_direction='-' (a protective/risk-lowering effect_allele) is
+        applied here by negating the weight - this was previously silently
+        ignored (IMPROVEMENT_PLAN.md follow-up, found via a full-panel
+        polarity audit): every row used effect_direction='+' by construction
+        except 3, which were being added to the score instead of subtracted.
     """
     rows = []
     for _, row in trait_snps.iterrows():
@@ -87,10 +94,13 @@ def build_score_rows(trait_snps: pd.DataFrame, bim_ids: set) -> List[Tuple[str, 
         pos = str(row.get("pos", "")).strip()
         allele = str(row.get("effect_allele", "")).strip()
         weight = row.get("weight", "1.0")
+        direction = str(row.get("effect_direction", "+")).strip()
         vid = f"{chrom}:{pos}"
         if chrom and pos and allele and vid in bim_ids:
             try:
                 w = float(weight)
+                if direction == "-":
+                    w = -w
                 rows.append((vid, allele, w))
             except ValueError:
                 continue
