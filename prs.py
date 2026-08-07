@@ -160,7 +160,7 @@ def run_script(key, *args, shell=False, required=False):
     if not script_path.exists():
         if required:
             err(f"Required script not found: {script}")
-            return 1
+            sys.exit(1)
         info(f"Skipping {key} — {script} not found")
         return 0
 
@@ -203,6 +203,8 @@ def run_script(key, *args, shell=False, required=False):
                     info(f"    {D}{line[:130]}{N}")
             if required:
                 err(f"  Pipeline halted: {key} failed with exit code {result.returncode}")
+                err(f"  See pipeline_debug.log for the full failure output")
+                sys.exit(result.returncode or 1)
         return result.returncode
     except subprocess.TimeoutExpired:
         err(f"  {key} — timed out")
@@ -214,14 +216,15 @@ def run_shell(key, *args, required=False):
 
 
 def require_output(path, label, stage=""):
-    """Validate that a pipeline output file exists. Returns True or halts."""
+    """Validate that a pipeline output file exists.
+    Returns True if present; halts the process (sys.exit(1)) if missing."""
     if exists(path):
         return True
     err(f"Output not found: {path} ({label})")
     if stage:
         err(f"  Stage '{stage}' did not produce expected output")
     err(f"  Check pipeline_debug.log for details")
-    return False
+    sys.exit(1)
 
 
 def exists(path):
@@ -397,6 +400,10 @@ def cmd_run(args):
               "--out-dir", "plink/", required=True)
     require_output("plink/ld_pruned_dataset.bed", "LD-pruned dataset", "stage_c")
 
+    # Deliberately not required=True: stage_g/stage_h already gate on
+    # exists("pca/target_pcs.eigenvec") and fall back to unadjusted
+    # calibration when it's missing (IMPROVEMENT_PLAN.md 4.3) - a Stage D
+    # failure degrades visibly instead of crashing uninformatively.
     run_shell("stage_d", g1k_arg, g1k_ref,
               "--target-bfile", "plink/ld_pruned_dataset",
               "--population-panel", pop_ref, "--out-dir", "pca/")
