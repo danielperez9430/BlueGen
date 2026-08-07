@@ -34,6 +34,9 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bluegen.schemas import AncestryModel, validate_and_write_json  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 SUPER_POPS = ["EUR", "AFR", "EAS", "SAS", "AMR"]
@@ -195,25 +198,35 @@ def classify(ref_pcs_path: str = "pca/1000G_pcs.eigenvec",
     # Also update ANCESTRY_MODEL.json
     science_dir = Path("science")
     science_dir.mkdir(exist_ok=True)
-    ssst_result = {
-        "method": "PCA_ENSEMBLE_V2",
-        "reference_panel": "1000 Genomes Phase 3 (all autosomes)",
-        "n_pcs": len(pc_cols),
-        "n_reference_samples": len(X_ref),
-        "super_populations": SUPER_POPS,
-        "assigned_population": ensemble["assigned"],
-        "posterior_probabilities": ensemble["probabilities"],
-        "confidence": ensemble["confidence"],
-        "quality_metrics": {
+    method = "PCA_ENSEMBLE_V2"
+    n_pcs = len(pc_cols)
+    assigned_population = ensemble["assigned"]
+    # Deterministic hash, same formula as scripts/sss/39_ancestry_model_unified.py -
+    # Python's builtin hash() is salted per-process (PYTHONHASHSEED), so the
+    # previous hex(hash(frozenset(...))) approach produced a different
+    # model_hash on every run even for identical inputs (IMPROVEMENT_PLAN.md 2.2).
+    import hashlib
+    model_hash = hashlib.sha256(
+        f"{method}{assigned_population}{n_pcs}".encode()
+    ).hexdigest()[:16]
+    ssst_result = AncestryModel(
+        method=method,
+        reference_panel="1000 Genomes Phase 3 (all autosomes)",
+        n_pcs=n_pcs,
+        n_reference_samples=len(X_ref),
+        super_populations=SUPER_POPS,
+        assigned_population=assigned_population,
+        posterior_probabilities=ensemble["probabilities"],
+        confidence=ensemble["confidence"],
+        quality_metrics={
             "confidence_ratio": ensemble["confidence_ratio"],
             "knn_mean_distance": knn["mean_distance"],
         },
-        "is_valid_for_scoring": ensemble["confidence"] != "LOW",
-        "model_hash": hex(hash(frozenset(ensemble["probabilities"].items())))[:16],
-        "frozen_date": datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
-    }
-    with open(science_dir / "ANCESTRY_MODEL.json", "w") as fh:
-        json.dump(ssst_result, fh, indent=2)
+        is_valid_for_scoring=ensemble["confidence"] != "LOW",
+        model_hash=model_hash,
+        frozen_date=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+    )
+    validate_and_write_json(ssst_result, science_dir / "ANCESTRY_MODEL.json")
 
     logger.info(f"  ✅ Classifier: {output_dir}/ancestry_classification.json")
     logger.info(f"  ✅ ANCESTRY_MODEL: science/ANCESTRY_MODEL.json")

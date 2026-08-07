@@ -31,31 +31,17 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from datetime import datetime
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bluegen.schemas import AncestryModel, validate_and_write_json  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 VALID_ANCESTRY_METHODS = ["pca_ensemble_v2", "reference_projection", "allele_frequency_distance"]
 DIAGNOSTIC_ONLY_METHODS = ["allele_frequency_distance", "centroid_distance",
                             "nearest_neighbor", "knn", "logistic_regression"]
-
-@dataclass
-class AncestryModel:
-    """Canonical ancestry model — the SSST for ancestry inference."""
-    method: str = "PCA_ENSEMBLE_V2"
-    reference_panel: str = "1000 Genomes Phase 3 (all autosomes)"
-    n_pcs: int = 20
-    n_reference_samples: int = 2504
-    super_populations: List[str] = field(default_factory=lambda: ["EUR","AFR","EAS","SAS","AMR"])
-    assigned_population: str = "UNKNOWN"
-    posterior_probabilities: Dict[str, float] = field(default_factory=dict)
-    confidence: str = "UNKNOWN"
-    quality_metrics: Dict[str, float] = field(default_factory=dict)
-    is_valid_for_scoring: bool = False
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
-    model_hash: str = ""
-    frozen_date: str = ""
 
 @dataclass
 class AncestryAudit:
@@ -170,21 +156,7 @@ class AncestryModelUnification:
 
     def _save(self, model: AncestryModel, audit: AncestryAudit) -> None:
         # Canonical model
-        with open(self.output_dir / "ANCESTRY_MODEL.json", "w") as fh:
-            json.dump({
-                "method": model.method,
-                "reference_panel": model.reference_panel,
-                "n_pcs": model.n_pcs,
-                "n_reference_samples": model.n_reference_samples,
-                "super_populations": model.super_populations,
-                "assigned_population": model.assigned_population,
-                "posterior_probabilities": model.posterior_probabilities,
-                "confidence": model.confidence,
-                "quality_metrics": model.quality_metrics,
-                "is_valid_for_scoring": model.is_valid_for_scoring,
-                "model_hash": model.model_hash,
-                "frozen_date": model.frozen_date,
-            }, fh, indent=2)
+        validate_and_write_json(model, self.output_dir / "ANCESTRY_MODEL.json")
 
         # Diagnostics audit
         with open(self.output_dir / "ancestry_diagnostics_audit.json", "w") as fh:
