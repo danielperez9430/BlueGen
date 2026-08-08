@@ -10,7 +10,7 @@
 
 pipeline:
   name: "PRS Research Pipeline"
-  version: "2.0.1"
+  version: "2.0.2"
   genome_build: "GRCh37"
   variant_caller: "DeepVariant 1.5.0"
   description: >

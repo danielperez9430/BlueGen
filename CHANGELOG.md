@@ -4,6 +4,10 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [2.0.2] — 2026-08-08
+
 ### Fixed
 - **Population calibration silently defaulted every user to EUR ancestry**: `cmd_run`'s ancestry-lookup for Stage H (`prs.py`) fell back to `pca/ancestry_inference.json`, a stale file from the pre-Phase-6 allele-frequency ancestry method that no current script writes and whose JSON has no top-level `assigned_population` key - `calibrate_sample()` silently defaulted to `"EUR"` whenever that key was missing, regardless of the sample's real ancestry. It never checked `pca/ancestry_classification.json`, the actual current PCA-ensemble classifier output, already documented as canonical in `scripts/sss/39_ancestry_model_unified.py`. New `resolve_ancestry_json()` fixes the lookup order; the no-ancestry fallback now warns explicitly instead of silently no-op'ing.
 - **Population-calibrated PRS results were stale**: Stage H hadn't been re-run since the `reference_distributions.json` regeneration in TIER 3.4, so `prs/population_calibrated_v2.csv` (and the rendered report) still reflected pre-fix population statistics. Recalibrating changes the risk category for 4 traits: Iron levels and Vitamin D binding move low → high; Inflammation (CRP levels) moves medium → low; Cognitive function moves low → medium.
