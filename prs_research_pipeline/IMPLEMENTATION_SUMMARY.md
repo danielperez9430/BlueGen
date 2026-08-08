@@ -2,6 +2,13 @@
 
 **Current:** v10.0.0 | **Date:** 2026-06-07
 
+> **Historical record — version numbers below predate the version-unification fix.**
+> This file is one of the 9 that independently hardcoded its own `pipeline_version`
+> before that was fixed (see `CHANGELOG.md`, TIER 0.1). "v10.0.0" here is not newer
+> than the platform's real current version - it's a snapshot of the pre-unification
+> chaos this file documents. For the actual current version, see
+> `scripts/utils/constants.py::PIPELINE_VERSION` or the root `README.md` badge.
+
 ---
 
 ## Phase 1-3 — Core Pipeline (v1.0 → v3.1)

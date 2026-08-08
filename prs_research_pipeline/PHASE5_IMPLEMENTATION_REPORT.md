@@ -6,6 +6,10 @@
 **Pipeline Version:** 4.0.0 → 4.1.0 (Phase 5 additive)
 **Status:** ✅ COMPLETE
 
+> **Historical snapshot** - version numbers predate the version-unification fix
+> (`CHANGELOG.md`, TIER 0.1) and don't reflect the current version. See
+> `scripts/utils/constants.py::PIPELINE_VERSION`.
+
 ---
 
 ## Summary

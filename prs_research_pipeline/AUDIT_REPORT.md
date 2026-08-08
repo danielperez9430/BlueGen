@@ -5,6 +5,10 @@
 **Auditor:** Automated multi-agent + direct analysis
 **Scope:** All 25 scripts, 10 shell pipelines, 11 Python modules, configuration, outputs
 
+> **Historical snapshot from 2026-06-03** - "Platform Version 4.0.0" predates the
+> version-unification fix (`CHANGELOG.md`, TIER 0.1) and does not reflect the
+> current version. See `scripts/utils/constants.py::PIPELINE_VERSION`.
+
 ---
 
 ## EXECUTIVE SUMMARY

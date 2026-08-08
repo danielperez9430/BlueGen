@@ -4,6 +4,10 @@
 **Platform Version:** 7.0.0 (Phase 7 Scientific Freeze)
 **Status:** ✅ COMPLETE
 
+> **Historical snapshot** - version numbers predate the version-unification fix
+> (`CHANGELOG.md`, TIER 0.1) and don't reflect the current version. See
+> `scripts/utils/constants.py::PIPELINE_VERSION`.
+
 ---
 
 ## Executive Summary
