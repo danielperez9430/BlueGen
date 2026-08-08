@@ -62,7 +62,7 @@ Data sources: [`prs_research_pipeline/reference/SOURCES.md`](prs_research_pipeli
 - **PLINK v1.90b7.2+** — [Download](https://www.cog-genomics.org/plink/) (free, GPLv3)
 - **PLINK 2.0** — [Download](https://www.cog-genomics.org/plink/2.0/) (optional, for advanced QC)
 - **bcftools + tabix** — `brew install bcftools tabix` (macOS) or `apt install bcftools tabix` (Linux)
-- **BWA** — `brew install bwa` (optional, for FASTQ → BAM alignment)
+- **BWA** — `brew install bwa` (macOS) or `apt install bwa` (Linux) (optional, for FASTQ → BAM alignment)
 - macOS/Linux (Windows via WSL2)
 - ~200 MB reference data (auto-downloaded on first run)
 - ~65 GB reference data bundle (optional — from [archive.org](https://archive.org/details/bluegen-reference-data) snapshot or `prs_research_pipeline/scripts/setup/` to fetch latest from public sources)

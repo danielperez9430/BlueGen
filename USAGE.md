@@ -47,8 +47,8 @@ open prs_research_pipeline/reports/comprehensive_report_en.html
 |-----------|---------|-------------|
 | Operating System | macOS 12+ / Linux (x86_64/ARM64) | macOS 14+ / Ubuntu 24.04+ |
 | Python | 3.10+ | 3.12+ |
-| PLINK | Bundled in `tools/plink` (1.9) | — |
-| bcftools + tabix | `brew install htslib` | — |
+| PLINK | Not bundled - download and place in `tools/plink` (1.9) | — |
+| bcftools + tabix | `brew install htslib` (macOS) / `sudo apt install bcftools tabix` (Linux) | — |
 | Memory | 8 GB | 16 GB |
 | Disk | 5 GB | 100+ GB (with full 1000G + BAM + VCFs) |
 | Network | For reference downloads | Broadband |

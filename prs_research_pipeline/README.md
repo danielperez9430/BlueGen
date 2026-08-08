@@ -209,8 +209,8 @@ BlueGen/
 | Working space | ~30 GB | Pipeline intermediates |
 | RAM | 16 GB | Recommended |
 | Python 3.10+ | — | With venv |
-| PLINK 1.9 | — | Bundled in `tools/` |
-| bcftools, tabix | — | `brew install htslib` (macOS) |
+| PLINK 1.9 | — | Not bundled - download separately, place in `tools/` (see System Tools in the root README) |
+| bcftools, tabix | — | `brew install htslib` (macOS) or `sudo apt install bcftools tabix` (Linux) |
 
 ## External Data
 
@@ -335,7 +335,7 @@ BlueGen/
 - **macOS:** `brew install htslib` for bcftools/tabix
 - **Linux:** `sudo apt install bcftools tabix` (Ubuntu/Debian)
 - **Windows:** Use WSL2 (Ubuntu recommended)
-- **PLINK:** Bundled in `tools/plink` (macOS/Linux). No system install needed.
+- **PLINK:** Not bundled (macOS/Linux/Windows alike) - `tools/` is git-ignored. Download the build for your OS and place it at `tools/plink`/`tools/plink2` (see root README's System Tools table).
 - **Python:** 3.10+ with venv. All packages in `requirements.txt`.
 - All scripts use `sys.executable` — works regardless of venv activation.
 - Pipeline auto-detects project root from `__file__` — works from any CWD.
