@@ -231,6 +231,29 @@ def exists(path):
     return (PLATFORM_DIR / path).exists()
 
 
+# Canonical order, matching scripts/sss/39_ancestry_model_unified.py's own
+# policy ("the canonical model is 1000G PCA projection; any other ancestry
+# estimator ... MUST NOT influence scoring or calibration"). This used to
+# check "pca/ancestry_inference.json" as a fallback - a stale, no-longer-written
+# file from the pre-Phase-6 allele-frequency method whose JSON has no
+# top-level "assigned_population" key, so calibrate_sample() silently
+# defaulted every sample to EUR regardless of real ancestry (IMPROVEMENT_PLAN.md
+# TIER 3.5). Never reintroduce it here without also fixing that schema gap.
+ANCESTRY_JSON_CANDIDATES = (
+    "pca/ancestry_classification.json",  # PCA ensemble classifier (v2, current)
+    "ancestry/classification_report.json",  # documented alternate producer path
+)
+
+
+def resolve_ancestry_json():
+    """Return the first existing canonical ancestry-classification JSON, or
+    None if the classifier hasn't produced one (Stage D failed/was skipped)."""
+    for candidate in ANCESTRY_JSON_CANDIDATES:
+        if exists(candidate):
+            return candidate
+    return None
+
+
 def load_json(path):
     p = PLATFORM_DIR / path
     if p.exists():
@@ -449,22 +472,26 @@ def cmd_run(args):
         info("  Skipping PCA adjustment — no target_pcs.eigenvec (run Stage D first)")
 
     # Population calibration
-    anc_json = "ancestry/classification_report.json"
-    if not exists(anc_json):
-        anc_json = "pca/ancestry_inference.json"
+    anc_json = resolve_ancestry_json()
     cal_done = False
-    if exists(anc_json) and exists("prs/pca_adjusted_scores.csv"):
+    if anc_json and exists("prs/pca_adjusted_scores.csv"):
         run_script("stage_h", "--sample-prs", "prs/pca_adjusted_scores.csv",
                    "--ancestry-json", anc_json, "--output-dir", "prs/",
                    "--calibrate-only")
         cal_done = True
-    elif exists(anc_json) and exists("prs/prs_raw.csv"):
+    elif anc_json and exists("prs/prs_raw.csv"):
         run_script("stage_h", "--sample-prs", "prs/prs_raw.csv",
                    "--ancestry-json", anc_json, "--output-dir", "prs/",
                    "--calibrate-only")
         cal_done = True
     if not cal_done and exists("prs/prs_raw.csv"):
-        # Fallback: calibrate without ancestry info
+        # population_calibrate_v2.py only calibrates when --ancestry-json is
+        # passed (see bluegen/calibration.py::calibrate_sample) - without a
+        # classifier output, this call is a documented no-op, not a real
+        # ancestry-blind calibration mode. Surface that instead of silently
+        # producing an empty prs/population_calibrated_v2.csv.
+        warn("  No ancestry classification found — population calibration skipped "
+             "(re-run Stage D, or check pca/ancestry_classification.json)")
         run_script("stage_h", "--sample-prs", "prs/prs_raw.csv",
                    "--output-dir", "prs/", "--calibrate-only")
 
