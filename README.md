@@ -46,6 +46,37 @@ venv/bin/streamlit run dashboard.py
 | 📖 **MedGen** | Disease definitions for ClinVar findings | NCBI MedGen (23K concepts) |
 | 📊 **Dashboard** | 6-page interactive Streamlit app | All JSON outputs |
 
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    VCF["WGS VCF<br/>(.vcf.gz)"]
+    QC["Genotype processing<br/>QC filter → LD-prune → PCA vs 1000 Genomes"]
+
+    PRS["PRS + PGS scoring<br/>PLINK --score → PCA-adjust → population-calibrate<br/>56 curated traits + 52 PGS Catalog scores"]
+    CLIN["ClinVar + MedGen<br/>pathogenic/likely-pathogenic screen"]
+    PHARM["PharmGKB<br/>CPIC drug-gene guidelines"]
+    ANC["Ancestry + Archaic DNA<br/>PCA population, mtDNA/Y-DNA, Neanderthal/Denisovan"]
+
+    SSST["SSST consolidation<br/>schema-validated canonical JSON"]
+    VALID["Validation suite<br/>adversarial + calibration checks"]
+    REPORT["Comprehensive report<br/>bilingual HTML + Streamlit dashboard"]
+
+    VCF --> QC
+    QC --> PRS
+    QC --> CLIN
+    QC --> PHARM
+    QC --> ANC
+    PRS --> SSST
+    CLIN --> SSST
+    PHARM --> SSST
+    ANC --> SSST
+    SSST --> VALID
+    VALID --> REPORT
+```
+
+Everything above runs locally — no genetic data ever leaves the machine.
+
 ## 📁 Documentation
 
 Full docs: [`prs_research_pipeline/README.md`](prs_research_pipeline/README.md)
