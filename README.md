@@ -85,7 +85,7 @@ Quick reference: [`USAGE.md`](USAGE.md)
 
 Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
-Data sources: [`prs_research_pipeline/reference/SOURCES.md`](prs_research_pipeline/reference/SOURCES.md)
+Data sources & attribution: [`SOURCES.md`](SOURCES.md)
 
 ## 🔧 Requirements
 
@@ -113,6 +113,12 @@ PLINK is **not bundled** — download the correct build for your OS:
 | PLINK 2.0 | [v2.0.0-a.7.1](https://www.cog-genomics.org/plink/2.0/) | `plink2_mac_arm64` | `plink2_mac` | `plink2_linux` |
 
 Place the binaries in your `PATH` or symlink them into the project root.
+
+## 📄 License
+
+The **code** of this project is released under the [MIT License](LICENSE).
+
+The **data files** under `prs_research_pipeline/reference/` and `prs_research_pipeline/data/` retain the licenses of their original providers (see [`SOURCES.md`](SOURCES.md)). In particular, `reference/clinpgx/` and files derived from it are PharmGKB/ClinPGx data licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) — they are redistributed here with attribution and remain under that license, not MIT. All other bundled reference data (ClinVar, MedGen, 1000 Genomes, AADR, etc.) is public domain / CC0 / open access.
 
 ## ⚠️ Disclaimer
 

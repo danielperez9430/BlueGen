@@ -19,3 +19,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+NOTE ON BUNDLED DATA
+
+The MIT license above applies to the source code and documentation of this
+project only. Data files obtained from external databases (under
+prs_research_pipeline/reference/ and prs_research_pipeline/data/) are NOT
+covered by this license: they remain under the licenses of their original
+providers, as documented in SOURCES.md. In particular, the files under
+prs_research_pipeline/reference/clinpgx/ and any files derived from them are
+PharmGKB/ClinPGx data licensed under Creative Commons Attribution-ShareAlike
+4.0 (CC BY-SA 4.0).
