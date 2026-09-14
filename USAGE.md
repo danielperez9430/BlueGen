@@ -370,4 +370,6 @@ FASTQ (.fq.gz)                         raw_data/fastq/
 | `Invalid chromosome code` | Non-standard contigs (e.g., `chr6_ssto_hap7`) — scripts use `--allow-extra-chr` |
 | `Duplicate ID in PLINK` | Auto-handled by dedup logic in PRS computation |
 | `Stage C OOM` | Reduce parallel jobs or increase `--memory` in `scripts/stages/03_ld_ancestry_prune.sh` |
+| A stage failed, need its output | Open `prs_research_pipeline/logs/<stage>.log` — one file per stage with that stage's full stdout/stderr (written every run). `pipeline_debug.log` still aggregates failures. |
+| Stage C slow every run | The ancestry-matched prune set is cached next to the reference as `1000G_full_ancestry_pruned_w<window>_s<step>_r<r2>_<mode>.txt` and reused for any sample. It is keyed by the pruning parameters, so changing `--r2`/`--window-size`/`--union-mode` recomputes (45 min cold, ~30 s cached). A pre-2.1 `..._ancestry_pruned_snps.txt` file is migrated automatically for the default parameters. |
 | `DeepVariant OOM` | Reduce `--num_shards` or increase Docker memory allocation |

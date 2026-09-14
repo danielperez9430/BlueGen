@@ -42,6 +42,12 @@ STEP_SIZE=5
 R2_THRESHOLD=0.2
 UNION_MODE="conservative"  # conservative = intersection (keep if independent in ALL)
 
+# Cache tag for the default parameters — the pre-2.1 cache file
+# (<ref>_ancestry_pruned_snps.txt) carried no parameters at all, so it is
+# only trusted (and migrated) when the run uses exactly these defaults.
+cache_tag() { echo "w${1}_s${2}_r${3}_${4}"; }
+DEFAULT_CACHE_TAG="$(cache_tag "$WINDOW_SIZE" "$STEP_SIZE" "$R2_THRESHOLD" "$UNION_MODE")"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --bfile) BFILE="$2"; shift 2 ;;
@@ -92,8 +98,18 @@ echo "  r² threshold: $R2_THRESHOLD"               | tee -a "$LOG"
 # ── Build 1000G PLINK if needed ───────────────────────────────────────
 if [[ -n "${G1K_BFILE:-}" ]] && [[ -f "${G1K_BFILE}.bed" ]]; then
     G1K_PREFIX="$G1K_BFILE"
-    # Check for cached ancestry-pruned SNP list from this reference
-    CACHED_PRUNE="${G1K_BFILE}_ancestry_pruned_snps.txt"
+    # Check for a cached ancestry-pruned SNP list from this reference.
+    # The prune set depends only on the reference and the pruning parameters
+    # (not on the target sample), so the cache key is <ref>_<params>. The
+    # pre-2.1 key had no parameters: a run with --r2 0.5 silently reused a
+    # set pruned at r2=0.2. Migrate that legacy file only for default params.
+    CACHE_TAG="$(cache_tag "$WINDOW_SIZE" "$STEP_SIZE" "$R2_THRESHOLD" "$UNION_MODE")"
+    CACHED_PRUNE="${G1K_BFILE}_ancestry_pruned_${CACHE_TAG}.txt"
+    LEGACY_CACHE="${G1K_BFILE}_ancestry_pruned_snps.txt"
+    if [[ ! -f "$CACHED_PRUNE" ]] && [[ -f "$LEGACY_CACHE" ]] && [[ "$CACHE_TAG" == "$DEFAULT_CACHE_TAG" ]]; then
+        echo "  Migrating legacy prune cache (default parameters) → $CACHED_PRUNE" | tee -a "$LOG"
+        cp "$LEGACY_CACHE" "$CACHED_PRUNE"
+    fi
     if [[ -f "$CACHED_PRUNE" ]]; then
         echo "" | tee -a "$LOG"
         echo "✅ Using cached ancestry-pruned SNP list: $CACHED_PRUNE" | tee -a "$LOG"
@@ -296,9 +312,9 @@ with open('$FINAL_PRUNE', 'w') as fh:
 print(f'  Written: $FINAL_PRUNE ({len(result)} SNPs)')
 " 2>&1 | tee -a "$LOG"
 
-# Cache the result alongside the reference for future runs
+# Cache the result alongside the reference for future runs (keyed by params)
 if [[ -n "${G1K_BFILE:-}" ]] && [[ -f "${G1K_BFILE}.bed" ]]; then
-    CACHED_PRUNE="${G1K_BFILE}_ancestry_pruned_snps.txt"
+    CACHED_PRUNE="${G1K_BFILE}_ancestry_pruned_$(cache_tag "$WINDOW_SIZE" "$STEP_SIZE" "$R2_THRESHOLD" "$UNION_MODE").txt"
     cp "$FINAL_PRUNE" "$CACHED_PRUNE"
     echo "  Cached: $CACHED_PRUNE" | tee -a "$LOG"
 fi

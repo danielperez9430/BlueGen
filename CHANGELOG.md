@@ -4,11 +4,20 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
+### Added
+- Per-stage orchestrator logs: `prs.py run` now writes `prs_research_pipeline/logs/<stage>.log` for every stage it captures (full stdout + stderr, command line, exit code, elapsed). Failure messages point at that file instead of the aggregate `pipeline_debug.log`, which is still appended to for compatibility.
+- `tests/test_stage_c_cache.py`: drives the real Stage C bash script with a stub PLINK to pin the cache-hit, legacy-migration and parameter-mismatch behaviours.
+
 ### Fixed
 - Dashboard printed a hardcoded `v1.0.0` / `v1.0.0.0` two releases after the pipeline moved to 2.x. It now reads `utils.constants.PIPELINE_VERSION` like everything else, and `tests/test_version_consistency.py` scans `dashboard.py` so it cannot drift again.
+- Stage C prune-set cache ignored the pruning parameters: a run with a non-default `--r2`, `--window-size` or `--union-mode` silently reused the set pruned with the defaults. The cache file is now keyed by those parameters (`<ref>_ancestry_pruned_w50_s5_r0.2_conservative.txt`); the old `<ref>_ancestry_pruned_snps.txt` is migrated automatically for default parameters only.
+- `06_prs_compute.py::compute_prs_from_curated_database` referenced an undefined `trait_weight_sumsq` (NameError on first use; the path is a fallback nobody wires today). Defined as sqrt(sum of squared weights) per trait.
+- Three scripts used names they never imported (`List`/`Dict` in `gwas_summary_stats.py`, `Optional` in `44_failure_mode_map.py`, `pd` in a return annotation of `download_aadr_reference.py`, which made that script fail at import time).
 
 ### Changed
-- `.gitignore`: exclude the synthetic `demo_report/` fixtures and local release-planning notes.
+- Lint: `F821` (undefined name) and `E722` (bare except) are no longer ignored in `pyproject.toml`; that is what surfaced the four fixes above.
+- CI: test matrix extended to Python 3.13.
+- `.gitignore`: exclude the synthetic `demo_report/` fixtures, local release-planning notes and the new `prs_research_pipeline/logs/` directory.
 
 ## [2.0.2] — 2026-08-08
 
