@@ -233,6 +233,23 @@ def test_reference_members_score_near_their_own_population(world):
     assert row["sample_score"] == pytest.approx(expected_score(counts[0], range(len(SNPS))), abs=1e-4)
 
 
+def test_duplicated_variant_ids_are_dropped_instead_of_aborting(world):
+    """Multi-allelic sites give two score rows with the same chr:pos ID, which
+    makes PLINK abort ('Duplicate variant ... in --score file'); two real
+    PGS Catalog files (PGS002406, PGS002782) failed this way. Both rows of a
+    duplicated ID are dropped, the rest of the score still runs."""
+    score = world["dir"] / "pgs" / "PGS000001" / "PGS000001_clean.score"
+    score.write_text(score.read_text() + "1:100\tT\t9.99\n")  # second allele at an existing site
+    csv, _, out = run_calibrate(world, ancestry="EUR")
+    row = csv.iloc[0]
+    sites = [1, 2, 3, 4, 5]  # site 0 (1:100) is gone from both user and reference sums
+    assert "duplicated chr:pos IDs" in out
+    assert row["n_snps_matched"] == 5
+    assert row["sample_score"] == pytest.approx(expected_score(world["user_counts"][0], sites), abs=1e-4)
+    mean, _ = ref_pop_stats(world, "EUR", sites)
+    assert row["ref_mean"] == pytest.approx(mean, abs=1e-4)
+
+
 def test_dist_json_keeps_the_legacy_shape_for_portability_script(world):
     _, report, _ = run_calibrate(world, ancestry="EUR")
     dist = json.loads((world["dir"] / "out" / "ref_distributions" / "PGS000001_dist.json").read_text())

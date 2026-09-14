@@ -226,13 +226,40 @@ def build_joint_dataset(plink, ref_bfile, user_bfile, needed_ids, chroms, work_d
     return joint, user_id_map
 
 
+def dedup_score_file(score_file: Path, out_path: Path) -> tuple:
+    """PLINK aborts on a duplicated variant ID in a --score file. Clean score
+    files use chr:pos as the ID, so multi-allelic sites (two rows, same
+    position, different alleles) collide. Drop every row of a duplicated ID
+    (PLINK could not disambiguate them by position anyway). Returns
+    (path_to_use, n_rows_dropped)."""
+    counts = {}
+    rows = []
+    with open(score_file) as fh:
+        for line in fh:
+            vid = line.split("\t", 1)[0].strip()
+            if not vid:
+                continue
+            counts[vid] = counts.get(vid, 0) + 1
+            rows.append((vid, line))
+    dups = {v for v, c in counts.items() if c > 1}
+    if not dups:
+        return score_file, 0
+    kept = [line for vid, line in rows if vid not in dups]
+    out_path.write_text("".join(kept))
+    return out_path, len(rows) - len(kept)
+
+
 def score_joint(plink, joint_prefix, score_file, out_prefix, threads, memory) -> pd.DataFrame:
     """One `--score ... sum` over the joint dataset. Returns the .profile as
     a DataFrame (FID IID PHENO CNT CNT2 SCORESUM) or an empty frame."""
+    score_file, n_dropped = dedup_score_file(Path(score_file), Path(str(out_prefix) + "_dedup.score"))
+    if n_dropped:
+        print(f"  ⚠️  {n_dropped} rows with duplicated chr:pos IDs (multi-allelic sites) dropped from the score file")
     r = run_plink(plink, [
         "--bfile", joint_prefix, "--score", score_file, "1", "2", "3", "sum",
         "--out", out_prefix, "--allow-extra-chr", "--threads", threads, "--memory", memory,
     ], timeout=1800)
+    Path(str(out_prefix) + "_dedup.score").unlink(missing_ok=True)
     prof_path = Path(str(out_prefix) + ".profile")
     if r.returncode != 0 or not prof_path.exists():
         return pd.DataFrame()
