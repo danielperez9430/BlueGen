@@ -116,3 +116,9 @@ _*.nosex
 
 # ── Internal working notes (not relevant to repo users) ──
 IMPROVEMENT_PLAN.md
+
+# ── Local coverage artifacts (pytest-cov, never in CI) ──
+.coverage
+.coverage.*
+htmlcov/
+coverage.json
