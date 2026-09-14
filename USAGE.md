@@ -330,12 +330,21 @@ PRS_RESULT.json → prs_entries[] for each trait:
 ### Understanding PGS Catalog Results (External Validation)
 
 ```
-pgs_scores/pgs_calibrated.csv:
+prs/pgs_scores/pgs_calibrated.csv (one row per score and user sample):
   pgs_id: PGS000020 (Type 2 Diabetes)
-  z_score: +9.2  →  99.99th percentile  →  HIGH risk
-  eur_mean: 0.000116  eur_std: 0.000038  (EUR reference)
-  n_snps: 7,502  (filter: only scores <500K SNPs are reliable)
+  n_snps: 7,502   n_snps_matched: 7,180   coverage: 0.957
+  reference_population: EUR   ancestry_source: inferred
+  ref_mean: 0.000116  ref_std: 0.000038
+  z_score: +0.8  →  percentile 78.8 (normal) / percentile_empirical 77.2 (rank)  →  AVERAGE
+  reliable: True  (≤500K SNPs AND ≥80% of the score's variants in the joint set)
 ```
+
+How it is computed: you and all 2,504 reference individuals are scored **together** with one
+`plink --score … sum` on one identical variant set (sites absent from your VCF are treated as
+homozygous reference, as in the curated PRS path). The z-score is taken against the
+super-population the ancestry stage assigned to you; `ancestry_source: fallback` means no
+ancestry call was available and EUR was used. Chromosomes with no data in your VCF are dropped
+from both sides and show up as reduced `coverage`.
 
 **PGS z-score interpretation:**
 - Z > 2 (97.7th percentile) = Notable genetic risk → investigate clinically

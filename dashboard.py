@@ -358,16 +358,31 @@ elif page == "🩺 PGS Catalog":
         if "reliable" in df.columns:
             c4.metric("Flagged reliable", int(df["reliable"].astype(str).str.lower().eq("true").sum()))
 
-        ref_cols = [c for c in df.columns if c.endswith("_mean")]
-        ref_pop = ref_cols[0].replace("_mean", "").upper() if ref_cols else "1000G"
-        st.caption(f"Reference distribution: 1000 Genomes **{ref_pop}** for every score in this file.")
+        if "reference_population" in df.columns:
+            pops = ", ".join(sorted(df["reference_population"].dropna().astype(str).unique()))
+            src = df["ancestry_source"].iloc[0] if "ancestry_source" in df.columns else ""
+            src_txt = {"inferred": "inferred by the ancestry stage", "fallback": "fallback — no ancestry call"}.get(src, "")
+            st.caption(f"Reference distribution: 1000 Genomes **{pops}** ({src_txt}). "
+                       "You and the reference are scored on the same variants; absent sites count as homozygous reference.")
+        else:
+            ref_cols = [c for c in df.columns if c.endswith("_mean")]
+            ref_pop = ref_cols[0].replace("_mean", "").upper() if ref_cols else "1000G"
+            st.caption(f"Reference distribution: 1000 Genomes **{ref_pop}** for every score in this file "
+                       "(legacy user-only scoring — re-run the pipeline for joint calibration).")
+        if "individual_id" in df.columns and df["individual_id"].nunique() > 1:
+            who = st.selectbox("Sample", sorted(df["individual_id"].astype(str).unique()))
+            df = df[df["individual_id"].astype(str) == who]
 
-        show = [c for c in ["pgs_id", "trait", "n_snps", "z_score", "percentile", "risk_category", "reliable"]
+        show = [c for c in ["pgs_id", "trait", "n_snps", "n_snps_matched", "coverage", "z_score",
+                            "percentile", "percentile_empirical", "risk_category", "reliable"]
                 if c in df.columns]
         table = df[show].copy()
         table["z_score"] = table["z_score"].round(2)
-        if "percentile" in table.columns:
-            table["percentile"] = table["percentile"].round(1)
+        for c in ("percentile", "percentile_empirical"):
+            if c in table.columns:
+                table[c] = pd.to_numeric(table[c], errors="coerce").round(1)
+        if "coverage" in table.columns:
+            table["coverage"] = pd.to_numeric(table["coverage"], errors="coerce").round(3)
         st.dataframe(table, width="stretch", hide_index=True)
 
         top = df.reindex(df["z_score"].abs().sort_values(ascending=False).index).head(30)
@@ -386,7 +401,7 @@ elif page == "🩺 PGS Catalog":
         **📖 Reading this page**
         - A PGS is a published score built from a large GWAS; the number of SNPs is what the authors used, not what BlueGen curated.
         - z = how many standard deviations your score sits from the reference population mean; percentile is the share of that population below you.
-        - A very large |z| (≫ 3) on a score with few matched SNPs usually means low coverage of that score in your VCF rather than extreme risk — check `n_snps` and `reliable`.
+        - `coverage` = share of the score's variants present in both your data and the reference; below 0.8 the score is flagged unreliable. A very large |z| on a low-coverage score means missing data, not extreme risk.
         """)
 
 # ═══════════════════════════════════════════════════════════════════════════════

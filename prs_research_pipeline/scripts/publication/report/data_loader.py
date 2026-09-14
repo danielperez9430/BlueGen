@@ -166,6 +166,23 @@ def load_report_data(args) -> dict:
                     pgs_coverage_lookup[pgs_id] = {"n_used": n_used, "n_total": n_total}
         except Exception:
             pass
+    # Joint-scoring calibration (RELEASE_PLAN 3.0.1) records how many of each
+    # score's variants were actually in the user+reference set; prefer that
+    # over the legacy user-only count when present.
+    pgs_cal_path = "prs/pgs_scores/pgs_calibrated.csv"
+    if os.path.exists(pgs_cal_path):
+        try:
+            pgs_cal = pd.read_csv(pgs_cal_path, dtype=str)
+            if "n_snps_matched" in pgs_cal.columns:
+                for _, row in pgs_cal.iterrows():
+                    pgs_id = str(row.get("pgs_id", "")).strip()
+                    if pgs_id:
+                        pgs_coverage_lookup[pgs_id] = {
+                            "n_used": safe_float(row.get("n_snps_matched", 0)),
+                            "n_total": safe_float(row.get("n_snps", 0)),
+                        }
+        except Exception:
+            pass
     data["_pgs_coverage_lookup"] = pgs_coverage_lookup
 
     # Log what was found

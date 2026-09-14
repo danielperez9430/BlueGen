@@ -424,6 +424,7 @@ def cmd_run(args):
                            f"Sample: {sample} | VCF: {vcf} | Mode: {'FULL' if full else 'PIPELINE'}\n\n")
 
     # Pre-flight checks
+    plink_path = "plink"  # replaced by find_plink() below (kept generic for --dry-run)
     if not DRY_RUN:
         # Add tools/ and venv/ to PATH so scripts find PLINK + Python deps
         tools_dir = str(Path(__file__).parent / "tools")
@@ -633,18 +634,20 @@ def cmd_run(args):
         run_script("quality_delta", "--output-dir", "benchmark")
         run_script("pgs_integration", "--bfile", "qc/qc_filtered",
                    "--output-dir", "pgs")
-        # Population-calibrate whatever pgs_integration just scored (z-score,
-        # percentile, risk_category vs 1000G EUR) - this was never wired in
-        # before, so the report's PGS Catalog section read a frozen snapshot
-        # of prs/pgs_scores/pgs_results.csv from 2026-06-07 instead of live
-        # per-run data. Needs the genome-wide 1000G reference (rsID-derived
-        # PGS variants can fall anywhere in the genome, not just chr22).
+        # Population-calibrate the PGS Catalog scores: the user is re-scored
+        # JOINTLY with the 1000G reference on one identical variant set
+        # (absent sites = homozygous reference) and z-scored against the
+        # super-population inferred by the ancestry stage. The previous
+        # user-only score from pgs_integration is not comparable to the
+        # reference (RELEASE_PLAN 3.0.1). Needs the genome-wide 1000G
+        # reference (PGS variants fall anywhere in the genome, not just chr22).
         if use_full_ref and exists("pgs/pgs_results.csv"):
             run_script("pgs_calibrate", "--bfile", g1k_full_bfile,
                        "--pop-panel", pop_panel_full, "--pgs-dir", "pgs",
-                       "--sample-prs", "pgs/pgs_results.csv",
+                       "--user-bfile", "qc/qc_filtered",
+                       "--ancestry-json", "science/ANCESTRY_MODEL.json",
                        "--output-dir", "prs/pgs_scores",
-                       "--plink", str(PROJECT_ROOT / "tools" / "plink"))
+                       "--plink", plink_path)
 
         # final_score only depends on artifacts already produced above
         # (CONSOLIDATION_MANIFEST, VALIDATION_REPORT, adversarial/calibration/

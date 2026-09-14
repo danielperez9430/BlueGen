@@ -2,11 +2,11 @@
     <div class="info-card"><h4>Total Scores</h4><div class="big-stat">{{ total_scores }}</div><div class="stat-sub">from PGS Catalog</div></div>
     <div class="info-card"><h4>Reliable</h4><div class="big-stat">{{ reliable_scores }}</div><div class="stat-sub">&lt;500K SNPs</div></div>
     <div class="info-card"><h4>Reference</h4><div class="big-stat">{{ reference_panel }}</div><div class="stat-sub">{{ populations_list }}</div></div>
-    <div class="info-card"><h4>Method</h4><div class="big-stat" style="font-size:0.7rem">z-score norm</div><div class="stat-sub">Population-stratified</div></div>
+    <div class="info-card"><h4>Compared to</h4><div class="big-stat">{{ reference_population }}</div><div class="stat-sub">{% if ancestry_source == 'inferred' %}inferred ancestry{% elif ancestry_source == 'fallback' %}fallback (no ancestry call){% else %}super-population{% endif %}</div></div>
 </div>
 <p style="margin:1rem 0;line-height:1.6;font-size:0.9rem;background:var(--color-surface);padding:1rem;border-radius:8px;box-shadow:var(--shadow)">
 <strong>How to interpret these scores:</strong><br>
-• <strong>Z-score</strong>: How many standard deviations your genetic profile deviates from the EUR population mean.<br>
+• <strong>Z-score</strong>: How many standard deviations your genetic profile deviates from the {{ reference_population }} population mean. You and every reference individual are scored on the same variants; sites absent from your VCF count as homozygous reference.<br>
 • <strong>Percentile</strong>: Your rank. 95% = you're in the top 5% of genetic risk for that trait.<br>
 • <strong>Clinical significance</strong>: Z > 2 = notable deviation. Z > 3 = clinically relevant. But <em>genetics is NOT destiny</em> — lifestyle, environment, and medical care often override genetic predisposition.
 </p>
@@ -64,7 +64,7 @@
     </div>
     <div class="trait-body">
         <div class="trait-stats">
-            <div class="trait-stat"><div class="stat-value" style="color:{{ d.z_color }}">{{ d.z }}σ</div><div class="stat-label">Z-Score vs EUR</div></div>
+            <div class="trait-stat"><div class="stat-value" style="color:{{ d.z_color }}">{{ d.z }}σ</div><div class="stat-label">Z-Score vs {{ reference_population }}</div></div>
             <div class="trait-stat"><div class="stat-value">{{ d.pctl }}%</div><div class="stat-label">Percentile</div></div>
             <div class="trait-stat"><div class="stat-value">{{ d.n_snps }}</div><div class="stat-label">Variants</div></div>
         </div>
@@ -77,6 +77,6 @@
 <p style="font-size:0.75rem;color:#7f8c8d;margin-top:1rem">
 ⚠️ <strong>Limitations:</strong> Calibrated against 1000 Genomes Phase 3 (2,504 samples, 5 super-populations).
 PGS scores are from published studies with varying population compositions — cross-population portability may be limited.
-Scores with >500K SNPs excluded due to distribution artifacts.
+Scores with >500K SNPs, or with fewer than 80% of their variants available in both your data and the reference, are flagged unreliable.
 <strong>All scores are for RESEARCH USE ONLY — not clinical diagnosis.</strong>
 </p>

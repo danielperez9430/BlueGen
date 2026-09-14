@@ -1,30 +1,68 @@
 #!/usr/bin/env python3
 """
-PGS Population Calibration — scores all 1000G samples with each PGS score,
-builds per-population distributions, and calibrates target sample.
+PGS population calibration — JOINT scoring of the user and the 1000 Genomes
+reference on one identical variant set, then z-score / percentile of the
+user against the super-population inferred by the ancestry stage.
+
+Why joint scoring (RELEASE_PLAN 3.0.1, 2026-09-14)
+--------------------------------------------------
+The previous version scored the user alone on qc/qc_filtered and the
+reference on every variant of each score. A WGS-derived PLINK dataset only
+contains sites where the sample carries at least one ALT allele (hom-ref
+"RefCall" lines are dropped in Stage A), so the user was summed over a
+biased subset while 2,504 reference samples were summed over the full set.
+The two numbers were not comparable and produced z-scores such as -131
+(T2D) or -38 (BMI), with 12 of 52 scores at percentile exactly 0 or 100.
+
+This version:
+  1. extracts the score variants from the reference AND from the user,
+     restricted to chromosomes the user's data actually covers,
+  2. merges both into one dataset (reference first, --keep-allele-order, so
+     A2 stays the hg19 REF allele of the 1000G conversion),
+  3. --fill-missing-a2: every variant the user lacks becomes homozygous REF
+     — the same assumption the curated PRS path makes in 06_prs_compute.py
+     (absent from a WGS VCF == homozygous reference),
+  4. runs a single `plink --score ... sum` per PGS on the joint dataset, so
+     the user and every reference sample are summed over exactly the same
+     variants with the same allele matching,
+  5. builds per-super-population distributions and calibrates the user
+     against `assigned_population` from science/ANCESTRY_MODEL.json
+     (EUR only as an explicit, flagged fallback).
+
+Coverage is reported honestly: n_snps_matched / n_snps of the score; a score
+is `reliable` only when it is ≤ MAX_RELIABLE_SNPS AND ≥ MIN_COVERAGE of its
+variants were in the joint set.
 
 Usage:
   python3 pgs_population_calibrate.py \
     --bfile reference/1000G_full/1000G_full \
     --pop-panel reference/1000G_full/population_panel.txt \
-    --pgs-dir prs/pgs_scores \
-    --sample-prs prs/pgs_scores/pgs_results.csv \
-    --output-dir prs/pgs_scores/
+    --pgs-dir pgs \
+    --user-bfile qc/qc_filtered \
+    --ancestry-json science/ANCESTRY_MODEL.json \
+    --output-dir prs/pgs_scores
 """
 
-import sys
-import os
-import subprocess
+import argparse
 import json
+import shutil
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import scipy.stats
 
-MAX_RELIABLE_SNPS = 500_000  # matches the platform's documented reliability cutoff
+SUPER_POPS = ["EUR", "AFR", "EAS", "SAS", "AMR"]
+MAX_RELIABLE_SNPS = 500_000   # platform's documented reliability cutoff
+MIN_COVERAGE = 0.80           # fraction of a score's variants that must be in the joint set
+MIN_REF_PER_POP = 10          # minimum reference samples to build a distribution
+AUTOSOMES = [str(c) for c in range(1, 23)]
 
+
+# ── helpers ──────────────────────────────────────────────────────────────────
 
 def read_score_metadata(pgs_dir: Path, pgs_id: str) -> dict:
     """Read trait name + variant count from a PGS score file's own header
@@ -50,46 +88,227 @@ def read_score_metadata(pgs_dir: Path, pgs_id: str) -> dict:
                 n_snps += 1
     return {"trait": trait, "n_snps": n_snps}
 
-def main():
-    import argparse
-    p = argparse.ArgumentParser()
-    p.add_argument("--bfile", required=True)
-    p.add_argument("--pop-panel", required=True)
-    p.add_argument("--pgs-dir", required=True)
-    p.add_argument("--sample-prs", required=True)
+
+def run_plink(plink: str, args: list, timeout: int = 3600) -> subprocess.CompletedProcess:
+    cmd = [str(plink)] + [str(a) for a in args]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+
+def plink_or_die(plink: str, args: list, what: str, timeout: int = 3600) -> subprocess.CompletedProcess:
+    r = run_plink(plink, args, timeout)
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout or "")[-600:]
+        sys.exit(f"❌ PLINK failed while {what}:\n{tail}")
+    return r
+
+
+def load_assigned_population(ancestry_json) -> tuple:
+    """Returns (super_pop, source). source is 'inferred' or 'fallback'."""
+    if ancestry_json:
+        p = Path(ancestry_json)
+        if p.exists():
+            try:
+                with open(p) as fh:
+                    pop = str(json.load(fh).get("assigned_population", "")).upper().strip()
+                if pop in SUPER_POPS:
+                    return pop, "inferred"
+                print(f"⚠️  {p}: assigned_population={pop!r} is not a 1000G super-population; falling back to EUR")
+            except (OSError, ValueError) as e:
+                print(f"⚠️  Could not read {p}: {e}; falling back to EUR")
+        else:
+            print(f"⚠️  Ancestry file not found: {p}; falling back to EUR")
+    else:
+        print("⚠️  No --ancestry-json given; falling back to EUR")
+    return "EUR", "fallback"
+
+
+def user_covered_chromosomes(user_bim: Path, min_variants: int) -> list:
+    """Autosomes on which the user's dataset has at least `min_variants`
+    variants. Hom-ref filling is only valid where the sample was actually
+    sequenced/called, so variants on other chromosomes are dropped from BOTH
+    the user and the reference (chr22-only inputs keep working, with
+    coverage reported accordingly)."""
+    counts = {}
+    with open(user_bim) as fh:
+        for line in fh:
+            chrom = line.split("\t", 1)[0].split(" ", 1)[0]
+            counts[chrom] = counts.get(chrom, 0) + 1
+    return [c for c in AUTOSOMES if counts.get(c, 0) >= min_variants]
+
+
+def read_fam_ids(fam: Path) -> list:
+    ids = []
+    with open(fam) as fh:
+        for line in fh:
+            parts = line.split()
+            if len(parts) >= 2:
+                ids.append((parts[0], parts[1]))
+    return ids
+
+
+def rename_user_samples(fam: Path) -> dict:
+    """Prefix user FID/IID with USER_ so they can never collide with a 1000G
+    sample ID (PLINK --bmerge would silently merge same-ID samples into one).
+    Returns {new_iid: original_iid}."""
+    rows = []
+    mapping = {}
+    with open(fam) as fh:
+        for line in fh:
+            parts = line.split()
+            if len(parts) < 6:
+                continue
+            new_iid = f"USER_{parts[1]}"
+            mapping[new_iid] = parts[1]
+            rows.append("\t".join(["USER", new_iid] + parts[2:]))
+    fam.write_text("\n".join(rows) + "\n")
+    return mapping
+
+
+def build_joint_dataset(plink, ref_bfile, user_bfile, needed_ids, chroms, work_dir, threads, memory):
+    """Reference subset + user subset → merged, hom-ref-filled joint dataset.
+    Returns (joint_prefix, user_id_map)."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    extract_list = work_dir / "_needed_variants.txt"
+    extract_list.write_text("\n".join(sorted(needed_ids)) + "\n")
+    chr_arg = ",".join(chroms)
+    common = ["--allow-extra-chr", "--threads", threads, "--memory", memory]
+
+    ref_subset = work_dir / "_reference_subset"
+    user_subset = work_dir / "_user_subset"
+
+    def extract(src, out, exclude=None):
+        args = ["--bfile", src, "--extract", extract_list, "--chr", chr_arg,
+                "--keep-allele-order", "--make-bed", "--out", out] + common
+        if exclude is not None:
+            args += ["--exclude", exclude]
+        return run_plink(plink, args)
+
+    r = extract(ref_bfile, ref_subset)
+    if r.returncode != 0 or not Path(str(ref_subset) + ".bed").exists():
+        sys.exit(f"❌ Could not extract score variants from the reference:\n{(r.stderr or r.stdout)[-400:]}")
+    r = extract(user_bfile, user_subset)
+    if r.returncode != 0 or not Path(str(user_subset) + ".bed").exists():
+        sys.exit("❌ The user dataset shares no score variants with the reference on the covered "
+                 f"chromosomes ({chr_arg}):\n{(r.stderr or r.stdout)[-400:]}")
+    user_id_map = rename_user_samples(Path(str(user_subset) + ".fam"))
+
+    # Step 1: merge (reference first + --keep-allele-order → A2 stays REF).
+    merged = work_dir / "_joint_merged"
+    merge_args = ["--bfile", ref_subset, "--bmerge", user_subset,
+                  "--keep-allele-order", "--make-bed", "--out", merged] + common
+    r = run_plink(plink, merge_args)
+    missnp = Path(str(merged) + "-merge.missnp")
+    if r.returncode != 0 and missnp.exists():
+        # Multi-allelic / strand-inconsistent sites: drop them from both sides
+        # (they would be excluded from the score anyway) and merge again.
+        n_bad = sum(1 for _ in open(missnp))
+        print(f"  ⚠️  {n_bad} variants inconsistent between user and reference — excluded from both")
+        for src, out in ((ref_bfile, ref_subset), (user_bfile, user_subset)):
+            r2 = extract(src, out, exclude=missnp)
+            if r2.returncode != 0:
+                sys.exit(f"❌ PLINK failed re-extracting without .missnp variants:\n{(r2.stderr or r2.stdout)[-400:]}")
+        user_id_map = rename_user_samples(Path(str(user_subset) + ".fam"))
+        r = run_plink(plink, merge_args)
+    if r.returncode != 0 or not Path(str(merged) + ".bed").exists():
+        sys.exit(f"❌ PLINK failed merging user into the reference:\n{(r.stderr or r.stdout)[-600:]}")
+
+    # Step 2: hom-ref fill. PLINK refuses --fill-missing-a2 in the same run
+    # as --bmerge ("must be used with --make-bed and no other commands").
+    joint = work_dir / "_joint"
+    r = run_plink(plink, ["--bfile", merged, "--fill-missing-a2", "--keep-allele-order",
+                          "--make-bed", "--out", joint] + common)
+    if r.returncode != 0 or not Path(str(joint) + ".bed").exists():
+        sys.exit(f"❌ PLINK failed filling missing calls as homozygous reference:\n{(r.stderr or r.stdout)[-600:]}")
+
+    for prefix in (user_subset, merged):
+        for ext in (".bed", ".bim", ".fam", ".log", ".nosex", "-merge.missnp"):
+            Path(str(prefix) + ext).unlink(missing_ok=True)
+    return joint, user_id_map
+
+
+def score_joint(plink, joint_prefix, score_file, out_prefix, threads, memory) -> pd.DataFrame:
+    """One `--score ... sum` over the joint dataset. Returns the .profile as
+    a DataFrame (FID IID PHENO CNT CNT2 SCORESUM) or an empty frame."""
+    r = run_plink(plink, [
+        "--bfile", joint_prefix, "--score", score_file, "1", "2", "3", "sum",
+        "--out", out_prefix, "--allow-extra-chr", "--threads", threads, "--memory", memory,
+    ], timeout=1800)
+    prof_path = Path(str(out_prefix) + ".profile")
+    if r.returncode != 0 or not prof_path.exists():
+        return pd.DataFrame()
+    prof = pd.read_csv(prof_path, sep=r"\s+", dtype={"FID": str, "IID": str}, engine="python")
+    score_col = "SCORESUM" if "SCORESUM" in prof.columns else "SCORE"
+    prof["SCORE_VALUE"] = prof[score_col].astype(float)
+    return prof
+
+
+def population_distributions(ref_scores: pd.DataFrame) -> dict:
+    dist = {}
+    for sp in SUPER_POPS:
+        s = ref_scores.loc[ref_scores["super_pop"] == sp, "SCORE_VALUE"]
+        if len(s) < MIN_REF_PER_POP:
+            continue
+        dist[sp] = {
+            "n": int(len(s)), "mean": float(s.mean()), "std": float(s.std()),
+            "median": float(s.median()),
+            "p5": float(np.percentile(s, 5)), "p10": float(np.percentile(s, 10)),
+            "p25": float(np.percentile(s, 25)), "p75": float(np.percentile(s, 75)),
+            "p90": float(np.percentile(s, 90)), "p95": float(np.percentile(s, 95)),
+            "min": float(s.min()), "max": float(s.max()),
+        }
+    return dist
+
+
+def risk_category(z: float) -> str:
+    if z > 2:
+        return "HIGH"
+    if z > 1:
+        return "ELEVATED"
+    if z >= -1:
+        return "AVERAGE"
+    return "LOW"
+
+
+# ── main ─────────────────────────────────────────────────────────────────────
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--bfile", required=True, help="1000G reference PLINK prefix")
+    p.add_argument("--pop-panel", required=True, help="TSV with columns sample, pop, super_pop")
+    p.add_argument("--pgs-dir", required=True, help="Directory with PGS*/PGS*_clean.score files")
+    p.add_argument("--user-bfile", required=True, help="User PLINK prefix (qc/qc_filtered)")
+    p.add_argument("--ancestry-json", default=None, help="science/ANCESTRY_MODEL.json (assigned_population)")
     p.add_argument("--output-dir", required=True)
     p.add_argument("--plink", default="plink")
     p.add_argument("--threads", default="8")
-    args = p.parse_args()
+    p.add_argument("--memory", default="16000")
+    p.add_argument("--min-variants-per-chrom", type=int, default=100,
+                   help="A chromosome counts as covered by the user's data when it has at least this many variants")
+    p.add_argument("--keep-work", action="store_true", help="Keep the joint PLINK dataset after scoring")
+    p.add_argument("--sample-prs", default=None, help=argparse.SUPPRESS)  # legacy, ignored
+    args = p.parse_args(argv)
 
-    bfile = Path(args.bfile)
+    plink = str(args.plink)
     pgs_dir = Path(args.pgs_dir)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    plink = Path(args.plink)
     ref_dir = out_dir / "ref_distributions"
     ref_dir.mkdir(exist_ok=True)
+    if args.sample_prs:
+        print("ℹ️  --sample-prs is ignored: the user is now scored jointly with the reference")
 
-    # Load population panel
+    # Population panel + reference sample IDs
     pop = pd.read_csv(args.pop_panel, sep="\t", dtype=str)
     pop_map = dict(zip(pop["sample"], pop["super_pop"]))
-    print(f"Population panel: {len(pop)} samples across {len(pop['super_pop'].unique())} super-pops")
+    print(f"Population panel: {len(pop)} samples across {pop['super_pop'].nunique()} super-pops")
 
-    # Load sample PRS
-    sample_df = pd.read_csv(args.sample_prs, dtype=str)
-    sample_df["prs_raw"] = sample_df["prs_raw"].astype(float)
-    print(f"Sample PRS: {len(sample_df)} entries ({sample_df['pgs_id'].nunique()} scores)")
+    target_pop, ancestry_source = load_assigned_population(args.ancestry_json)
+    print(f"Calibration population: {target_pop} ({ancestry_source})")
 
-    # Per-PGS calibration
-    results = []
-    pgs_files = sorted(Path(pgs_dir).glob("PGS*/PGS*_clean.score"))
-
-    # PLINK reloads and re-indexes the full genome-wide reference (84M
-    # variants) on every invocation - doing that once per PGS score (dozens
-    # of them) made a full run take 1.5-2+ hours. Extract the union of
-    # variant IDs actually needed across every score ONCE into a much
-    # smaller working bfile, then --score against that instead of the raw
-    # reference on each iteration.
+    # Score files + union of needed variant IDs
+    pgs_files = sorted(pgs_dir.glob("PGS*/PGS*_clean.score"))
+    if not pgs_files:
+        sys.exit(f"❌ No PGS*/PGS*_clean.score files under {pgs_dir}")
     needed_ids = set()
     for score_file in pgs_files:
         with open(score_file) as fh:
@@ -97,156 +316,155 @@ def main():
                 vid = line.split("\t", 1)[0].strip()
                 if vid:
                     needed_ids.add(vid)
-    print(f"\n{len(needed_ids)} unique variant IDs needed across {len(pgs_files)} scores")
+    print(f"{len(needed_ids):,} unique variant IDs needed across {len(pgs_files)} scores")
 
-    score_bfile = bfile
-    if needed_ids:
-        extract_list = out_dir / "_needed_variants.txt"
-        extract_list.write_text("\n".join(sorted(needed_ids)))
-        subset_prefix = out_dir / "_reference_subset"
-        r = subprocess.run([
-            str(plink), "--bfile", str(bfile), "--extract", str(extract_list),
-            "--make-bed", "--out", str(subset_prefix),
-            "--allow-extra-chr", "--threads", args.threads, "--memory", "16000"
-        ], capture_output=True, text=True, timeout=1800)
-        if Path(str(subset_prefix) + ".bed").exists():
-            score_bfile = subset_prefix
-            print(f"  Reference subset built: {subset_prefix}")
-        else:
-            print(f"  Reference subset extraction failed ({r.stderr[-200:]!r}), "
-                  "falling back to the full reference per-score (slow)")
+    # Chromosomes the user's data covers
+    chroms = user_covered_chromosomes(Path(str(args.user_bfile) + ".bim"), args.min_variants_per_chrom)
+    if not chroms:
+        sys.exit("❌ The user dataset covers no autosome with enough variants; cannot calibrate PGS")
+    print(f"User data covers {len(chroms)} autosome(s): {', '.join(chroms)}")
 
+    # Joint dataset
+    print("\nBuilding joint user + reference dataset (same variants, hom-ref filled)…")
+    joint, user_id_map = build_joint_dataset(
+        plink, args.bfile, args.user_bfile, needed_ids, chroms, out_dir, args.threads, args.memory)
+    joint_fam = read_fam_ids(Path(str(joint) + ".fam"))
+    n_joint_variants = sum(1 for _ in open(str(joint) + ".bim"))
+    user_iids = [iid for _, iid in joint_fam if iid in user_id_map]
+    print(f"  Joint dataset: {len(joint_fam)} samples ({len(user_iids)} user), {n_joint_variants:,} variants")
+
+    results = []
     for i, score_file in enumerate(pgs_files):
         pgs_id = score_file.parent.name
-        print(f"\n[{i+1}/{len(pgs_files)}] {pgs_id} ({pgs_id})")
-
+        print(f"\n[{i + 1}/{len(pgs_files)}] {pgs_id}")
         out_prefix = ref_dir / pgs_id
-
-        # Run PLINK --score against 1000G (or the pre-extracted subset above)
-        r = subprocess.run([
-            str(plink), "--bfile", str(score_bfile),
-            "--score", str(score_file), "1", "2", "3",
-            "--out", str(out_prefix),
-            "--allow-extra-chr", "--threads", args.threads, "--memory", "16000"
-        ], capture_output=True, text=True, timeout=600)
-
-        prof_path = Path(str(out_prefix) + ".profile")
-        if not prof_path.exists():
-            print(f"  ❌ No profile — skipping")
+        prof = score_joint(plink, joint, score_file, out_prefix, args.threads, args.memory)
+        if prof.empty:
+            print("  ❌ No profile — skipping")
             continue
 
-        # Parse 1000G profile
-        ref_scores = pd.read_csv(prof_path, sep=r"\s+", dtype={"IID": str})
-        ref_scores["super_pop"] = ref_scores["IID"].map(pop_map)
-        ref_scores["SCORE"] = ref_scores.get("SCORE", ref_scores.get("SCORESUM", 0)).astype(float)
-
-        # Build per-population distributions
-        dist = {}
-        for sp in ["EUR", "AFR", "EAS", "SAS", "AMR"]:
-            pop_scores = ref_scores[ref_scores["super_pop"] == sp]["SCORE"]
-            if len(pop_scores) < 10:
-                continue
-            dist[sp] = {
-                "n": int(len(pop_scores)),
-                "mean": float(pop_scores.mean()),
-                "std": float(pop_scores.std()),
-                "median": float(pop_scores.median()),
-                "p5": float(np.percentile(pop_scores, 5)),
-                "p10": float(np.percentile(pop_scores, 10)),
-                "p25": float(np.percentile(pop_scores, 25)),
-                "p75": float(np.percentile(pop_scores, 75)),
-                "p90": float(np.percentile(pop_scores, 90)),
-                "p95": float(np.percentile(pop_scores, 95)),
-                "min": float(pop_scores.min()),
-                "max": float(pop_scores.max()),
-            }
-
-        # Save distribution
+        prof["super_pop"] = prof["IID"].map(pop_map)
+        ref_scores = prof[prof["super_pop"].notna() & ~prof["IID"].isin(user_id_map)]
+        dist = population_distributions(ref_scores)
         with open(ref_dir / f"{pgs_id}_dist.json", "w") as f:
             json.dump(dist, f, indent=2)
+        if not dist:
+            print("  ❌ No population had enough reference samples — skipping")
+            continue
 
-        # Calibrate sample
-        sample_row = sample_df[sample_df["pgs_id"] == pgs_id]
-        if len(sample_row) > 0:
-            sample_score = float(sample_row.iloc[0]["prs_raw"])
-            # Use EUR as default (most common for our sample)
-            eur = dist.get("EUR", {})
-            if eur:
-                z = (sample_score - eur["mean"]) / eur["std"] if eur["std"] > 0 else 0
-                # Previously gated on `'scipy' in dir()`, which only checks
-                # local names inside this function - scipy.stats was only
-                # ever imported under `if __name__ == "__main__":` at module
-                # scope, so that check was always False and percentile was
-                # always the hardcoded fallback of 50, regardless of z.
-                pctl = scipy.stats.norm.cdf(z) * 100
-                risk = "HIGH" if z > 2 else ("ELEVATED" if z > 1 else ("AVERAGE" if abs(z) <= 1 else ("LOW" if z < -1 else "PROTECTIVE")))
-            else:
-                z, pctl, risk = 0, 50, "UNKNOWN"
+        meta = read_score_metadata(pgs_dir, pgs_id)
+        n_in_score = meta["n_snps"]
+        cnt_col = "CNT" if "CNT" in prof.columns else None
 
-            meta = read_score_metadata(pgs_dir, pgs_id)
+        for _, row in prof[prof["IID"].isin(user_id_map)].iterrows():
+            sample_score = float(row["SCORE_VALUE"])
+            n_matched = int(row[cnt_col]) // 2 if cnt_col else 0
+            coverage = (n_matched / n_in_score) if n_in_score else float("nan")
+
+            pop_used, source = target_pop, ancestry_source
+            if pop_used not in dist:
+                print(f"  ⚠️  {pop_used} has no distribution for {pgs_id}; using EUR")
+                pop_used, source = "EUR", "fallback"
+            if pop_used not in dist:
+                pop_used = next(iter(dist))
+            d = dist[pop_used]
+            z = (sample_score - d["mean"]) / d["std"] if d["std"] > 0 else 0.0
+            pctl = float(scipy.stats.norm.cdf(z) * 100)
+            ref_vals = ref_scores.loc[ref_scores["super_pop"] == pop_used, "SCORE_VALUE"].to_numpy()
+            pctl_emp = float((ref_vals < sample_score).mean() * 100) if len(ref_vals) else float("nan")
+            z_by_pop = {sp: round((sample_score - dd["mean"]) / dd["std"], 3) if dd["std"] > 0 else 0.0
+                        for sp, dd in dist.items()}
+            reliable = bool(n_in_score <= MAX_RELIABLE_SNPS and n_in_score > 0 and coverage >= MIN_COVERAGE)
+
             results.append({
                 "pgs_id": pgs_id,
+                "individual_id": user_id_map[row["IID"]],
                 "trait": meta["trait"],
-                "n_snps": meta["n_snps"],
+                "n_snps": n_in_score,
+                "n_snps_matched": n_matched,
+                "coverage": round(coverage, 4) if n_in_score else np.nan,
                 "sample_score": sample_score,
-                "eur_mean": eur.get("mean", np.nan),
-                "eur_std": eur.get("std", np.nan),
+                "reference_population": pop_used,
+                "ancestry_source": source,
+                "ref_mean": d["mean"],
+                "ref_std": d["std"],
                 "z_score": round(z, 3),
                 "percentile": round(pctl, 1),
-                "risk_category": risk,
-                "reliable": meta["n_snps"] <= MAX_RELIABLE_SNPS,
+                "percentile_empirical": round(pctl_emp, 1),
+                "risk_category": risk_category(z),
+                "reliable": reliable,
                 "n_populations": len(dist),
+                "z_by_population": json.dumps(z_by_pop),
             })
+            print(f"  {user_id_map[row['IID']]}: z={z:+.2f} vs {pop_used} "
+                  f"(pctl {pctl:.1f}, matched {n_matched:,}/{n_in_score:,}, "
+                  f"{'reliable' if reliable else 'unreliable'})")
 
-        # Cleanup
-        prof_path.unlink(missing_ok=True)
-        for ext in [".log", ".nosex"]:
+        for ext in (".profile", ".log", ".nosex", ".nopred"):
             Path(str(out_prefix) + ext).unlink(missing_ok=True)
 
-    # Save calibrated results
-    if results:
-        cal = pd.DataFrame(results).sort_values("z_score", ascending=False)
-        cal.to_csv(out_dir / "pgs_calibrated.csv", index=False)
+    if not args.keep_work:
+        for prefix in (joint, out_dir / "_reference_subset"):
+            for ext in (".bed", ".bim", ".fam", ".log", ".nosex", "-merge.missnp"):
+                Path(str(prefix) + ext).unlink(missing_ok=True)
 
-        print(f"\n{'='*80}")
-        print(f"{'PGS ID':<14} {'Score':>12} {'Z-Score':>10} {'Pctl':>8} {'Risk':>14}  {'EUR mean ± std':>25}")
-        print("-" * 80)
-        for _, r in cal.iterrows():
-            label = "🔴" if r["risk_category"] == "HIGH" else ("🟠" if r["risk_category"] == "ELEVATED" else ("🟡" if r["risk_category"] == "AVERAGE" else "🟢"))
-            print(f"{r['pgs_id']:<14} {r['sample_score']:>12.6f} {r['z_score']:>10.2f} {r['percentile']:>7.1f}% {label} {r['risk_category']:<10}  μ={r['eur_mean']:.4f} σ={r['eur_std']:.4f}")
-        print(f"\n✅ {len(results)} PGS scores calibrated against 1000G EUR population")
-        print(f"📁 Results: {out_dir / 'pgs_calibrated.csv'}")
+    if not results:
+        sys.exit("❌ No PGS score could be calibrated")
 
-        # comprehensive_report.py's PGS Catalog section reads this structured
-        # report, not the flat CSV above - previously nothing wrote it at all
-        # (prs/pgs_scores/pgs_calibration_report.json sat frozen since
-        # 2026-07-16), so the report's PGS section silently never reflected a
-        # live run either, independent of the CSV going stale.
-        report = {
-            "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
-            "methodology": {
-                "reference_panel": f"1000 Genomes Phase 3 ({len(pop)} samples)",
-                "populations": ["EUR", "AFR", "EAS", "SAS", "AMR"],
-                "calibration_method": "Population-stratified z-score normalization",
-                "note": f"Scores with >{MAX_RELIABLE_SNPS:,} SNPs flagged as potentially "
-                        "unreliable due to distribution compression",
-            },
-            "summary": {
-                "total_scores": len(results),
-                "reliable_scores": int(cal["reliable"].sum()),
-                "high_risk": int((cal["risk_category"] == "HIGH").sum()),
-                "elevated_risk": int((cal["risk_category"] == "ELEVATED").sum()),
-                "low_risk": int((cal["risk_category"] == "LOW").sum()),
-            },
-            "high_risk_traits": cal[cal["risk_category"] == "HIGH"].to_dict("records"),
-            "elevated_risk_traits": cal[cal["risk_category"] == "ELEVATED"].to_dict("records"),
-            "low_risk_traits": cal[cal["risk_category"] == "LOW"].to_dict("records"),
-            "all_entries": cal.to_dict("records"),
-            "reference_distributions_path": str(ref_dir) + "/",
-        }
-        with open(out_dir / "pgs_calibration_report.json", "w") as f:
-            json.dump(report, f, indent=2, default=float)
-        print(f"📁 Report: {out_dir / 'pgs_calibration_report.json'}")
+    cal = pd.DataFrame(results).sort_values(["individual_id", "z_score"], ascending=[True, False])
+    cal.to_csv(out_dir / "pgs_calibrated.csv", index=False)
+
+    first = cal["individual_id"].iloc[0]
+    cal_first = cal[cal["individual_id"] == first]
+    print(f"\n{'=' * 88}")
+    print(f"{'PGS ID':<12} {'Z':>8} {'Pctl':>7} {'Risk':>9} {'Matched':>18} {'Ref':>5}  Trait")
+    print("-" * 88)
+    for _, r in cal_first.iterrows():
+        label = {"HIGH": "🔴", "ELEVATED": "🟠", "AVERAGE": "🟡"}.get(r["risk_category"], "🟢")
+        print(f"{r['pgs_id']:<12} {r['z_score']:>+8.2f} {r['percentile']:>6.1f}% {label} {r['risk_category']:<8}"
+              f" {r['n_snps_matched']:>8,}/{r['n_snps']:<8,} {r['reference_population']:>5}  {r['trait'][:30]}")
+    n_samples = cal["individual_id"].nunique()
+    suffix = "" if n_samples == 1 else f" for {n_samples} samples"
+    print(f"\n✅ {len(cal_first)} PGS scores calibrated against 1000G {target_pop} ({ancestry_source}){suffix}")
+    print(f"📁 Results: {out_dir / 'pgs_calibrated.csv'}")
+
+    report = {
+        "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+        "methodology": {
+            "reference_panel": f"1000 Genomes Phase 3 ({len(pop)} samples)",
+            "populations": SUPER_POPS,
+            "reference_population": target_pop,
+            "ancestry_source": ancestry_source,
+            "calibration_method": "Joint user+reference PLINK --score sum on one variant set; "
+                                  "user sites absent from the VCF filled as homozygous reference; "
+                                  "z-score vs the inferred super-population",
+            "chromosomes_used": chroms,
+            "coverage_threshold": MIN_COVERAGE,
+            "max_reliable_snps": MAX_RELIABLE_SNPS,
+            "note": f"Scores with >{MAX_RELIABLE_SNPS:,} SNPs or <{MIN_COVERAGE:.0%} of their variants "
+                    "in the joint set are flagged unreliable",
+        },
+        "individual_id": first,
+        "summary": {
+            "total_scores": int(len(cal_first)),
+            "reliable_scores": int(cal_first["reliable"].sum()),
+            "high_risk": int((cal_first["risk_category"] == "HIGH").sum()),
+            "elevated_risk": int((cal_first["risk_category"] == "ELEVATED").sum()),
+            "low_risk": int((cal_first["risk_category"] == "LOW").sum()),
+        },
+        "high_risk_traits": cal_first[cal_first["risk_category"] == "HIGH"].to_dict("records"),
+        "elevated_risk_traits": cal_first[cal_first["risk_category"] == "ELEVATED"].to_dict("records"),
+        "low_risk_traits": cal_first[cal_first["risk_category"] == "LOW"].to_dict("records"),
+        "all_entries": cal_first.to_dict("records"),
+        "other_samples": {sid: cal[cal["individual_id"] == sid].to_dict("records")
+                          for sid in cal["individual_id"].unique() if sid != first},
+        "reference_distributions_path": str(ref_dir) + "/",
+    }
+    with open(out_dir / "pgs_calibration_report.json", "w") as f:
+        json.dump(report, f, indent=2, default=float)
+    print(f"📁 Report: {out_dir / 'pgs_calibration_report.json'}")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -957,6 +957,13 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
     elevated = pgs_data.get("elevated_risk_traits", [])
     low_risk = pgs_data.get("low_risk_traits", [])
     methodology = pgs_data.get("methodology", {})
+    # Reference population actually used for the z-scores (RELEASE_PLAN 3.0.1):
+    # inferred ancestry since 2026-09; older reports were always EUR.
+    _entries = pgs_data.get("all_entries", [])
+    ref_pop = (methodology.get("reference_population")
+               or (_entries[0].get("reference_population") if _entries else None)
+               or "EUR")
+    ancestry_source = methodology.get("ancestry_source", "")
 
     # Clinical context for each trait
     CLINICAL = {
@@ -988,7 +995,7 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
                 ctx = desc
                 break
         if not ctx:
-            ctx = f"Genetic predisposition score. Z={z:+.1f} means this individual is at the {pctl:.0f}th percentile of the EUR population for this trait."
+            ctx = f"Genetic predisposition score. Z={z:+.1f} means this individual is at the {pctl:.0f}th percentile of the {ref_pop} population for this trait."
         return ctx
 
     def reliable_badge(reliable):
@@ -1003,9 +1010,11 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
         pgs_id = e.get("pgs_id", "")
         significance = "High risk" if z>2 else ("Elevated" if z>1 else ("Low/Protective" if z<-1 else "Population average"))
 
+        # Prefer the joint-scoring match count carried by the entry itself;
+        # fall back to the legacy user-only lookup for older report JSONs.
         cov = pgs_coverage.get(pgs_id, {}) if pgs_coverage else {}
-        n_used = cov.get("n_used", 0)
-        n_total = cov.get("n_total", 0)
+        n_used = e.get("n_snps_matched", cov.get("n_used", 0)) or 0
+        n_total = e.get("n_snps", cov.get("n_total", 0)) or 0
         snp_bar = snp_coverage_bar(n_used, n_total) if n_total > 0 else '<span style="color:#95a5a6;font-size:0.7rem">—</span>'
 
         bar_pct = max(5, min(95, pctl))
@@ -1049,6 +1058,7 @@ def build_pgs_calibration_section(pgs_data, ui=None, pgs_coverage=None):
         total_scores=summary.get('total_scores', 0), reliable_scores=summary.get('reliable_scores', 0),
         reference_panel=methodology.get('reference_panel', '1000G')[:20],
         populations_list=', '.join(methodology.get('populations', [])),
+        reference_population=ref_pop, ancestry_source=ancestry_source,
         high_risk=[row_ctx(e) for e in high_risk], elevated=[row_ctx(e) for e in elevated],
         low_risk=[row_ctx(e) for e in low_risk], summary_html=summary_html, detail_parts=detail_parts)
 
