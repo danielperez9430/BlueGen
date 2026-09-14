@@ -62,6 +62,20 @@ def test_prs_py_uses_the_constant_not_a_literal():
     )
 
 
+def test_dashboard_uses_the_constant_not_a_literal():
+    """dashboard.py sat outside SCRIPTS_DIR and was missed by every check
+    below, so it kept printing 'BlueGen v1.0.0' / 'v1.0.0.0' two releases
+    after the rest of the pipeline moved to 2.x (RELEASE_PLAN.md N1)."""
+    text = (REPO_ROOT / "dashboard.py").read_text()
+    assert "PIPELINE_VERSION" in text, "dashboard.py must import utils.constants.PIPELINE_VERSION"
+    literal = re.compile(r'["\'][^"\']*\bv[0-9]+\.[0-9]+(?:\.[0-9]+)+[^"\']*["\']')
+    offenders = [m.group(0) for m in literal.finditer(text)]
+    assert not offenders, (
+        "dashboard.py hardcodes a version literal instead of f'v{PIPELINE_VERSION}':\n"
+        + "\n".join(offenders)
+    )
+
+
 def test_no_hardcoded_bluegen_v_string_anywhere():
     """Same drift this file guards against, but as free text ('BlueGen v10.0')
     rather than a pipeline_version=... assignment - the pattern that let

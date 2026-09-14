@@ -85,6 +85,12 @@ pipeline_debug.log
 # ── Top-level reports (may contain real genotypes/HTML reports) ──
 /reports/
 
+# ── Synthetic demo report (screenshot fixtures, not real user data) ──
+/demo_report/
+
+# ── Local release planning notes (not published) ──
+/RELEASE_PLAN.md
+
 # ── Data curation backups ──
 *.bak
 

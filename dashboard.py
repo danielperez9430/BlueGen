@@ -22,6 +22,13 @@ st.set_page_config(
 
 PIPELINE = Path(__file__).parent / "prs_research_pipeline"
 
+# Single source of truth for the version (IMPROVEMENT_PLAN.md TIER 0.1) —
+# never hardcode a "vX.Y.Z" literal here; tests/test_version_consistency.py
+# scans this file for exactly that.
+import sys
+sys.path.insert(0, str(PIPELINE / "scripts"))
+from utils.constants import PIPELINE_VERSION
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -111,7 +118,7 @@ if page == "📊 Overview":
     with col1:
         st.metric("🧬 mtDNA Haplogroup", safe_get(deep_anc, "mt_dna", "haplogroup", default="—"))
     with col2:
-        st.metric("📦 Pipeline", "v1.0.0.0")
+        st.metric("📦 Pipeline", f"v{PIPELINE_VERSION}")
     with col3:
         st.metric("🗃️ ClinVar DB", f"{safe_get(clinvar, 'metadata', 'user_vcf_total_variants', default=0):,} variants")
 
@@ -459,4 +466,4 @@ elif page == "📋 Raw Data":
         st.json(data)
 
 st.sidebar.markdown("---")
-st.sidebar.caption("BlueGen v1.0.0")
+st.sidebar.caption(f"BlueGen v{PIPELINE_VERSION}")

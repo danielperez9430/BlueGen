@@ -4,7 +4,11 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+- Dashboard printed a hardcoded `v1.0.0` / `v1.0.0.0` two releases after the pipeline moved to 2.x. It now reads `utils.constants.PIPELINE_VERSION` like everything else, and `tests/test_version_consistency.py` scans `dashboard.py` so it cannot drift again.
+
+### Changed
+- `.gitignore`: exclude the synthetic `demo_report/` fixtures and local release-planning notes.
 
 ## [2.0.2] — 2026-08-08
 
