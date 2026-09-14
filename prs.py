@@ -148,6 +148,36 @@ ROUTES = {
 DRY_RUN = False
 DEBUG = False
 
+# One log file per stage (RELEASE_PLAN.md 2.1.5). pipeline_debug.log is still
+# written on failure for backwards compatibility, but the per-stage file is
+# the one to open: it only contains that stage's output.
+LOG_DIR = PLATFORM_DIR / "logs"
+
+
+def stage_log_path(key):
+    """logs/<key>.log, with the key sanitised so an arbitrary script path
+    (ROUTES.get(key, key) falls back to the key itself) cannot escape LOG_DIR."""
+    safe = "".join(c if (c.isalnum() or c in "._-") else "_" for c in str(key))
+    return LOG_DIR / f"{safe}.log"
+
+
+def _write_stage_log(key, cmd, result, elapsed):
+    """Overwrite logs/<key>.log with this run's full stdout+stderr."""
+    path = stage_log_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as lf:
+        lf.write(f"=== BlueGen v{PIPELINE_VERSION} — stage {key} — "
+                 f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')} ===\n")
+        lf.write(f"CMD: {' '.join(cmd)}\n")
+        lf.write(f"EXIT: {result.returncode}  ELAPSED: {elapsed:.1f}s\n")
+        lf.write(f"{'='*60}\n")
+        lf.write(result.stdout or "")
+        if result.stderr:
+            lf.write(f"\n{'-'*20} stderr {'-'*20}\n")
+            lf.write(result.stderr)
+    return path
+
+
 def run_script(key, *args, shell=False, required=False):
     """Execute a routed script. Returns exit code. Skips if dry-run."""
     script = ROUTES.get(key, key)
@@ -179,13 +209,18 @@ def run_script(key, *args, shell=False, required=False):
         elapsed = time.time() - t0
         elapsed_str = f" ({elapsed:.0f}s)" if elapsed > 5 else ""
 
+        # In capture mode the child's output went nowhere visible: keep all
+        # of it, per stage, so a failure can be read in isolation.
+        stage_log = _write_stage_log(key, cmd, result, elapsed) if capture else None
+        stage_log_rel = stage_log.relative_to(PLATFORM_DIR) if stage_log else None
+
         if result.returncode == 0:
             info(f"  {G}✓{N} {key}{elapsed_str}")
         elif result.returncode == 77:
             warn(f"  {key} — leakage gate blocked (non-fatal)")
         else:
             err(f"  {key} — exit code {result.returncode}")
-            # Always write full output to debug log
+            # Also append to the aggregate debug log (legacy location)
             log_path = PLATFORM_DIR / "pipeline_debug.log"
             with open(log_path, "a") as lf:
                 lf.write(f"\n{'='*60}\n")
@@ -198,12 +233,12 @@ def run_script(key, *args, shell=False, required=False):
             output = (result.stdout or "") + (result.stderr or "")
             lines = [l.strip() for l in output.split("\n") if l.strip()]
             if capture:
-                info(f"    {D}Full log: pipeline_debug.log{N}")
+                info(f"    {D}Full log: {stage_log_rel}{N}")
                 for line in lines[-8:]:
                     info(f"    {D}{line[:130]}{N}")
             if required:
                 err(f"  Pipeline halted: {key} failed with exit code {result.returncode}")
-                err(f"  See pipeline_debug.log for the full failure output")
+                err(f"  See {stage_log_rel or 'the console output above'} for the full failure output")
                 sys.exit(result.returncode or 1)
         return result.returncode
     except subprocess.TimeoutExpired:
@@ -223,7 +258,9 @@ def require_output(path, label, stage=""):
     err(f"Output not found: {path} ({label})")
     if stage:
         err(f"  Stage '{stage}' did not produce expected output")
-    err(f"  Check pipeline_debug.log for details")
+        err(f"  Check {stage_log_path(stage).relative_to(PLATFORM_DIR)} for details")
+    else:
+        err(f"  Check {LOG_DIR.relative_to(PLATFORM_DIR)}/ for the per-stage logs")
     sys.exit(1)
 
 

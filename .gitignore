@@ -91,6 +91,9 @@ pipeline_debug.log
 # ── Local release planning notes (not published) ──
 /RELEASE_PLAN.md
 
+# ── Per-stage orchestrator logs (may echo sample IDs / paths) ──
+prs_research_pipeline/logs/
+
 # ── Data curation backups ──
 *.bak
 

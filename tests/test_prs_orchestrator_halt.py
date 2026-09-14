@@ -24,10 +24,48 @@ import prs  # noqa: E402
 
 
 class _FakeCompletedProcess:
-    def __init__(self, returncode):
+    def __init__(self, returncode, stdout="", stderr=""):
         self.returncode = returncode
-        self.stdout = ""
-        self.stderr = ""
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+# ── Per-stage logs (RELEASE_PLAN.md 2.1.5) ────────────────────────────────
+
+
+def test_failed_stage_writes_its_own_log_and_points_to_it(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(prs, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(prs, "PLATFORM_DIR", tmp_path)
+    monkeypatch.setattr(prs.subprocess, "run",
+                        lambda *a, **k: _FakeCompletedProcess(2, stdout="hello\nfrom stdout\n",
+                                                              stderr="boom on stderr\n"))
+    rc = prs.run_script("prs_plink_score", required=False)
+    assert rc == 2
+    log = tmp_path / "logs" / "prs_plink_score.log"
+    assert log.exists()
+    text = log.read_text()
+    assert "stage prs_plink_score" in text
+    assert "EXIT: 2" in text
+    assert "from stdout" in text and "boom on stderr" in text
+    # The console must point at the per-stage file, not the aggregate one
+    out = capsys.readouterr().out
+    assert "logs/prs_plink_score.log" in out
+
+
+def test_successful_stage_also_writes_its_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(prs, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(prs, "PLATFORM_DIR", tmp_path)
+    monkeypatch.setattr(prs.subprocess, "run",
+                        lambda *a, **k: _FakeCompletedProcess(0, stdout="all good\n"))
+    assert prs.run_script("prs_plink_score", required=True) == 0
+    assert "all good" in (tmp_path / "logs" / "prs_plink_score.log").read_text()
+
+
+def test_stage_log_path_is_sanitised_and_stays_inside_log_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr(prs, "LOG_DIR", tmp_path / "logs")
+    p = prs.stage_log_path("../../etc/passwd")
+    assert p.parent == tmp_path / "logs"
+    assert p.name == ".._.._etc_passwd.log"  # no path separators survive
 
 
 def test_run_script_required_true_exits_when_script_missing():
