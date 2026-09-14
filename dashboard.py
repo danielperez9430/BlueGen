@@ -7,6 +7,7 @@
 
 import streamlit as st
 import json
+import os
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -20,26 +21,51 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-PIPELINE = Path(__file__).parent / "prs_research_pipeline"
+REPO_ROOT = Path(__file__).parent
+# BLUEGEN_PIPELINE_DIR lets tests point the dashboard at an empty directory
+# to prove every page degrades to "no data" instead of a traceback.
+PIPELINE = Path(os.environ.get("BLUEGEN_PIPELINE_DIR", REPO_ROOT / "prs_research_pipeline"))
 
 # Single source of truth for the version (IMPROVEMENT_PLAN.md TIER 0.1) —
 # never hardcode a "vX.Y.Z" literal here; tests/test_version_consistency.py
 # scans this file for exactly that.
 import sys
-sys.path.insert(0, str(PIPELINE / "scripts"))
+sys.path.insert(0, str(REPO_ROOT / "prs_research_pipeline" / "scripts"))
 from utils.constants import PIPELINE_VERSION
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Cache on the *absolute* path: a relative key would survive a change of
+# PIPELINE (e.g. the BLUEGEN_PIPELINE_DIR override in tests) and hand back
+# another directory's data.
 @st.cache_data
-def load_json(path):
-    p = PIPELINE / path
+def _read_json(abs_path: str):
+    p = Path(abs_path)
     if p.exists():
-        with open(p) as f:
-            return json.load(f)
+        try:
+            with open(p) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
     return {}
+
+@st.cache_data
+def _read_csv(abs_path: str):
+    p = Path(abs_path)
+    if p.exists():
+        try:
+            return pd.read_csv(p)
+        except Exception:
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+def load_json(path):
+    return _read_json(str(PIPELINE / path))
+
+def load_csv(path):
+    return _read_csv(str(PIPELINE / path))
 
 def safe_get(d, *keys, default="N/A"):
     for k in keys:
@@ -48,6 +74,10 @@ def safe_get(d, *keys, default="N/A"):
         else:
             return default
     return d if d is not None else default
+
+RISK_COLORS = {"HIGH": "#e74c3c", "ELEVATED": "#f39c12", "AVERAGE": "#95a5a6",
+               "LOW": "#27ae60", "high": "#e74c3c", "elevated": "#f39c12",
+               "medium": "#95a5a6", "average": "#95a5a6", "low": "#27ae60"}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
@@ -60,9 +90,12 @@ page = st.sidebar.radio(
     "", [
         "📊 Overview",
         "🧬 PRS Results",
+        "🥗 Recommendations",
+        "🩺 PGS Catalog",
         "🔬 ClinVar Pathogenic",
         "💊 Pharmacogenomics",
         "🌍 Ancestry",
+        "🦴 Archaic DNA",
         "📋 Raw Data",
     ],
     label_visibility="collapsed",
@@ -80,6 +113,8 @@ clinvar = load_json("clinvar/clinvar_pathogenic_variants.json")
 pharmgkb = load_json("pharmgkb/pharmgkb_drug_report.json")
 deep_anc = load_json("ancestry/deep_ancestry.json")
 validation = load_json("science/global_validation_report.json")
+pgs_cal = load_csv("prs/pgs_scores/pgs_calibrated.csv")
+recommendations = load_json("data/trait_recommendations.json")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OVERVIEW
@@ -137,7 +172,7 @@ if page == "📊 Overview":
                          title="PRS Z-Scores by Trait (population-calibrated)")
             fig.add_vline(x=1.0, line_dash="dash", line_color="#f39c12", annotation_text="Elevated")
             fig.add_vline(x=-1.0, line_dash="dash", line_color="#27ae60", annotation_text="Reduced")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.info("No PRS data. Run pipeline first.")
 
@@ -154,7 +189,7 @@ if page == "📊 Overview":
         fig = px.bar(tier_df, x="Tier", y="Count", color="Tier",
                      color_discrete_map={t["Tier"]: t["Color"] for _, t in tier_df.iterrows()},
                      title="Variant Confidence Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Integrity score gauge
     if score:
@@ -167,7 +202,7 @@ if page == "📊 Overview":
                    "steps": [{"range": [0, 50], "color": "#fadbd8"},
                              {"range": [50, 75], "color": "#fdebd0"},
                              {"range": [75, 100], "color": "#d5f5e3"}]}))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PRS RESULTS
@@ -203,7 +238,7 @@ elif page == "🧬 PRS Results":
             display_df.columns = ["Trait", "Z-Score", "Percentile", "Risk Category"]
             display_df["Z-Score"] = display_df["Z-Score"].round(2)
             display_df["Percentile"] = display_df["Percentile"].round(1)
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
 
             # Bar chart
             fig = px.bar(df, x="population_zscore", y="trait",
@@ -213,7 +248,7 @@ elif page == "🧬 PRS Results":
                          range_color=[-2, 2])
             fig.add_vline(x=1.0, line_dash="dash", line_color="#f39c12")
             fig.add_vline(x=-1.0, line_dash="dash", line_color="#27ae60")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # Radar chart
             st.subheader("Risk Radar")
@@ -227,7 +262,132 @@ elif page == "🧬 PRS Results":
                 name="Z-Score",
             ))
             fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[-2, 2])))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RECOMMENDATIONS (curated, evidence-cited — data/trait_recommendations.json)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+elif page == "🥗 Recommendations":
+    st.title("🥗 Actionable Recommendations")
+    st.caption("Curated, evidence-cited guidance per trait (PubMed PMID / NIH fact sheets), "
+               "joined with your population-calibrated PRS where the trait was scored.")
+
+    recs = {k: v for k, v in recommendations.items()
+            if not k.startswith("_") and isinstance(v, dict)}
+    entries = safe_get(prs, "prs_entries", default=[])
+    by_trait = {str(e.get("trait", "")).lower(): e for e in entries if isinstance(e, dict)}
+
+    if not recs:
+        st.info("No recommendations file found (`data/trait_recommendations.json`).")
+    else:
+        lang = st.radio("Language / Idioma", ["en", "es"], horizontal=True,
+                        format_func=lambda x: {"en": "🇬🇧 English", "es": "🇪🇸 Español"}[x])
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            levels = sorted({str(v.get("evidence_level", "?")) for v in recs.values()})
+            level_filter = st.multiselect("Evidence level", levels, default=levels)
+        with col2:
+            only_scored = st.checkbox("Only traits scored in my PRS", value=bool(by_trait))
+        with col3:
+            search = st.text_input("Search trait / gene", "")
+
+        rows = []
+        for trait, rec in recs.items():
+            e = by_trait.get(trait.lower())
+            if only_scored and e is None:
+                continue
+            if str(rec.get("evidence_level", "?")) not in level_filter:
+                continue
+            blob = f"{trait} {rec.get('recommendation_en', '')} {rec.get('recommendation_es', '')}".lower()
+            if search and search.lower() not in blob:
+                continue
+            z = e.get("population_zscore") if e else None
+            rows.append((trait, rec, e, z))
+
+        # Most extreme z-scores first, unscored traits last (alphabetical)
+        rows.sort(key=lambda r: (-abs(r[3]) if isinstance(r[3], (int, float)) else 1e9, r[0]))
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Recommendations", len(rows))
+        m2.metric("Curated in panel", len(recs))
+        m3.metric("Matched to your PRS", sum(1 for r in rows if r[2] is not None))
+        if not rows:
+            st.info("Nothing matches the current filters.")
+
+        for trait, rec, e, z in rows:
+            if e is not None and isinstance(z, (int, float)):
+                badge = "🔴" if z >= 1 else "🟢" if z <= -1 else "⚪"
+                head = f"{badge} **{trait}** — z = {z:+.2f}, percentile {e.get('population_percentile', 0):.0f}, {e.get('risk_category', '—')}"
+            else:
+                head = f"◌ **{trait}** — not scored in this run"
+            with st.expander(head):
+                st.markdown(rec.get(f"recommendation_{lang}") or rec.get("recommendation_en", "—"))
+                c1, c2 = st.columns([1, 3])
+                c1.metric("Evidence level", rec.get("evidence_level", "?"))
+                c2.caption(f"**Source:** {rec.get('reference', '—')}")
+                if e is not None:
+                    c2.caption(f"SNPs used: {e.get('n_snps_used', '?')}/{e.get('n_snps_total', '?')} · "
+                               f"95% CI [{e.get('ci_95_lower', '?')}, {e.get('ci_95_upper', '?')}] · "
+                               f"calibrated vs {e.get('assigned_population', '?')}")
+
+        st.markdown("---")
+        st.caption("⚠️ Research use only. Discuss any dietary or lifestyle change with your clinician or dietitian.")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PGS CATALOG (external validation — prs/pgs_scores/pgs_calibrated.csv)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+elif page == "🩺 PGS Catalog":
+    st.title("🩺 PGS Catalog — External Validation")
+    st.caption("Published polygenic scores (EBI PGS Catalog) applied to your genotype and "
+               "calibrated against the 1000 Genomes reference.")
+
+    if pgs_cal.empty or "z_score" not in pgs_cal.columns:
+        st.info("No PGS Catalog results. Run `python prs.py run --full --vcf sample.vcf.gz`.")
+    else:
+        df = pgs_cal.copy()
+        df["z_score"] = pd.to_numeric(df["z_score"], errors="coerce")
+        df["percentile"] = pd.to_numeric(df.get("percentile"), errors="coerce")
+        df = df.dropna(subset=["z_score"]).sort_values("z_score", ascending=False)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Scores calibrated", len(df))
+        c2.metric("High (z ≥ 2)", int((df["z_score"] >= 2).sum()))
+        c3.metric("Elevated (1 ≤ z < 2)", int(((df["z_score"] >= 1) & (df["z_score"] < 2)).sum()))
+        if "reliable" in df.columns:
+            c4.metric("Flagged reliable", int(df["reliable"].astype(str).str.lower().eq("true").sum()))
+
+        ref_cols = [c for c in df.columns if c.endswith("_mean")]
+        ref_pop = ref_cols[0].replace("_mean", "").upper() if ref_cols else "1000G"
+        st.caption(f"Reference distribution: 1000 Genomes **{ref_pop}** for every score in this file.")
+
+        show = [c for c in ["pgs_id", "trait", "n_snps", "z_score", "percentile", "risk_category", "reliable"]
+                if c in df.columns]
+        table = df[show].copy()
+        table["z_score"] = table["z_score"].round(2)
+        if "percentile" in table.columns:
+            table["percentile"] = table["percentile"].round(1)
+        st.dataframe(table, width="stretch", hide_index=True)
+
+        top = df.reindex(df["z_score"].abs().sort_values(ascending=False).index).head(30)
+        top = top.sort_values("z_score")
+        fig = px.bar(top, x="z_score", y="trait", orientation="h",
+                     color="z_score", color_continuous_scale=["#27ae60", "#f5f5f5", "#e74c3c"],
+                     range_color=[-3, 3], title="PGS z-scores (30 most extreme)",
+                     hover_data=[c for c in ["pgs_id", "n_snps", "percentile"] if c in top.columns])
+        fig.add_vline(x=1.0, line_dash="dash", line_color="#f39c12")
+        fig.add_vline(x=-1.0, line_dash="dash", line_color="#27ae60")
+        fig.update_layout(height=max(400, 22 * len(top)))
+        st.plotly_chart(fig, width="stretch")
+
+        st.markdown("---")
+        st.markdown("""
+        **📖 Reading this page**
+        - A PGS is a published score built from a large GWAS; the number of SNPs is what the authors used, not what BlueGen curated.
+        - z = how many standard deviations your score sits from the reference population mean; percentile is the share of that population below you.
+        - A very large |z| (≫ 3) on a score with few matched SNPs usually means low coverage of that score in your VCF rather than extreme risk — check `n_snps` and `reliable`.
+        """)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CLINVAR
@@ -294,7 +454,7 @@ elif page == "🔬 ClinVar Pathogenic":
                 "Disease": (v.get("disease_name", "—") or "—").replace("_", " ")[:80],
                 "Description": (v.get("disease_description", "") or "")[:120],
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True,
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True,
                      column_config={"Description": st.column_config.TextColumn(width="large")})
 
         # Gene chart
@@ -307,7 +467,7 @@ elif page == "🔬 ClinVar Pathogenic":
             fig = px.bar(x=list(top_genes.values()), y=list(top_genes.keys()),
                          orientation="h", title="Top Genes with Pathogenic Variants",
                          labels={"x": "Variants", "y": "Gene"})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHARMACOGENOMICS
@@ -369,7 +529,7 @@ elif page == "💊 Pharmacogenomics":
                 (f["actionability"] for f in findings if f["drug"] == drug), "informative")}
             for drug, gene in drug_genes.items()
         ])
-        st.dataframe(df_drugs, use_container_width=True, hide_index=True)
+        st.dataframe(df_drugs, width="stretch", hide_index=True)
 
         st.markdown("---")
         st.markdown("""
@@ -404,7 +564,7 @@ elif page == "🌍 Ancestry":
             ])
             fig = px.bar(df_prob, x="Population", y="Probability", title="Ancestry Probabilities",
                          color="Population", color_discrete_sequence=px.colors.qualitative.Set2)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with col2:
         st.subheader("Deep Ancestry")
@@ -422,7 +582,7 @@ elif page == "🌍 Ancestry":
         subs = subcont.get("sub_populations_available", [])
         if subs:
             df_subs = pd.DataFrame(subs)
-            st.dataframe(df_subs[["code", "name", "description"]], use_container_width=True, hide_index=True)
+            st.dataframe(df_subs[["code", "name", "description"]], width="stretch", hide_index=True)
 
     # PCA plot
     st.subheader("PCA Plot — 1000 Genomes Reference")
@@ -438,9 +598,69 @@ elif page == "🌍 Ancestry":
                 fig.add_scatter(x=[target_df.iloc[0, 2]], y=[target_df.iloc[0, 3]],
                                mode="markers", marker=dict(size=20, color="red", symbol="star"),
                                name="You")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         except Exception:
             st.info("PCA data available but could not render plot.")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ARCHAIC DNA (ancestry/deep_ancestry.json → "neanderthal")
+# ═══════════════════════════════════════════════════════════════════════════════
+
+elif page == "🦴 Archaic DNA":
+    st.title("🦴 Archaic DNA — Neanderthal Admixture")
+    neand = safe_get(deep_anc, "neanderthal", default={})
+
+    if not isinstance(neand, dict) or not neand:
+        st.info("No archaic-admixture results. Run `python prs.py run --full --vcf sample.vcf.gz` "
+                "(needs the Vindija/AADR reference bundle, see README).")
+    else:
+        pct = neand.get("percentage")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Neanderthal ancestry", f"{pct:.2f} %" if isinstance(pct, (int, float)) else "—")
+        found, total = neand.get("snps_found"), neand.get("snps_total")
+        c2.metric("Archaic SNPs found", f"{found:,} / {total:,}" if isinstance(found, int) and isinstance(total, int) else "—")
+        c3.metric("Reliable", "✅ yes" if neand.get("reliable") else "⚠️ no")
+        c4.metric("Closest population", neand.get("closest_population", "—"))
+
+        ref = neand.get("reference", {})
+        if isinstance(ref, dict) and ref:
+            st.caption(f"Method: `{neand.get('method', '?')}` · Reference: {ref.get('source', '?')} "
+                       f"({ref.get('coverage', '?')}, {ref.get('chromosomes', '?')} chromosomes)")
+
+        comps = neand.get("population_comparisons", {})
+        if isinstance(comps, dict) and comps:
+            st.subheader("You vs. 1000 Genomes super-populations")
+            rows = []
+            for code, c in comps.items():
+                if not isinstance(c, dict):
+                    continue
+                rows.append({"Population": f"{code} — {c.get('label', code)}",
+                             "Population mean %": c.get("mean_pct"),
+                             "You %": c.get("user_admix_pct", pct),
+                             "z-score": c.get("z_score"),
+                             "Percentile": c.get("percentile")})
+            df_c = pd.DataFrame(rows)
+            if not df_c.empty:
+                long = df_c.melt(id_vars="Population", value_vars=["Population mean %", "You %"],
+                                 var_name="Series", value_name="Neanderthal %")
+                fig = px.bar(long, x="Population", y="Neanderthal %", color="Series", barmode="group",
+                             color_discrete_map={"Population mean %": "#95a5a6", "You %": "#8e44ad"},
+                             title="Neanderthal admixture: you vs. population means")
+                st.plotly_chart(fig, width="stretch")
+                st.dataframe(df_c, width="stretch", hide_index=True)
+
+        with st.expander("Sharing statistics (raw)"):
+            keep = {k: v for k, v in neand.items()
+                    if k not in ("population_comparisons", "reference") and not isinstance(v, (dict, list))}
+            st.json(keep)
+
+        st.markdown("---")
+        st.markdown("""
+        **📖 Reading this page**
+        - Present-day non-African genomes carry roughly 1.5–2.5 % Neanderthal ancestry; East Asians a little more than Europeans.
+        - The estimate compares your genotype directly with the high-coverage Vindija Neanderthal genome; it is an *affinity* measure, not a count of introgressed segments.
+        - "Reliable" is false when too few archaic-informative SNPs were found in your VCF (low coverage or a chr22-only reference).
+        """)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RAW DATA
@@ -452,6 +672,8 @@ elif page == "📋 Raw Data":
 
     files = {
         "PRS Results": "prs/PRS_RESULT.json",
+        "PGS Catalog Calibration Report": "prs/pgs_scores/pgs_calibration_report.json",
+        "Trait Recommendations (curated)": "data/trait_recommendations.json",
         "Ancestry Model": "science/ANCESTRY_MODEL.json",
         "ClinVar Pathogenic": "clinvar/clinvar_pathogenic_variants.json",
         "PharmGKB Drug Report": "pharmgkb/pharmgkb_drug_report.json",

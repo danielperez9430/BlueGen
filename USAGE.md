@@ -242,12 +242,15 @@ Enabled with `--clinvar` or `--full`. Downloads ClinPGx data (~2 MB) once.
 
 ### Streamlit Dashboard
 ```bash
-cd bluegen
+cd BlueGen
+pip install -e ".[dashboard]"          # streamlit + plotly (optional extra)
 ./venv/bin/streamlit run dashboard.py
 # Opens at http://localhost:8501
 ```
-- 6 interactive pages (Overview, PRS, ClinVar, PharmGKB, Ancestry, Raw Data)
+- 9 interactive pages: Overview, PRS Results, **Recommendations** (curated evidence-cited guidance joined with your z-scores, EN/ES), **PGS Catalog** (calibrated external scores), ClinVar, Pharmacogenomics, Ancestry, **Archaic DNA** (Neanderthal admixture vs. 1000G populations), Raw Data
 - Filterable tables, Plotly charts, expandable CPIC guidelines
+- Every page degrades to an informational message when its output file is missing (`tests/test_dashboard.py` pins this with Streamlit's `AppTest`)
+- `BLUEGEN_PIPELINE_DIR=/path` points the dashboard at another pipeline directory (used by the tests)
 - Reads all JSON outputs — no recomputation
 
 ## Output Directory Contract

@@ -30,7 +30,7 @@ python3 prs_research_pipeline/scripts/setup/download_1000G_full.py
 python3 prs.py run --full --vcf your_sample.vcf.gz
 
 # Interactive dashboard
-venv/bin/streamlit run dashboard.py
+pip install -e ".[dashboard]" && venv/bin/streamlit run dashboard.py
 ```
 
 ## 📊 What It Does
@@ -44,7 +44,7 @@ venv/bin/streamlit run dashboard.py
 | 🦴 **Archaic DNA** | Neanderthal/Denisovan admixture via AADR direct comparison | Allen Ancient DNA Resource (1.23M SNPs) |
 | 🩺 **PGS Catalog** | 52/57 scored and population-calibrated (z-score + percentile vs 1000G EUR); a handful excluded for being genome-wide-scale (>500K variants, impractical for single-sample scoring) | PGS Catalog (EBI) |
 | 📖 **MedGen** | Disease definitions for ClinVar findings | NCBI MedGen (23K concepts) |
-| 📊 **Dashboard** | 6-page interactive Streamlit app | All JSON outputs |
+| 📊 **Dashboard** | 9-page interactive Streamlit app (PRS, recommendations, PGS Catalog, ClinVar, PharmGKB, ancestry, archaic DNA) | All JSON/CSV outputs |
 
 ## 🏗️ Architecture
 
