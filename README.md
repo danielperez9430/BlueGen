@@ -105,10 +105,10 @@ Data sources & attribution: [`SOURCES.md`](SOURCES.md)
 
 ### Docker (no PLINK / system-lib setup)
 
-The image bundles Python deps, PLINK 1.9 + 2.0, bcftools/tabix and the WeasyPrint libs. Reference data and outputs are bind-mounted, never baked in.
+The image bundles Python deps, PLINK 1.9, bcftools/tabix and the WeasyPrint libs (PLINK 2.0 too on amd64). Reference data and outputs are bind-mounted, never baked in.
 
 ```bash
-docker build --platform linux/amd64 -t bluegen .
+docker build -t bluegen .
 docker run --rm \
   -v "$PWD/prs_research_pipeline/reference:/app/prs_research_pipeline/reference" \
   -v "$PWD/prs_research_pipeline/reports:/app/prs_research_pipeline/reports" \
@@ -116,7 +116,7 @@ docker run --rm \
   bluegen run --full --vcf /data/sample.vcf.gz
 ```
 
-The image is `linux/amd64` (PLINK 1.9 has no ARM64 Linux build); on Apple Silicon it runs under Rosetta/QEMU. To keep every intermediate output (`plink/`, `qc/`, `prs/`, …) on the host, mount the whole `prs_research_pipeline/` directory instead of the two subfolders above.
+The image is multi-arch and builds **natively on both amd64 and arm64** (Apple Silicon included, no emulation): cog-genomics ships no Linux ARM64 PLINK, so PLINK 1.9 (`1.90b7.7`) and bcftools/tabix are installed from bioconda with the same pinned versions on both architectures. PLINK 2.0 has no ARM64 Linux build anywhere and is only added on amd64; the pipeline never calls it. To keep every intermediate output (`plink/`, `qc/`, `prs/`, …) on the host, mount the whole `prs_research_pipeline/` directory instead of the two subfolders above.
 
 ### System Tools
 
@@ -124,7 +124,7 @@ PLINK is **not bundled** in the git clone (it is in the Docker image) — downlo
 
 | Tool | Version | macOS (Apple Silicon) | macOS (Intel) | Linux |
 |------|---------|----------------------|---------------|-------|
-| PLINK 1.9 | [v1.90b7.2](https://www.cog-genomics.org/plink/) | `plink` (Rosetta) | `plink_mac` | `plink_linux` |
+| PLINK 1.9 | [v1.90b7.2](https://www.cog-genomics.org/plink/) | `plink` (universal binary, runs natively on arm64) | `plink_mac` | `plink_linux` |
 | PLINK 2.0 | [v2.0.0-a.7.1](https://www.cog-genomics.org/plink/2.0/) | `plink2_mac_arm64` | `plink2_mac` | `plink2_linux` |
 
 Place the binaries in your `PATH` or symlink them into the project root.

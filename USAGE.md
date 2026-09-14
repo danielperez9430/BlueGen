@@ -69,7 +69,7 @@ source venv/bin/activate
 pip install -e .
 
 # Or skip PLINK/system libs entirely:
-docker build --platform linux/amd64 -t bluegen .   # see README "Docker"
+docker build -t bluegen .        # multi-arch (amd64 + arm64), see README "Docker"
 ```
 
 `bluegen <command>` is identical to `python prs.py <command>` and works from any directory.
