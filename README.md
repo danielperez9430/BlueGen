@@ -19,7 +19,7 @@ Turn a WGS VCF into a comprehensive personal genomics report: polygenic risk sco
 git clone https://github.com/danielperez9430/BlueGen.git
 cd BlueGen
 python3 -m venv venv && source venv/bin/activate
-pip install -r prs_research_pipeline/requirements.txt
+pip install -e .            # deps + the `bluegen` command (== python prs.py)
 
 # Recommended: download the genome-wide 1000G reference first (~25 GB, one-time).
 # Without it, the pipeline silently falls back to a chr22-only reference for
@@ -103,9 +103,24 @@ Data sources & attribution: [`SOURCES.md`](SOURCES.md)
   - [`bluegen-vindija-reference`](https://archive.org/details/bluegen-vindija-reference) — Vindija Neanderthal genome VCFs (chr1–22, hg19, ~44 GB)
   - > **Maintainer:** `python archive_upload.py -j 8` to refresh snapshots
 
+### Docker (no PLINK / system-lib setup)
+
+The image bundles Python deps, PLINK 1.9 + 2.0, bcftools/tabix and the WeasyPrint libs. Reference data and outputs are bind-mounted, never baked in.
+
+```bash
+docker build --platform linux/amd64 -t bluegen .
+docker run --rm \
+  -v "$PWD/prs_research_pipeline/reference:/app/prs_research_pipeline/reference" \
+  -v "$PWD/prs_research_pipeline/reports:/app/prs_research_pipeline/reports" \
+  -v "/path/to/sample.vcf.gz:/data/sample.vcf.gz:ro" \
+  bluegen run --full --vcf /data/sample.vcf.gz
+```
+
+The image is `linux/amd64` (PLINK 1.9 has no ARM64 Linux build); on Apple Silicon it runs under Rosetta/QEMU. To keep every intermediate output (`plink/`, `qc/`, `prs/`, …) on the host, mount the whole `prs_research_pipeline/` directory instead of the two subfolders above.
+
 ### System Tools
 
-PLINK is **not bundled** — download the correct build for your OS:
+PLINK is **not bundled** in the git clone (it is in the Docker image) — download the correct build for your OS:
 
 | Tool | Version | macOS (Apple Silicon) | macOS (Intel) | Linux |
 |------|---------|----------------------|---------------|-------|

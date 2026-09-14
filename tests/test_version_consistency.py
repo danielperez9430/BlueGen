@@ -62,6 +62,26 @@ def test_prs_py_uses_the_constant_not_a_literal():
     )
 
 
+def test_pyproject_reads_version_from_the_constant():
+    """pyproject.toml must not carry its own version literal (RELEASE_PLAN.md
+    2.1.4): setuptools reads PIPELINE_VERSION statically via `attr`."""
+    text = (REPO_ROOT / "pyproject.toml").read_text()
+    assert 'attr = "prs_research_pipeline.scripts.utils.constants.PIPELINE_VERSION"' in text
+    assert not re.search(r'^version\s*=\s*"[0-9]', text, re.MULTILINE), \
+        "pyproject.toml hardcodes a version; it must stay dynamic"
+
+
+def test_installed_distribution_version_matches_constant():
+    """Only meaningful after `pip install -e .`; skipped otherwise."""
+    from importlib import metadata
+    try:
+        installed = metadata.version("bluegen")
+    except metadata.PackageNotFoundError:
+        import pytest
+        pytest.skip("bluegen is not pip-installed in this interpreter")
+    assert installed == PIPELINE_VERSION
+
+
 def test_dashboard_uses_the_constant_not_a_literal():
     """dashboard.py sat outside SCRIPTS_DIR and was missed by every check
     below, so it kept printing 'BlueGen v1.0.0' / 'v1.0.0.0' two releases

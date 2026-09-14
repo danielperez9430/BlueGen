@@ -76,7 +76,7 @@ jobs:
         # fails with ModuleNotFoundError (happened for jinja2 in 1.6, then
         # pydantic in 2.2).
         run: |
-          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest jinja2 pydantic
+          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest jinja2 pydantic streamlit plotly
 
       - name: Syntax check
         run: |
@@ -104,3 +104,25 @@ jobs:
       - name: Quick tests (JSON integrity)
         run: |
           python prs.py test --quick
+
+      - name: Editable install exposes the `bluegen` entry point
+        run: |
+          pip install --no-deps -e .
+          bluegen --help
+          python -c "from importlib import metadata; import sys; sys.path.insert(0, 'prs_research_pipeline/scripts'); from utils.constants import PIPELINE_VERSION; assert metadata.version('bluegen') == PIPELINE_VERSION, metadata.version('bluegen')"
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build image
+        run: docker build --platform linux/amd64 -t bluegen:ci .
+
+      - name: Smoke test (tools present, CLI runs, unit tests pass inside the image)
+        run: |
+          docker run --rm --entrypoint plink bluegen:ci --version
+          docker run --rm --entrypoint bcftools bluegen:ci --version | head -1
+          docker run --rm bluegen:ci status
+          docker run --rm --entrypoint python bluegen:ci -m pytest tests/ -q --tb=short

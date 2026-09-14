@@ -1,0 +1,58 @@
+# Keep the build context to code + curated data. Everything large, generated,
+# personal or platform-specific stays on the host and is bind-mounted instead.
+.git
+.github
+.claude
+.DS_Store
+**/__pycache__
+**/*.pyc
+*.egg-info
+build
+dist
+venv
+tools
+archive
+demo_report
+reports
+assets
+*.log
+*.bak
+
+# Genomic inputs — never in an image
+*.vcf.gz
+*.vcf.gz.tbi
+*.bam
+*.bam.bai
+*.cram
+*.fastq.gz
+*.fq.gz
+aligned
+raw_data
+
+# Reference bundle (~65 GB) and per-run outputs — mounted at run time
+prs_research_pipeline/reference
+prs_research_pipeline/logs
+prs_research_pipeline/plink
+prs_research_pipeline/qc
+prs_research_pipeline/pca
+prs_research_pipeline/prs
+prs_research_pipeline/pgs
+prs_research_pipeline/gwas
+prs_research_pipeline/clinvar
+prs_research_pipeline/pharmgkb
+prs_research_pipeline/ancestry
+prs_research_pipeline/reports
+prs_research_pipeline/reproducibility
+prs_research_pipeline/validation
+prs_research_pipeline/benchmark
+prs_research_pipeline/publication_evidence_pack
+prs_research_pipeline/science
+prs_research_pipeline/interpretations
+prs_research_pipeline/*.log
+prs_research_pipeline/input*.vcf.gz*
+
+# Local planning / misc
+RELEASE_PLAN.md
+IMPROVEMENT_PLAN.md
+archive_upload.py
+plink.log

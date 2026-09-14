@@ -1,3 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bluegen"
+description = "Personal genomics platform: WGS VCF → polygenic risk scores, ClinVar, PharmGKB, ancestry — fully offline"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+# version comes from utils.constants.PIPELINE_VERSION (single source of truth,
+# IMPROVEMENT_PLAN.md TIER 0.1); dependencies from requirements.txt.
+dynamic = ["version", "dependencies"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.optional-dependencies]
+# The Streamlit dashboard is optional: `pip install -e ".[dashboard]"`.
+dashboard = ["streamlit>=1.50", "plotly>=5.18"]   # >=1.50 for width="stretch"
+
+[project.urls]
+Homepage = "https://github.com/danielperez9430/BlueGen"
+Changelog = "https://github.com/danielperez9430/BlueGen/blob/main/CHANGELOG.md"
+
+[project.scripts]
+# `bluegen run --vcf x.vcf.gz` == `python prs.py run --vcf x.vcf.gz`.
+# Only an *editable* install is supported (pip install -e .): prs.py locates
+# prs_research_pipeline/ relative to its own file and refuses to start
+# otherwise — see the guard at the top of prs.py.
+bluegen = "prs:main"
+
+[tool.setuptools]
+py-modules = ["prs"]
+packages = ["bluegen"]
+
+[tool.setuptools.package-dir]
+bluegen = "prs_research_pipeline/bluegen"
+
+[tool.setuptools.dynamic]
+version = { attr = "prs_research_pipeline.scripts.utils.constants.PIPELINE_VERSION" }
+dependencies = { file = ["prs_research_pipeline/requirements.txt"] }
+
 [tool.ruff]
 target-version = "py310"
 line-length = 120

@@ -41,6 +41,16 @@ PYTHON = sys.executable
 START_TIME = time.time()
 SNP_DB_PATH = str(PLATFORM_DIR / "data" / "snp_database_annotated.csv")
 
+# prs.py only works from a clone: every path above is relative to this file.
+# `pip install -e .` (editable) keeps that true; a regular install would copy
+# prs.py into site-packages with no prs_research_pipeline/ next to it.
+if not SCRIPTS.is_dir():
+    sys.exit(
+        f"BlueGen: {SCRIPTS} not found.\n"
+        "  prs.py must run from a git clone. Install with `pip install -e .`\n"
+        "  (editable) or run `python prs.py` from the repository root."
+    )
+
 sys.path.insert(0, str(SCRIPTS))
 from utils.constants import PIPELINE_VERSION  # noqa: E402 - single source of truth for the version string
 

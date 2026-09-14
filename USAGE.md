@@ -62,11 +62,17 @@ brew install htslib
 # Linux (Ubuntu/Debian)
 sudo apt install bcftools tabix
 
-# Python dependencies
+# Python dependencies + `bluegen` command (editable install; a plain
+# `pip install .` is refused because prs.py needs the clone next to it)
 python3 -m venv venv
 source venv/bin/activate
-pip install -r prs_research_pipeline/requirements.txt
+pip install -e .
+
+# Or skip PLINK/system libs entirely:
+docker build --platform linux/amd64 -t bluegen .   # see README "Docker"
 ```
+
+`bluegen <command>` is identical to `python prs.py <command>` and works from any directory.
 
 ### Full 1000 Genomes Reference (one-time)
 
