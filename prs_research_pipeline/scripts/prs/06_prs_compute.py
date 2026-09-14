@@ -468,6 +468,16 @@ def compute_prs_from_curated_database(
     traits = sorted(db["trait_category"].dropna().unique().tolist())
     results = []
 
+    # Crude per-trait scale for a raw z-score: sqrt(sum of squared weights).
+    # This is NOT the population calibration (that is Stage H); it only keeps
+    # prs_raw comparable across traits with different panel sizes. Previously
+    # this name was never defined, so this (fallback-only) path raised
+    # NameError on first use.
+    trait_weight_sumsq = {
+        t: float(np.sqrt((db.loc[db["trait_category"] == t, "weight"].fillna(0.0) ** 2).sum()))
+        for t in traits
+    }
+
     for sid in sample_ids:
         for trait in traits:
             trait_snps = db[db["trait_category"] == trait]

@@ -10,14 +10,16 @@ ignore = [
     "E402",   # module-level import not at top — venv bootstrap in prs.py
     "E701",   # multiple statements on one line (colon) — pipeline style
     "E702",   # multiple statements on one line (semicolon) — compact status lines
-    "E722",   # bare except — resilience in pipeline scripts
     "E731",   # lambda assignment — intentional translation helper
     "E741",   # ambiguous variable name — intentional single-char in math contexts
     "F401",   # imported but unused — common in pipeline scripts
     "F402",   # import shadowed by loop var — harmless in older scripts
     "F541",   # f-string without placeholders — cosmetic
-    "F821",   # undefined name — type annotations in older scripts
     "F841",   # local variable assigned but never used — common in pipeline scripts
+    # E722 (bare except) and F821 (undefined name) are deliberately NOT ignored
+    # since 2.1.0: F821 hid a NameError in 06_prs_compute.py and three missing
+    # imports. Use an explicit `# noqa: E722  # <reason>` where a bare except
+    # is intentional.
 ]
 
 [tool.ruff.lint.per-file-ignores]

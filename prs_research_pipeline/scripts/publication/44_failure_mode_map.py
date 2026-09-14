@@ -23,7 +23,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
