@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.1.0-orange)]()
+[![Version](https://img.shields.io/badge/version-3.0.0-orange)]()
 [![PRSKit](https://img.shields.io/badge/engine-PRSKit-purple)]()
 
 Turn a WGS VCF (GRCh37 or GRCh38, detected automatically) or a consumer genotyping-array export into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
@@ -40,7 +40,7 @@ pip install -e ".[dashboard]" && venv/bin/streamlit run dashboard.py
 
 | Module | Description | Data Source |
 |--------|-------------|-------------|
-| 🧬 **PRS Engine** | ~56 traits, 206 SNP rows (187 unique rsIDs), population-calibrated z-scores | Curated GWAS + 1000 Genomes |
+| 🧬 **PRS Engine** | ~56 traits, 206 SNP rows (187 unique rsIDs), scored jointly with the 1000G reference on one variant set and z-scored against your inferred super-population; every citation audited against PubMed | Curated GWAS + 1000 Genomes |
 | 🔬 **ClinVar** | Pathogenic/likely pathogenic variants with confidence tiers | NCBI ClinVar (4.4M records) |
 | 💊 **PharmGKB** | Drug-gene interactions, CPIC guideline recommendations | CPIC/DPWG (218 guidelines) |
 | 🌍 **Ancestry** | PCA + mtDNA/Y-DNA haplogroups + sub-continental | 1000 Genomes (26 populations) |

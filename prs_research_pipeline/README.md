@@ -349,7 +349,7 @@ from each other.
 
 | Version | Key Features | Min Python |
 |---------|-------------|------------|
-| 2.1.0 | Joint PGS calibration vs inferred ancestry, multi-arch Docker, `bluegen` CLI, per-stage logs, 9-page dashboard, ClinVar, PharmGKB, MedGen, Deep Ancestry, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
+| 3.0.0 | GRCh38 input (auto-detect + liftover), genotyping-array input (`--raw`), joint user+1000G scoring for the curated PRS and the PGS Catalog, single-sample QC fix, multi-sample comparison report, PDF cover/TOC, automated PubMed citation audit, multi-arch Docker, `bluegen` CLI, 9-page dashboard, ClinVar, PharmGKB, MedGen, Deep Ancestry, bilingual reports | 3.10+ |
 
 ### Upgrading
 ```bash
