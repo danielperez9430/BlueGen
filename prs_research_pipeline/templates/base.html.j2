@@ -8,7 +8,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <header class="report-header">
+    <section class="print-cover">
+        <div class="cover-title">
+            <h1>{{ ui.title }}</h1>
+            <div class="subtitle">{{ ui.subtitle }}</div>
+        </div>
+        <table class="cover-meta">
+            <tr><th>{{ cover_labels.sample }}</th><td>{{ sample_id }}</td></tr>
+            <tr><th>{{ cover_labels.population }}</th><td>{{ pop }}</td></tr>
+            <tr><th>{{ cover_labels.generated }}</th><td>{{ now }}</td></tr>
+            <tr><th>{{ cover_labels.version }}</th><td>BlueGen v{{ pipeline_version }} · GRCh37/hg19</td></tr>
+        </table>
+        <nav class="print-toc">
+            <h2>{{ toc_label }}</h2>
+            <ol>
+            {% for section_id, title in toc %}
+                <li><a href="#{{ section_id }}">{{ title }}</a></li>
+            {% endfor %}
+            </ol>
+        </nav>
+    </section>
+    <header class="report-header" data-sample="{{ sample_id }}">
         <h1>{{ ui.title }}</h1>
         <div class="subtitle">{{ ui.subtitle }}</div>
         <div class="meta">

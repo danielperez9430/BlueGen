@@ -98,10 +98,38 @@ tr:hover { background: #f8f9fa; }
     color: var(--color-text-secondary); border-top: 1px solid var(--color-border); margin-top: 2rem;
 }
 
-/* Print styles */
+/* Print / PDF styles (RELEASE_PLAN 3.0.5, WeasyPrint) */
+.print-cover { display: none; }
+@page {
+    size: A4;
+    margin: 18mm 15mm 20mm 15mm;
+    @bottom-center { content: "BlueGen — " counter(page) " / " counter(pages); font-size: 8pt; color: #888; }
+    @top-right { content: string(doc-sample); font-size: 8pt; color: #888; }
+}
+@page :first { @top-right { content: none; } @bottom-center { content: none; } }
 @media print {
+    body { background: #fff; }
     .section-body { display: block !important; }
-    .btn-row { display: none; }
+    .btn-row, .section-arrow { display: none; }
+    .print-cover { display: block; break-after: page; padding-top: 30mm; }
+    .print-cover .cover-title h1 { font-size: 2rem; color: #2c3e50; margin-bottom: .5rem; }
+    .print-cover .subtitle { color: #7f8c8d; margin-bottom: 2rem; }
+    .cover-meta { width: auto; box-shadow: none; margin-bottom: 2.5rem; }
+    .cover-meta th { text-align: left; padding-right: 1.5rem; color: #7f8c8d; font-weight: 600; }
+    .cover-meta td { text-align: left; }
+    .print-toc h2 { font-size: 1.1rem; margin-bottom: .5rem; }
+    .print-toc ol { list-style: none; padding: 0; }
+    .print-toc li { margin: .25rem 0; font-size: .9rem; }
+    .print-toc a { text-decoration: none; color: #2c3e50; }
+    .print-toc a::after { content: leader('.') " " target-counter(attr(href), page); }
+    .report-header { string-set: doc-sample "Sample " attr(data-sample); }
+    .collapsible-section { break-before: page; break-inside: auto; box-shadow: none; }
+    .collapsible-section:first-of-type { break-before: auto; }
+    .section-header { break-after: avoid; }
+    tr, .info-card, .trait-section, .portability-banner { break-inside: avoid; }
+    thead { display: table-header-group; }
+    a[href^="http"]::after { content: ""; }
+    .report-footer { display: none; }
 }
 
 /* Confidence & trust tier elements */

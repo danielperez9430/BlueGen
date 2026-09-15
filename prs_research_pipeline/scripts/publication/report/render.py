@@ -42,8 +42,12 @@ def render_partial(name: str, **context) -> str:
 
 
 def build_html_report(lang: str, data: Dict, sample_id: str, sections_html: str,
-                       reference_coverage_banner_html: str, ui: dict) -> str:
-    """Render the full HTML document shell around already-built sections_html."""
+                       reference_coverage_banner_html: str, ui: dict, toc=None) -> str:
+    """Render the full HTML document shell around already-built sections_html.
+
+    `toc` is the ordered list of (section_id, title) pairs; it feeds the
+    print-only cover page + table of contents (RELEASE_PLAN 3.0.5), which
+    WeasyPrint fills with page numbers via target-counter()."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     pop = data["ancestry"].get("assigned_population", "EUR")
     integrity_score = data["integrity"].get("scientific_integrity_score", 0)
@@ -61,4 +65,10 @@ def build_html_report(lang: str, data: Dict, sample_id: str, sections_html: str,
         js=_read_static("report.js"),
         reference_coverage_banner_html=reference_coverage_banner_html,
         sections_html=sections_html,
+        toc=toc or [],
+        toc_label="Contenido" if lang == "es" else "Contents",
+        # key is "population", not "pop": Jinja resolves dict.pop to the method
+        cover_labels=({"sample": "Muestra", "population": "Población", "generated": "Generado", "version": "Versión"}
+                      if lang == "es" else
+                      {"sample": "Sample", "population": "Population", "generated": "Generated", "version": "Version"}),
     )

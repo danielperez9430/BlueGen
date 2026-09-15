@@ -248,8 +248,15 @@ def build_radar_chart_js(entries, ui, cal_lookup=None, uncert_lookup=None, evide
     return render_partial("radar_chart.html.j2", chart_data_json=chart_data_json)
 
 
+# Section registry for the print-only table of contents (RELEASE_PLAN 3.0.5):
+# every collapsible_section() call appends (id, title); build_html_report()
+# resets it and hands the list to the document shell.
+_TOC = []
+
+
 def collapsible_section(section_id, title, content, open_by_default=False):
     """Generate a collapsible HTML section."""
+    _TOC.append((section_id, title))
     display = "block" if open_by_default else "none"
     arrow = "▼" if open_by_default else "▶"
     return f"""
@@ -1661,6 +1668,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
     ui["_lang"] = lang  # Pass language through for bilingual sections
 
     # Build sections
+    _TOC.clear()
     sections_html = ""
     s = ui["sections"]
 
@@ -1811,6 +1819,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
         lang, data, sample_id, sections_html,
         reference_coverage_banner(data["prs_result"], lang)
         + input_build_banner(data.get("input_build", {}), lang), ui,
+        toc=list(_TOC),
     )
 
 
