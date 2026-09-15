@@ -4,7 +4,8 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- The A–D evidence letters are now explained where they first appear: a bilingual legend (Top Findings and Variant-Level Detail) with the panel's own definitions — A genome-wide significant GWAS (p < 5×10⁻⁸), B replicated candidate-gene association, C single study, D mechanistic plausibility — and a note that a trait's letter is the average of its SNPs' levels. The old legend sat only in Variant-Level Detail, in English, and described B/C/D differently from `data/snp_database.csv`. The dashboard's Recommendations page gets the same explanation, including what the level on a recommendation itself means.
 
 ## [3.0.0] — 2026-09-15
 

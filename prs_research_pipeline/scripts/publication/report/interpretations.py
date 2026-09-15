@@ -490,6 +490,49 @@ def evidence_letter(evidence_avg_score):
     if evidence_avg_score >= 40: return "C"
     return "D"
 
+EVIDENCE_LEVELS = {
+    # Canonical definitions - the same four lines that head data/snp_database.csv
+    "en": [
+        ("A", "Genome-wide significant GWAS association (p < 5×10⁻⁸)"),
+        ("B", "Replicated candidate-gene association (several independent studies)"),
+        ("C", "Single study"),
+        ("D", "Mechanistic plausibility only (no consistent human association yet)"),
+    ],
+    "es": [
+        ("A", "Asociación GWAS con significación genómica (p < 5×10⁻⁸)"),
+        ("B", "Asociación de gen candidato replicada (varios estudios independientes)"),
+        ("C", "Un solo estudio"),
+        ("D", "Solo plausibilidad mecanística (aún sin asociación humana consistente)"),
+    ],
+}
+_EVIDENCE_COLORS = {"A": ("#d5f5e3", "#1e8449"), "B": ("#d6eaf8", "#2874a6"),
+                    "C": ("#fdebd0", "#b7950b"), "D": ("#fadbd8", "#c0392b")}
+
+
+def evidence_level_legend(lang="en", trait_note=True):
+    """Legend box for the A-D evidence letters. Shown wherever the badges
+    appear (Top Findings, Variant-Level Detail); the trait-level badge is the
+    average of the trait's SNP levels (A=100 … D=25, mapped back to a letter),
+    which the note explains."""
+    rows = EVIDENCE_LEVELS["es" if lang == "es" else "en"]
+    title = "Niveles de evidencia (por SNP)" if lang == "es" else "Evidence levels (per SNP)"
+    note = ("La letra de un rasgo es la media de los niveles de sus SNPs (A=100, B=75, C=50, D=25), "
+            "convertida de nuevo a letra." if lang == "es" else
+            "A trait's letter is the average of its SNPs' levels (A=100, B=75, C=50, D=25), mapped back to a letter.")
+    items = "".join(
+        f'<span style="white-space:nowrap;margin-right:10px">'
+        f'<span style="background:{_EVIDENCE_COLORS[k][0]};color:{_EVIDENCE_COLORS[k][1]};padding:1px 6px;'
+        f'border-radius:3px;font-size:0.7rem;font-weight:700">{k}</span> {desc}</span>'
+        for k, desc in rows)
+    return (
+        '<div class="evidence-legend" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;'
+        'padding:0.6rem 1rem;margin:0.4rem 0 0.8rem;font-size:0.75rem;line-height:1.7">'
+        f'<strong style="margin-right:8px">📖 {title}:</strong>{items}'
+        + (f'<br><span style="color:#7f8c8d">{note}</span>' if trait_note else "")
+        + '</div>'
+    )
+
+
 def evidence_badge(evidence_avg_score):
     letter = evidence_letter(evidence_avg_score)
     colors = {"A": ("#d5f5e3", "#1e8449"), "B": ("#d6eaf8", "#2874a6"),

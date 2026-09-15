@@ -2,6 +2,7 @@
 <p style="color:var(--color-text-secondary)">{{ empty_message }}</p>
 {% else %}
 <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-bottom:0.75rem">{{ intro }}</p>
+{{ evidence_legend|safe }}
 <details style="margin-bottom:1rem;background:var(--color-bg-secondary,#f8f9fa);border-radius:6px;padding:0.6rem 1rem">
     <summary style="cursor:pointer;font-size:0.8rem;font-weight:600">{{ disclaimer_summary }}</summary>
     <p style="white-space:pre-line;font-size:0.78rem;margin:0.6rem 0 0;color:var(--color-text-secondary)">{{ disclaimer_text }}</p>

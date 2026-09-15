@@ -175,6 +175,7 @@ from report.interpretations import (
     compute_per_trait_confidence, confidence_stars, calibration_flag, trust_tier,
     trust_badge, mini_decomp_bar, snp_coverage_bar, portability_banner,
     reference_coverage_banner, input_build_banner, trait_limitations_badges, trust_tier_legend,
+    evidence_level_legend,
     evidence_letter, evidence_badge,
 )
 from report.data_loader import load_report_data
@@ -354,6 +355,7 @@ def build_top_findings(entries, ui, evidence_lookup=None, cal_lookup=None, uncer
     # the same text, just also reachable without scrolling past everything.
     return render_partial("top_findings.html.j2",
         empty_message=None, intro=ui["top_findings_intro"],
+        evidence_legend=evidence_level_legend(ui.get("_lang", "en")),
         disclaimer_summary=ui["top_findings_disclaimer_summary"], disclaimer_text=ui["disclaimer"],
         cards=cards, jump_label=ui["top_findings_jump"])
 
@@ -588,7 +590,7 @@ def build_prs_table(entries, ui, cal_lookup=None, uncert_lookup=None, portabilit
         summary_bar=summary_bar, rows=rows)
 
 
-def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv"):
+def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv", lang="en"):
     """Per-trait variant-level detail tables."""
     # Try to load the SNP database
     snp_db = None
@@ -631,7 +633,11 @@ def build_variant_detail(entries, snp_db_path="data/snp_database_annotated.csv")
             "variants": variants,
         })
 
-    return render_partial("variant_detail.html.j2", trait_sections=trait_sections)
+    weight_note = ("Los pesos son tamaños de efecto normalizados (coeficientes β). Mayor |β| = mayor contribución "
+                   "del SNP al PRS." if lang == "es" else
+                   "Weights are normalized effect sizes (β coefficients). Higher |β| = stronger SNP contribution to the PRS.")
+    return render_partial("variant_detail.html.j2", trait_sections=trait_sections,
+                          evidence_legend=evidence_level_legend(lang), weight_note=weight_note)
 
 
 def build_validation_section(validation, ui):
@@ -1722,7 +1728,7 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
 
     # 5. Variant Detail
     sections_html += collapsible_section("variants", f"🧬 {s['variants']}",
-        build_variant_detail(data["prs_result"].get("prs_entries", [])))
+        build_variant_detail(data["prs_result"].get("prs_entries", []), lang=lang))
 
     # 6. Population Calibration
     sections_html += collapsible_section("calibration", f"📊 {s['calibration']}",

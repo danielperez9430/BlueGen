@@ -272,6 +272,19 @@ elif page == "🥗 Recommendations":
     st.title("🥗 Actionable Recommendations")
     st.caption("Curated, evidence-cited guidance per trait (PubMed PMID / NIH fact sheets), "
                "joined with your population-calibrated PRS where the trait was scored.")
+    with st.expander("📖 What do evidence levels A–D mean?"):
+        st.markdown("""
+        Per SNP in the curated panel (same definitions as `data/snp_database.csv`):
+        - **A** — genome-wide significant GWAS association (p < 5×10⁻⁸)
+        - **B** — replicated candidate-gene association (several independent studies)
+        - **C** — single study
+        - **D** — mechanistic plausibility only (no consistent human association yet)
+
+        A trait's letter in the report is the average of its SNPs' levels (A=100, B=75, C=50, D=25) mapped back
+        to a letter. The level shown on each recommendation below refers to the evidence behind the
+        **recommendation itself** (A: trials/meta-analyses or clinical guidelines; B: consistent observational
+        evidence; C: mechanistic or expert-opinion), as cited in its source line.
+        """)
 
     recs = {k: v for k, v in recommendations.items()
             if not k.startswith("_") and isinstance(v, dict)}

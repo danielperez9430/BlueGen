@@ -117,3 +117,34 @@ class TestBuildHtmlReportSectionWiring:
     def test_sample_id_appears_in_header(self):
         html = build_html_report("en", _fake_data(), "TEST_SAMPLE")
         assert "TEST_SAMPLE" in html
+
+
+class TestEvidenceLevelLegend:
+    """The A-D evidence letters must be explained where they first appear
+    (Top Findings) and in Variant-Level Detail, in both languages, with the
+    same definitions that head data/snp_database.csv (user request 2026-09-15)."""
+
+    @pytest.mark.parametrize("lang", ["en", "es"])
+    def test_legend_present_in_both_sections(self, lang):
+        html = build_html_report(lang, _fake_data(), "TEST_SAMPLE")
+        assert html.count('class="evidence-legend"') >= 2
+        title = "Niveles de evidencia" if lang == "es" else "Evidence levels"
+        assert title in html
+        for letter in "ABCD":
+            assert f'font-weight:700">{letter}</span>' in html
+
+    def test_definitions_match_the_panel_preamble(self):
+        import re
+        from pathlib import Path
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "prs_research_pipeline", "scripts", "publication"))
+        from report.interpretations import EVIDENCE_LEVELS
+        preamble = Path(__file__).resolve().parent.parent / "prs_research_pipeline" / "data" / "snp_database.csv"
+        head = "".join(line for line in preamble.read_text().splitlines(keepends=True)[:6] if line.startswith("#"))
+        panel = dict(re.findall(r"([ABCD])=([^,\n]+)", head))
+        assert set(panel) == {"A", "B", "C", "D"}
+        legend = dict(EVIDENCE_LEVELS["en"])
+        # same spirit, checked by the key term of each definition
+        assert "5×10" in legend["A"] and "GWAS" in panel["A"]
+        assert "candidate" in legend["B"].lower() and "candidate" in panel["B"].lower()
+        assert "single study" in legend["C"].lower() and "single study" in panel["C"].lower()
+        assert "mechanistic" in legend["D"].lower() and "mechanistic" in panel["D"].lower()
