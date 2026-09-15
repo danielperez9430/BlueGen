@@ -107,8 +107,15 @@ python prs.py run --full --vcf sample.vcf.gz
 # Multi-sample
 python prs.py run --full --vcf sample1.vcf.gz,sample2.vcf.gz
 
-# DeepVariant VCF (current for Daniel)
-python prs.py run --full --vcf aligned/E250090601_L01_91_dv.vcf.gz
+# GRCh38 VCF: detected from the header and lifted to GRCh37 before Stage A (v3.0)
+python prs.py run --full --vcf sample_hg38.vcf.gz
+python prs.py run --full --vcf sample.vcf.gz --build GRCh38     # force when the header says nothing
+
+# Genotyping-array export instead of a VCF (23andMe / AncestryDNA / MyHeritage / FTDNA)
+python prs.py run --full --raw genome_v5_Full.txt
+
+# Multi-sample comparison report on demand (automatic with >1 sample)
+python prs.py run --full --vcf cohort.vcf.gz --compare
 
 # Dry-run: preview stages
 python prs.py run --dry-run
@@ -121,14 +128,15 @@ python prs.py run --full --lang en
 
 | Stage | Description | Output |
 |-------|-------------|--------|
-| A | VCF → PLINK binary | `plink/cohort.{bed,bim,fam}` |
-| B | Quality control | `qc/qc_filtered.{bed,bim,fam}` |
-| C | LD pruning (cached, parallel by pop) | `plink/ld_pruned_dataset.{bed,bim,fam}` |
+| Gate | Genome build detection, GRCh38 → GRCh37 liftover, array → VCF | `reproducibility/input_build.json` |
+| A | VCF → PLINK binary (array VCFs keep hom-ref sites) | `plink/cohort.{bed,bim,fam}` |
+| B | Quality control (MAF/HWE skipped below 50 samples — cohort statistics) | `qc/qc_filtered.{bed,bim,fam}` |
+| C | LD pruning (cached by reference + parameters, parallel by pop) | `plink/ld_pruned_dataset.{bed,bim,fam}` |
 | D | 1000G PCA + projection | `pca/target_pcs.eigenvec` |
 | — | Ancestry classifier (PCA ensemble) | `pca/ancestry_classification.json` |
-| F | PRS computation (PLINK --score, multi-sample) | `prs/prs_raw.csv` |
-| G | PCA adjustment | `prs/pca_adjusted_scores.csv` |
-| H | Population calibration | `prs/population_calibration_report.json` |
+| F | PRS scored jointly with the 1000G reference on one variant set (WGS: absent sites = hom-ref; array: genotyped sites only) | `prs/prs_raw.csv`, `prs/prs_reference_raw.csv` |
+| G | PCA adjustment (PC betas from this run's reference PRS) | `prs/pca_adjusted_scores.csv` |
+| H | Population calibration of the raw score vs per-run reference distributions for the inferred super-population | `prs/population_calibrated_v2.csv`, `prs/reference_distributions/` |
 | I | GWAS-LD consistency check | `prs/consistency_check_report.json` |
 | J | Uncertainty propagation | `prs/uncertainty_report.json` |
 | K | Bilingual interpretation | `interpretations/` |
@@ -270,21 +278,24 @@ pip install -e ".[dashboard]"          # streamlit + plotly (optional extra)
 |------|-------------|
 | `PRS_RESULT.json` | **Canonical unified PRS output (SSST)** |
 | `PRS_RESULT.csv` | Tabular version |
-| `prs_raw.csv` | Raw PLINK scores (multi-sample) |
-| `pca_adjusted_scores.csv` | PCA-corrected PRS |
-| `population_calibration_report.json` | Population-stratified calibration |
+| `prs_raw.csv` | Raw PLINK scores per (sample, trait), scored jointly with 1000G; `n_snps`/`n_snps_used`/`n_snps_panel` are loci |
+| `prs_reference_raw.csv` | The same scores for the 2,504 reference individuals (feeds Stage G betas and Stage H distributions) |
+| `pca_adjusted_scores.csv` | PCA-corrected PRS (reported; Stage H calibrates the raw score) |
+| `population_calibrated_v2.csv` | Per (sample, trait): z-score, percentile, risk, `low_confidence` vs the inferred super-population |
+| `reference_distributions/` | Per-run 1000G distributions per trait × super-population |
+| `population_calibration_report.json` | Population-stratified calibration summary |
 | `uncertainty_report.json` | 3-layer uncertainty propagation |
 | **`pgs_scores/`** | **PGS Catalog scores + calibrated results** |
-| `pgs_scores/pgs_results.csv` | Raw PGS scores against sample (50+) |
-| `pgs_scores/pgs_calibrated.csv` | Population-calibrated (z-scores + percentiles) |
-| `pgs_scores/pgs_calibration_report.json` | Structured calibration report |
+| `pgs_scores/pgs_calibrated.csv` | Joint user + 1000G scoring per (sample, score): z, percentile (normal + empirical), coverage, `reference_population`, `reliable` |
+| `pgs_scores/pgs_calibration_report.json` | Structured calibration report (reference population, site policy, chromosomes used) |
 
 ### `reports/` — Human-Readable Reports
 
 | File | Description |
 |------|-------------|
-| `comprehensive_report_en.html` | **Primary report** — 22 sections, PGS calibrated + clinical context |
+| `comprehensive_report_en.html` | **Primary report** — 22+ sections, PGS calibrated + clinical context; print-only cover + TOC for the PDF |
 | `comprehensive_report_es.html` | Spanish version |
+| `comparison_report_{en,es}.html` | Samples side by side (multi-sample runs or `--compare`) |
 | `SCIENTIFIC_MANUSCRIPT_EN.md` | English manuscript |
 | `SCIENTIFIC_MANUSCRIPT_ES.md` | Spanish manuscript |
 
@@ -309,6 +320,14 @@ pip install -e ".[dashboard]"          # streamlit + plotly (optional extra)
 | `portability_report.json` | Cross-population bias |
 | `quality_delta.json` | Internal vs external gap |
 
+### `reproducibility/` and `logs/`
+
+| File | Description |
+|------|-------------|
+| `reproducibility/input_build.json` | Genome build detected/forced, liftover or array-conversion counts, `site_policy` |
+| `reproducibility/run_fingerprint.json` | Environment + input hashes |
+| `logs/<stage>.log` | Full stdout/stderr of every captured stage, one file per stage |
+
 ### Root-Level
 
 | File | Description |
@@ -329,12 +348,12 @@ PRS_RESULT.json → prs_entries[] for each trait:
     "trait": "Glucose metabolism",
     "raw_score": 0.48,
     "population_zscore": +0.46,     ← (PRS − μ_pop) / σ_pop
-    "population_percentile": 67.1,  ← Rank vs EUR reference
+    "population_percentile": 67.1,  ← Rank vs your inferred super-population (assigned_population)
     "risk_category": "medium",      ← low / medium / high
   }
 ```
 
-**Risk categories:** Low (<25th), Medium (25-75th), High (>75th), based on 1000G EUR distribution.
+**Risk categories:** Low (<25th), Medium (25-75th), High (>75th), based on the 1000G distribution of your inferred super-population, built in the same run on the same variant set. Few-SNP traits with a discrete reference distribution (|skewness| > 2 or IQR = 0) report an empirical percentile, a z clipped to ±6 and `low_confidence: true`.
 
 ### Understanding PGS Catalog Results (External Validation)
 

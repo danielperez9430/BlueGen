@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-3.0.0-orange)]()
+[![Version](https://img.shields.io/badge/version-3.0.1-orange)]()
 [![PRSKit](https://img.shields.io/badge/engine-PRSKit-purple)]()
 
 Turn a WGS VCF (GRCh37 or GRCh38, detected automatically) or a consumer genotyping-array export into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
@@ -53,10 +53,11 @@ pip install -e ".[dashboard]" && venv/bin/streamlit run dashboard.py
 
 ```mermaid
 flowchart LR
-    VCF["WGS VCF<br/>(.vcf.gz)"]
+    VCF["WGS VCF (GRCh37/38)<br/>or array export (.txt/.csv)"]
+    GATE["Input gate<br/>build detection → GRCh38 liftover → array→VCF"]
     QC["Genotype processing<br/>QC filter → LD-prune → PCA vs 1000 Genomes"]
 
-    PRS["PRS + PGS scoring<br/>PLINK --score → PCA-adjust → population-calibrate<br/>56 curated traits + 52 PGS Catalog scores"]
+    PRS["PRS + PGS scoring<br/>joint user+1000G PLINK --score → PCA-adjust → calibrate vs inferred ancestry<br/>56 curated traits + 56 PGS Catalog scores"]
     CLIN["ClinVar + MedGen<br/>pathogenic/likely-pathogenic screen"]
     PHARM["PharmGKB<br/>CPIC drug-gene guidelines"]
     ANC["Ancestry + Archaic DNA<br/>PCA population, mtDNA/Y-DNA, Neanderthal/Denisovan"]
@@ -65,7 +66,8 @@ flowchart LR
     VALID["Validation suite<br/>adversarial + calibration checks"]
     REPORT["Comprehensive report<br/>bilingual HTML + Streamlit dashboard"]
 
-    VCF --> QC
+    VCF --> GATE
+    GATE --> QC
     QC --> PRS
     QC --> CLIN
     QC --> PHARM
@@ -98,7 +100,7 @@ Data sources & attribution: [`SOURCES.md`](SOURCES.md)
 - **bcftools + tabix** — `brew install bcftools tabix` (macOS) or `apt install bcftools tabix` (Linux)
 - **BWA** — `brew install bwa` (macOS) or `apt install bwa` (Linux) (optional, for FASTQ → BAM alignment)
 - macOS/Linux (Windows via WSL2)
-- ~200 MB reference data (auto-downloaded on first run)
+- ~200 MB reference data (auto-downloaded on first run), plus the UCSC liftOver chains (~1.5 MB, fetched on first GRCh38 input; `scripts/setup/download_liftover_chains.py` for offline setups)
 - ~65 GB reference data bundle (optional — from [archive.org](https://archive.org/details/bluegen-reference-data) snapshot or `prs_research_pipeline/scripts/setup/` to fetch latest from public sources)
   - [`bluegen-reference-data`](https://archive.org/details/bluegen-reference-data) — 1000 Genomes, hg19, ClinVar, MedGen, ClinPGx
   - [`bluegen-pgs-cache`](https://archive.org/details/bluegen-pgs-cache) — 56 PGS Catalog scoring files

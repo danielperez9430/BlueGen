@@ -50,9 +50,11 @@ python3 prs.py status
 ```
 FASTQ ──→ [optional] BWA-MEM → DeepVariant → genome-wide VCF
                                               ↓
+VCF (GRCh37/38) or array export → [Gate] build detect / liftover / array→VCF
+                                              ↓
 VCF → [A] PLINK → [B] QC → [C] LD Prune → [D] PCA + Ancestry Classifier
                                     ↓
-    [F] PRS Compute → [G] PCA Adjust → [H] Pop Calibrate
+    [F] PRS joint with 1000G → [G] PCA Adjust → [H] Pop Calibrate (per-run distributions)
                                     ↓
     [ClinVar] Pathogenic Variants → [MedGen] Disease Descriptions
                                     ↓
@@ -61,11 +63,14 @@ VCF → [A] PLINK → [B] QC → [C] LD Prune → [D] PCA + Ancestry Classifier
     [7] Scientific Freeze → [8] Corrections → [9] SSST → [10] Publication Lock
 ```
 
-**PRS:** PLINK `--score` with dosage-weighted Σ(βⱼ × Gᵢⱼ), multi-sample native.
-**LD Pruning:** Per-population parallel, conservative intersection.
+**Input gate (v3.0):** genome build from the VCF header (contig lengths), GRCh38 lifted to GRCh37 with the UCSC chain and hg19 REF check; array exports (23andMe/AncestryDNA/MyHeritage/FTDNA) converted to a VCF with every assayed site.
+**QC:** missingness filters always; MAF/HWE only for cohorts (≥50 samples) — on one sample they would delete every homozygous site.
+**PRS:** the user is merged into the 1000G reference and every trait scored with one PLINK `--score` for user and reference together (WGS: absent sites = hom-ref; array: genotyped sites only), dosage-weighted Σ(βⱼ × Gᵢⱼ), multi-sample native.
+**LD Pruning:** Per-population parallel, conservative intersection, cached by reference + parameters.
 **PCA:** 1000G-trained PCA with target projection, 20 PCs genome-wide.
 **Ancestry:** PCA ensemble classifier (centroid + k-NN), 5 super-populations.
-**Calibration:** Empirical 1000G population-stratified distributions (2,504 samples).
+**Calibration:** 1000G distributions per trait × super-population built in the same run on the same variant set (2,504 samples); raw score z-scored against the inferred super-population; discrete few-SNP distributions get empirical percentiles and a low-confidence flag.
+**PGS Catalog:** same joint scoring per published score, calibrated against the inferred super-population, with per-score coverage.
 
 ## Project Structure
 
@@ -168,9 +173,12 @@ BlueGen/
 |---|---|
 | `prs/PRS_RESULT.json` | Unified PRS output (all traits) |
 | `prs/PRS_RESULT.csv` | PRS results as CSV |
-| `prs/prs_raw.csv` | Raw PLINK scores (multi-sample) |
-| `prs/prs_adjusted.csv` | PCA-adjusted PRS |
-| `prs/population_calibrated_v2.csv` | Population-stratified calibration (z-score, percentile per trait) |
+| `prs/prs_raw.csv` | Raw PLINK scores per (sample, trait), scored jointly with 1000G |
+| `prs/prs_reference_raw.csv` | The same scores for the 2,504 reference individuals |
+| `prs/pca_adjusted_scores.csv` | PCA-adjusted PRS (reported; calibration uses the raw score) |
+| `prs/population_calibrated_v2.csv` | Population-stratified calibration (z-score, percentile, low_confidence per sample × trait) |
+| `prs/pgs_scores/pgs_calibrated.csv` | PGS Catalog scores calibrated vs the inferred super-population, with coverage |
+| `reproducibility/input_build.json` | Genome build / liftover / array conversion record |
 | `prs/uncertainty_report.json` | 3-layer variance propagation |
 | `pca/ancestry_classification.json` | PCA ensemble ancestry call |
 | `science/ANCESTRY_MODEL.json` | Canonical ancestry model |
@@ -181,24 +189,29 @@ BlueGen/
 | `FINAL_SCIENTIFIC_SCORE.json` | Locked integrity score |
 | `PUBLICATION_LOCK.md` | Publication readiness declaration |
 | `clinvar/clinvar_pathogenic_variants.json` | Pathogenic variant annotation (ClinVar) |
-| `reports/comprehensive_report_en.html` | Interactive report (EN) |
+| `reports/comprehensive_report_en.html` | Interactive report (EN); `prs.py pdf` adds cover + TOC |
 | `reports/comprehensive_report_es.html` | Interactive report (ES) |
+| `reports/comparison_report_{en,es}.html` | Samples side by side (multi-sample runs / `--compare`) |
 | `reports/SCIENTIFIC_MANUSCRIPT_EN.md` | Publication manuscript (EN) |
 | `reports/SCIENTIFIC_MANUSCRIPT_ES.md` | Publication manuscript (ES) |
 
 ## Performance
 
-| Stage | Cold | Cached |
+Measured on a genome-wide DeepVariant VCF (4.1 M variants) with the full 1000G reference, Apple Silicon, 2026-09-15 (v3.0):
+
+| Stage | Cold | Cached / typical |
 |---|---|---|
-| A (VCF → PLINK) | 26s | — |
-| B (QC) | 7s | — |
-| C (LD Prune, parallel) | 45 min | 30s |
-| D (PCA + projection) | 10 min | — |
-| F-H (PRS multi-sample) | 1 min | — |
-| 7-10 (Validation + SSST) | 2 min | — |
-| Reports (HTML + MD) | 30s | — |
-| **Total (chr22 VCF)** | **60 min** | **5 min** |
-| **Total (genome-wide VCF)** | **2-3 hours** | **15 min** |
+| Gate (build detect; liftover only for GRCh38) | 1 s (+9 s per 1 M records lifted) | — |
+| A (VCF → PLINK) | 27 s | — |
+| B (QC) | 7 s | — |
+| C (LD Prune, parallel) | 45 min | 5 s (cache keyed by reference + parameters) |
+| D (PCA + projection) | 7–53 min (varies run to run; I/O-bound) | — |
+| F–H (joint PRS + calibration) | 1 min | — |
+| ClinVar + PharmGKB + deep ancestry | ~8 min | — |
+| 7–10 (Validation + SSST) | 2 min | — |
+| PGS Catalog joint calibration (56 scores, 7.3 M variants × 2,505 samples) | 37–55 min | — |
+| Reports (HTML + PDF) | 1 min | — |
+| **Total `--full` (genome-wide VCF, C cached)** | | **78–87 min** |
 
 ## Data Requirements
 
@@ -297,19 +310,10 @@ What's committed vs ignored:
 
 ## Dependencies
 
-```
-pandas>=2.0
-numpy>=1.24
-scipy>=1.10
-scikit-learn>=1.3
-matplotlib>=3.7
-jinja2>=3.1
-pyyaml>=6.0
-requests>=2.31
-```
+`pip install -e .` from the repository root installs everything in `requirements.txt` (pandas, numpy, scipy, scikit-learn, matplotlib, cyvcf2, pyliftover, jinja2, weasyprint, pydantic, pyyaml, click, tqdm, …); `pip install -e ".[dashboard]"` adds streamlit + plotly. `requirements.lock` pins the exact validated versions (used by the Docker image).
 
-System: `plink` 1.9 (bundled), `bcftools`, `tabix` (htslib).
-All reference databases are downloaded on first use — no API keys required.
+System: `plink` 1.9 (**not bundled** in the clone — see the root README "System Tools"; it is in the Docker image), `bcftools`, `tabix` (htslib), optionally `plink2`.
+All reference databases and the UCSC liftOver chains are downloaded on first use — no API keys required.
 
 ## Data Directory Structure
 
@@ -349,7 +353,7 @@ from each other.
 
 | Version | Key Features | Min Python |
 |---------|-------------|------------|
-| 3.0.0 | GRCh38 input (auto-detect + liftover), genotyping-array input (`--raw`), joint user+1000G scoring for the curated PRS and the PGS Catalog, single-sample QC fix, multi-sample comparison report, PDF cover/TOC, automated PubMed citation audit, multi-arch Docker, `bluegen` CLI, 9-page dashboard, ClinVar, PharmGKB, MedGen, Deep Ancestry, bilingual reports | 3.10+ |
+| 3.0.1 | Evidence-level legend in the report, docs synced; plus 3.0.0: GRCh38 input (auto-detect + liftover), genotyping-array input (`--raw`), joint user+1000G scoring for the curated PRS and the PGS Catalog, single-sample QC fix, multi-sample comparison report, PDF cover/TOC, automated PubMed citation audit, multi-arch Docker, `bluegen` CLI, 9-page dashboard, ClinVar, PharmGKB, MedGen, Deep Ancestry, bilingual reports | 3.10+ |
 
 ### Upgrading
 ```bash
