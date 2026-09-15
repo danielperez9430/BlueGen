@@ -43,6 +43,8 @@ while [[ $# -gt 0 ]]; do
         --mind)        MIND="$2";        shift 2 ;;
         --maf)         MAF="$2";         shift 2 ;;
         --hwe)         HWE="$2";         shift 2 ;;
+        --force-freq-filters) FORCE_FREQ_FILTERS=true; shift ;;
+        --min-samples-for-freq-filters) MIN_SAMPLES_FOR_FREQ_FILTERS="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 --bfile <prefix> [--out-dir qc/]"
             echo ""
@@ -133,46 +135,70 @@ POST_SAMPLES=$(wc -l < "${OUT_DIR}/tmp_mind.fam" | tr -d ' ')
 REMOVED_SAMPLES=$(( PRE_SAMPLES - POST_SAMPLES ))
 echo "  Samples removed: $REMOVED_SAMPLES ($POST_SAMPLES remaining)" | tee -a "$LOG"
 
-# ── Step 3: Minor Allele Frequency ────────────────────────────────────────
-echo "" | tee -a "$LOG"
-echo "── Step 3: MAF filter (--maf $MAF) ──" | tee -a "$LOG"
+# ── Steps 3–4: frequency-based filters (MAF, HWE) ─────────────────────────
+# These are COHORT statistics. On a single sample (or a handful) every
+# homozygous site has MAF = 0 in the dataset, so --maf 0.01 deleted every
+# hom-ALT variant (1.66 M of 4.12 M on a real WGS run) and, for an array
+# input, every hom-REF call too — leaving heterozygous sites only. Those
+# missing hom-ALT sites were then treated as absent (= hom-REF) downstream.
+# Below MIN_SAMPLES_FOR_FREQ_FILTERS the two steps are skipped
+# (RELEASE_PLAN 3.0.3); --force-freq-filters re-enables them.
+MIN_SAMPLES_FOR_FREQ_FILTERS=${MIN_SAMPLES_FOR_FREQ_FILTERS:-50}
+if [[ "$POST_SAMPLES" -lt "$MIN_SAMPLES_FOR_FREQ_FILTERS" ]] && [[ "${FORCE_FREQ_FILTERS:-false}" != "true" ]]; then
+    echo "" | tee -a "$LOG"
+    echo "── Steps 3–4: MAF/HWE filters SKIPPED ($POST_SAMPLES sample(s) < $MIN_SAMPLES_FOR_FREQ_FILTERS) ──" | tee -a "$LOG"
+    echo "  Allele-frequency and HWE filters are cohort statistics; on a single" | tee -a "$LOG"
+    echo "  sample they would delete every homozygous site. Kept as-is."        | tee -a "$LOG"
+    "$PLINK_BIN" \
+        --allow-extra-chr \
+        --bfile "${OUT_DIR}/tmp_mind" \
+        --make-bed \
+        --out "$PREFIX" \
+        --threads "$THREADS" \
+        --memory "$MEMORY" \
+        2>&1 | tee -a "$LOG"
+else
+    # ── Step 3: Minor Allele Frequency ────────────────────────────────────
+    echo "" | tee -a "$LOG"
+    echo "── Step 3: MAF filter (--maf $MAF) ──" | tee -a "$LOG"
 
-PRE_MAF=$(wc -l < "${OUT_DIR}/tmp_mind.bim" | tr -d ' ')
+    PRE_MAF=$(wc -l < "${OUT_DIR}/tmp_mind.bim" | tr -d ' ')
 
-"$PLINK_BIN" \
-    --allow-extra-chr \
-    --bfile "${OUT_DIR}/tmp_mind" \
-    --maf "$MAF" \
-    --make-bed \
-    --out "${OUT_DIR}/tmp_maf" \
-    --threads "$THREADS" \
-    --memory "$MEMORY" \
-    2>&1 | tee -a "$LOG"
+    "$PLINK_BIN" \
+        --allow-extra-chr \
+        --bfile "${OUT_DIR}/tmp_mind" \
+        --maf "$MAF" \
+        --make-bed \
+        --out "${OUT_DIR}/tmp_maf" \
+        --threads "$THREADS" \
+        --memory "$MEMORY" \
+        2>&1 | tee -a "$LOG"
 
-POST_MAF=$(wc -l < "${OUT_DIR}/tmp_maf.bim" | tr -d ' ')
-REMOVED_MAF=$(( PRE_MAF - POST_MAF ))
-echo "  SNPs removed (MAF < $MAF): $REMOVED_MAF ($POST_MAF remaining)" | tee -a "$LOG"
+    POST_MAF=$(wc -l < "${OUT_DIR}/tmp_maf.bim" | tr -d ' ')
+    REMOVED_MAF=$(( PRE_MAF - POST_MAF ))
+    echo "  SNPs removed (MAF < $MAF): $REMOVED_MAF ($POST_MAF remaining)" | tee -a "$LOG"
 
-# ── Step 4: Hardy-Weinberg Equilibrium ────────────────────────────────────
-echo "" | tee -a "$LOG"
-echo "── Step 4: HWE filter (--hwe $HWE) ──" | tee -a "$LOG"
+    # ── Step 4: Hardy-Weinberg Equilibrium ────────────────────────────────
+    echo "" | tee -a "$LOG"
+    echo "── Step 4: HWE filter (--hwe $HWE) ──" | tee -a "$LOG"
 
-PRE_HWE=$(wc -l < "${OUT_DIR}/tmp_maf.bim" | tr -d ' ')
+    PRE_HWE=$(wc -l < "${OUT_DIR}/tmp_maf.bim" | tr -d ' ')
 
-# HWE filter: use midp variant for case/control or standard for population
-"$PLINK_BIN" \
-    --allow-extra-chr \
-    --bfile "${OUT_DIR}/tmp_maf" \
-    --hwe "$HWE" \
-    --make-bed \
-    --out "$PREFIX" \
-    --threads "$THREADS" \
-    --memory "$MEMORY" \
-    2>&1 | tee -a "$LOG"
+    # HWE filter: use midp variant for case/control or standard for population
+    "$PLINK_BIN" \
+        --allow-extra-chr \
+        --bfile "${OUT_DIR}/tmp_maf" \
+        --hwe "$HWE" \
+        --make-bed \
+        --out "$PREFIX" \
+        --threads "$THREADS" \
+        --memory "$MEMORY" \
+        2>&1 | tee -a "$LOG"
 
-POST_HWE=$(wc -l < "${PREFIX}.bim" | tr -d ' ')
-REMOVED_HWE=$(( PRE_HWE - POST_HWE ))
-echo "  SNPs removed (HWE p < $HWE): $REMOVED_HWE ($POST_HWE remaining)" | tee -a "$LOG"
+    POST_HWE=$(wc -l < "${PREFIX}.bim" | tr -d ' ')
+    REMOVED_HWE=$(( PRE_HWE - POST_HWE ))
+    echo "  SNPs removed (HWE p < $HWE): $REMOVED_HWE ($POST_HWE remaining)" | tee -a "$LOG"
+fi
 
 # ── Step 5: Generate QC Report ────────────────────────────────────────────
 echo "" | tee -a "$LOG"
