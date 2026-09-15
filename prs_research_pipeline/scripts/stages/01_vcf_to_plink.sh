@@ -98,8 +98,16 @@ if command -v bcftools &> /dev/null; then
     # Check if this is a DeepVariant VCF (has RefCall filter + GQ/DP FORMAT)
     HAS_REF_CALL=$(bcftools view -h "$INPUT_VCF" 2>/dev/null | grep -c "RefCall" || true)
     HAS_GQ=$(bcftools view -h "$INPUT_VCF" 2>/dev/null | grep -c "ID=GQ" || true)
+    # Genotyping-array VCF written by bluegen/array_input.py: every assayed
+    # site is a real call, homozygous-reference ones included, and the joint
+    # scoring needs them to know which sites were genotyped (RELEASE_PLAN
+    # 3.0.3). Keep everything — no quality fields, no ALT-count filter.
+    IS_ARRAY=$(bcftools view -h "$INPUT_VCF" 2>/dev/null | grep -c "array_to_vcf" || true)
 
-    if [[ "$HAS_REF_CALL" -gt 0 ]] && [[ "$REMOVE_REF_CALLS" == "true" ]]; then
+    if [[ "$IS_ARRAY" -gt 0 ]]; then
+        echo "  Genotyping-array VCF: keeping all assayed sites (hom-ref included)" | tee -a "$LOG"
+        bcftools view -Oz -o "$FILTERED_VCF" "$INPUT_VCF"
+    elif [[ "$HAS_REF_CALL" -gt 0 ]] && [[ "$REMOVE_REF_CALLS" == "true" ]]; then
         # DeepVariant VCF: remove RefCall entries
         bcftools view -f PASS -e 'FILTER="RefCall"' "$INPUT_VCF" \
             | bcftools view -i "GQ>=${MIN_GQ} && DP>=${MIN_DP}" \

@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-2.1.0-orange)]()
 [![PRSKit](https://img.shields.io/badge/engine-PRSKit-purple)]()
 
-Turn a WGS VCF (GRCh37 or GRCh38, detected automatically) into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
+Turn a WGS VCF (GRCh37 or GRCh38, detected automatically) or a consumer genotyping-array export into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
 
 ## 🚀 Quick Start
 
@@ -26,8 +26,11 @@ pip install -e .            # deps + the `bluegen` command (== python prs.py)
 # PCA/ancestry/LD pruning (see IMPROVEMENT_PLAN.md TIER 0.2).
 python3 prs_research_pipeline/scripts/setup/download_1000G_full.py
 
-# Full analysis
+# Full analysis (WGS VCF, GRCh37 or GRCh38)
 python3 prs.py run --full --vcf your_sample.vcf.gz
+
+# … or from a genotyping-array export (23andMe / AncestryDNA / MyHeritage / FTDNA)
+python3 prs.py run --full --raw genome_John_Doe_v5_Full.txt
 
 # Interactive dashboard
 pip install -e ".[dashboard]" && venv/bin/streamlit run dashboard.py

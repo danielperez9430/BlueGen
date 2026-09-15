@@ -354,10 +354,37 @@ def input_build_banner(input_build, lang="en"):
         return ""
     lifted = bool(input_build.get("lifted"))
     forced = (input_build.get("evidence") or {}).get("method") == "user_flag"
-    if not lifted and not forced:
+    is_array = input_build.get("input_type") == "array"
+    if not lifted and not forced and not is_array:
         return ""
     st = input_build.get("liftover") or {}
-    if lifted:
+    if is_array:
+        a = input_build.get("array") or {}
+        fmt = input_build.get("array_format", "array")
+        if lang == "es":
+            title = f"Aviso: datos de array de genotipado ({fmt}), no genoma completo"
+            body = (
+                f"El informe se generó a partir de un archivo de array con <strong>{a.get('n_written', 0):,}</strong> "
+                f"posiciones genotipadas (de {a.get('n_rows', 0):,} filas; {a.get('n_nocall', 0):,} sin lectura y "
+                f"{a.get('n_indel_code', 0):,} indels omitidos"
+                + (f"; convertido de GRCh38, {a.get('n_unmapped', 0):,} sin correspondencia" if lifted else "")
+                + "). Los PRS y los scores del PGS Catalog se calcularon <strong>solo sobre los sitios genotipados</strong>, "
+                "para ti y para la referencia por igual: revisa la cobertura de cada rasgo y score. ClinVar, "
+                "farmacogenómica, haplogrupos y ADN arcaico solo pueden ver las posiciones del array."
+            )
+        else:
+            title = f"Notice: genotyping-array data ({fmt}), not whole-genome"
+            body = (
+                f"This report was generated from an array file with <strong>{a.get('n_written', 0):,}</strong> "
+                f"genotyped positions (of {a.get('n_rows', 0):,} rows; {a.get('n_nocall', 0):,} no-calls and "
+                f"{a.get('n_indel_code', 0):,} indels skipped"
+                + (f"; lifted from GRCh38, {a.get('n_unmapped', 0):,} unmapped" if lifted else "")
+                + "). PRS and PGS Catalog scores were computed <strong>on genotyped sites only</strong>, for you and "
+                "the reference alike: check the per-trait and per-score coverage. ClinVar, pharmacogenomics, "
+                "haplogroups and archaic admixture can only see the array's positions."
+            )
+        icon = "⚠️"
+    elif lifted:
         drops = {
             "unmapped": st.get("unmapped", 0) + st.get("ambiguous", 0),
             "indel_minus": st.get("indel_minus_strand", 0),

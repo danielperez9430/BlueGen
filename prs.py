@@ -327,6 +327,65 @@ def resolve_input_build(vcf, requested="auto"):
     return vcf, record
 
 
+def resolve_array_input(raw_path, sample, requested="auto"):
+    """Genotyping-array raw data (23andMe / AncestryDNA / MyHeritage / FTDNA)
+    → GRCh37 VCF with every assayed site, hom-ref included (RELEASE_PLAN
+    3.0.3). Returns (vcf_path, record); record['site_policy'] == 'array' so
+    the PRS/PGS joint scoring restricts itself to genotyped sites."""
+    sys.path.insert(0, str(PLATFORM_DIR))
+    from bluegen.array_input import array_to_vcf, detect_array_build, panel_positions_from_csv, sniff_format
+    from bluegen.genome_build import ensure_chain, write_build_record
+
+    fasta = PLATFORM_DIR / "reference" / "hg19" / "hg19.fa"
+    if not fasta.exists():
+        err(f"Array input needs the hg19 FASTA for REF alleles: {fasta} not found")
+        err("  Download the reference bundle (README → Requirements) and retry")
+        sys.exit(1)
+    fmt, hint = sniff_format(raw_path)
+    record = {"input_vcf": None, "input_raw": str(raw_path), "input_type": "array", "array_format": fmt,
+              "requested": requested, "site_policy": "array", "lifted": False}
+    if requested != "auto":
+        build, evidence = requested, {"method": "user_flag", "format": fmt}
+    else:
+        panel = panel_positions_from_csv(SNP_DB_PATH)
+        chain19 = None
+        try:
+            chain19 = ensure_chain(PLATFORM_DIR / "reference", "hg19ToHg38")
+        except Exception as e:  # offline: marker check still works for GRCh37
+            info(f"  hg19ToHg38 chain unavailable ({str(e)[:80]}); GRCh38 arrays need --build GRCh38")
+        build, evidence = detect_array_build(raw_path, panel, chain19, fmt=fmt, hint=hint)
+    record.update({"build": build, "evidence": evidence})
+    if build == "unknown":
+        write_build_record(PLATFORM_DIR / "reproducibility" / "input_build.json", record)
+        err("Cannot determine the genome build of the array file")
+        err(f"  Evidence: {json.dumps(evidence)}")
+        err("  Re-run with --build GRCh37 or --build GRCh38")
+        sys.exit(1)
+    ok(f"Array input: {fmt}, build {build} ({evidence.get('method')})")
+
+    lifter = None
+    if build == "GRCh38":
+        from pyliftover import LiftOver
+        chain = ensure_chain(PLATFORM_DIR / "reference", "hg38ToHg19")
+        lifter = LiftOver(str(chain))
+        record["lifted"] = True
+    out = PLATFORM_DIR / "input_from_array.vcf.gz"
+    t0 = time.time()
+    stats = array_to_vcf(raw_path, out, fasta, sample_id=sample, fmt=fmt, lifter=lifter,
+                         progress=lambda n: info(f"    … {n:,} rows"))
+    stats["elapsed_s"] = round(time.time() - t0, 1)
+    record.update({"input_vcf": str(out), "array": stats})
+    ok(f"Array → VCF: {stats['n_written']:,} sites written from {stats['n_rows']:,} rows "
+       f"({stats['n_hom_ref']:,} hom-ref, {stats['n_het']:,} het, {stats['n_hom_alt']:,} hom-alt; "
+       f"skipped: {stats['n_nocall']:,} no-call, {stats['n_indel_code']:,} indel codes, "
+       f"{stats['n_ref_mismatch']:,} REF mismatch"
+       f"{', ' + format(stats['n_unmapped'], ',') + ' unmapped' if lifter else ''}) in {stats['elapsed_s']:.0f}s")
+    warn("  Array data: PRS/PGS are scored on genotyped sites only; ClinVar, pharmacogenomics, "
+         "haplogroups and archaic admixture are limited to the assayed positions")
+    write_build_record(PLATFORM_DIR / "reproducibility" / "input_build.json", record)
+    return str(out), record
+
+
 def require_output(path, label, stage=""):
     """Validate that a pipeline output file exists.
     Returns True if present; halts the process (sys.exit(1)) if missing."""
@@ -394,15 +453,22 @@ def cmd_run(args):
     DEBUG = args.debug
     full = args.full
     research_mode = args.research_mode
-    vcf = args.vcf or "input.vcf.gz"
-    sample = args.sample or "SAMPLE_001"
+    raw = getattr(args, "raw", None)
+    vcf = args.vcf or ("(array)" if raw else "input.vcf.gz")
+    sample = args.sample or (Path(raw).name.split(".")[0] if raw else "SAMPLE_001")
     lang = args.lang or "both"
     clinvar = args.clinvar or full
     update_refs = args.update_references
 
     # Support multiple VCFs (comma-separated). Merge with bcftools if >1.
     vcf_files = [os.path.abspath(f.strip()) for f in vcf.split(",")]
-    if len(vcf_files) > 1:
+    if raw:
+        if not os.path.exists(raw) and not DRY_RUN:
+            err(f"Array raw-data file not found: {raw}")
+            return 1
+        vcf_files = [os.path.abspath(raw)]
+        vcf = vcf_files[0]
+    elif len(vcf_files) > 1:
         info(f"Merging {len(vcf_files)} VCFs...")
         merged_vcf = str(PLATFORM_DIR / "input_merged.vcf.gz")
         # Use bcftools merge for multi-sample VCFs
@@ -425,8 +491,13 @@ def cmd_run(args):
     info(f"Sample: {sample} | VCF: {vcf} | Language: {lang}")
 
     # Genome build gate: everything below is GRCh37 (RELEASE_PLAN 3.0.2)
-    if not DRY_RUN:
+    site_policy = "wgs"   # 'array' when the input came from a genotyping array (3.0.3)
+    if not DRY_RUN and raw:
+        vcf, _build_record = resolve_array_input(raw, sample, getattr(args, "build", "auto"))
+        site_policy = "array"
+    elif not DRY_RUN:
         vcf, _build_record = resolve_input_build(vcf, getattr(args, "build", "auto"))
+        site_policy = _build_record.get("site_policy", "wgs")
     else:
         info(f"[dry-run] genome build: {getattr(args, 'build', 'auto')} (detection skipped)")
     info(f"Mode: {'FULL' if full else 'PIPELINE ONLY'}{' — Stage: '+args.stage if args.stage else ''}")
@@ -571,23 +642,35 @@ def cmd_run(args):
 
     # ── PRS Computation ──
     hdr("PRS Computation (Stages F–H)")
+    # Joint scoring (RELEASE_PLAN 3.0.3): the user is scored together with the
+    # 1000G reference on one panel-variant set (absent WGS sites = hom-ref;
+    # array inputs: genotyped sites only), and Stage G/H use reference PRS
+    # from this same run instead of the precomputed distributions. Needs the
+    # genome-wide reference; chr22-only falls back to the legacy user-only path.
+    joint_prs = use_full_ref
     if not DRY_RUN:
-        plink_bin = str(Path(__file__).parent / "tools" / "plink")
-        rc = run_script("prs_plink_score",
-                   "--snp-db", snp_db,
-                   "--bfile", "qc/qc_filtered",
-                   "--output-dir", "prs/",
-                   "--plink", plink_bin)
+        f_args = ["--snp-db", snp_db, "--bfile", "qc/qc_filtered", "--output-dir", "prs/",
+                  "--plink", plink_path]
+        if joint_prs:
+            f_args += ["--ref-bfile", g1k_full_bfile, "--pop-panel", pop_ref, "--site-policy", site_policy]
+        else:
+            warn("  chr22-only reference: user-only PRS scoring (absent panel SNPs dropped, biased z-scores)")
+        rc = run_script("prs_plink_score", *f_args)
         if rc != 0:
-            err("PRS computation failed — check pipeline_debug.log")
+            err(f"PRS computation failed — check {stage_log_path('prs_plink_score').relative_to(PLATFORM_DIR)}")
             return 1
         require_output("prs/prs_raw.csv", "Raw PRS scores", "prs_plink_score")
+    have_ref_prs = joint_prs and exists("prs/prs_reference_raw.csv")
 
     # PCA adjustment — skip if no PCA output
     if exists("prs/prs_raw.csv") and exists("pca/target_pcs.eigenvec"):
-        run_script("stage_g", "--prs-data", "prs/prs_raw.csv",
-                   "--sample-pcs", "pca/target_pcs.eigenvec",
-                   "--output-dir", "prs/", "--sample-id", sample)
+        g_args = ["--prs-data", "prs/prs_raw.csv", "--sample-pcs", "pca/target_pcs.eigenvec",
+                  "--output-dir", "prs/", "--sample-id", sample]
+        if have_ref_prs and exists("pca/1000G_pcs.eigenvec"):
+            # PC betas from this run's reference PRS (same variant set / units)
+            g_args += ["--compute-ref", "--ref-prs", "prs/prs_reference_raw.csv",
+                       "--ref-pcs", "pca/1000G_pcs.eigenvec", "--population-panel", pop_ref]
+        run_script("stage_g", *g_args)
         require_output("prs/pca_adjusted_scores.csv", "PCA-adjusted PRS", "stage_g")
     elif exists("prs/prs_raw.csv"):
         info("  Skipping PCA adjustment — no target_pcs.eigenvec (run Stage D first)")
@@ -595,15 +678,18 @@ def cmd_run(args):
     # Population calibration
     anc_json = resolve_ancestry_json()
     cal_done = False
+    # Per-run reference distributions built from the joint scoring output;
+    # the precomputed reference/population_distributions stay for the
+    # benchmarking scripts and for the chr22-only fallback.
+    h_ref = (["--ref-prs", "prs/prs_reference_raw.csv", "--population-panel", pop_ref,
+              "--dist-output-dir", "prs/reference_distributions"] if have_ref_prs else ["--calibrate-only"])
     if anc_json and exists("prs/pca_adjusted_scores.csv"):
         run_script("stage_h", "--sample-prs", "prs/pca_adjusted_scores.csv",
-                   "--ancestry-json", anc_json, "--output-dir", "prs/",
-                   "--calibrate-only")
+                   "--ancestry-json", anc_json, "--output-dir", "prs/", *h_ref)
         cal_done = True
     elif anc_json and exists("prs/prs_raw.csv"):
         run_script("stage_h", "--sample-prs", "prs/prs_raw.csv",
-                   "--ancestry-json", anc_json, "--output-dir", "prs/",
-                   "--calibrate-only")
+                   "--ancestry-json", anc_json, "--output-dir", "prs/", *h_ref)
         cal_done = True
     if not cal_done and exists("prs/prs_raw.csv"):
         # population_calibrate_v2.py only calibrates when --ancestry-json is
@@ -719,6 +805,7 @@ def cmd_run(args):
                        "--pop-panel", pop_panel_full, "--pgs-dir", "pgs",
                        "--user-bfile", "qc/qc_filtered",
                        "--ancestry-json", "science/ANCESTRY_MODEL.json",
+                       "--site-policy", site_policy,
                        "--output-dir", "prs/pgs_scores",
                        "--plink", plink_path)
 
@@ -1090,6 +1177,9 @@ def main():
     parser.add_argument("command", nargs="?", default="status",
                        choices=list(COMMANDS.keys()), help="Command")
     parser.add_argument("--vcf", help="Input VCF path (.vcf.gz)")
+    parser.add_argument("--raw", help="Genotyping-array raw data instead of a VCF (23andMe, AncestryDNA, "
+                                      "MyHeritage, FTDNA export; .txt/.csv/.gz/.zip). Converted to a GRCh37 VCF "
+                                      "with every assayed site; scores use genotyped sites only")
     parser.add_argument("--build", default="auto", choices=["auto", "GRCh37", "GRCh38"],
                         help="Genome build of the input VCF. auto (default) reads contig lengths / "
                              "##reference from the header; GRCh38 inputs are lifted to GRCh37 "
