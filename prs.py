@@ -260,6 +260,73 @@ def run_shell(key, *args, required=False):
     return run_script(key, *args, shell=True, required=required)
 
 
+def resolve_input_build(vcf, requested="auto"):
+    """Genome-build gate before Stage A (RELEASE_PLAN 3.0.2).
+
+    Every downstream stage is GRCh37. Detects the input build from the VCF
+    header (contig lengths / ##reference), probing panel marker positions
+    when the header says nothing; lifts a GRCh38 file to GRCh37 through the
+    UCSC hg38ToHg19 chain (downloaded on first use) with hg19-FASTA REF
+    verification; halts with instructions when the build cannot be told.
+    Returns (vcf_to_use, record) and writes reproducibility/input_build.json."""
+    sys.path.insert(0, str(PLATFORM_DIR))
+    from bluegen.genome_build import (detect_build, detect_build_from_markers, ensure_chain,
+                                      liftover_vcf, write_build_record)
+
+    record = {"input_vcf": vcf, "requested": requested}
+    if requested != "auto":
+        build, evidence = requested, {"method": "user_flag"}
+    else:
+        build, evidence = detect_build(vcf)
+        if build == "unknown":
+            info("  Header carries no usable build signal — probing panel marker positions")
+            try:
+                import csv
+                markers = []
+                with open(SNP_DB_PATH) as fh:
+                    for row in csv.DictReader(fh):
+                        try:
+                            if int(float(row.get("pos", 0) or 0)) > 0 and row.get("chrom"):
+                                markers.append((row["chrom"], int(float(row["pos"]))))
+                        except ValueError:
+                            continue
+                chain = ensure_chain(PLATFORM_DIR / "reference", "hg19ToHg38")
+                build, evidence = detect_build_from_markers(vcf, markers[:400], chain)
+            except Exception as e:  # network, missing index, ...
+                evidence = {"method": "marker_probe_failed", "error": str(e)[:200]}
+                build = "unknown"
+    record.update({"build": build, "evidence": evidence, "lifted": False})
+
+    if build == "GRCh37":
+        ok(f"Genome build: GRCh37 ({evidence.get('method', 'user flag')})")
+    elif build == "GRCh38":
+        warn(f"Genome build: GRCh38 detected ({evidence.get('method')}) — lifting to GRCh37")
+        chain = ensure_chain(PLATFORM_DIR / "reference", "hg38ToHg19")
+        fasta = PLATFORM_DIR / "reference" / "hg19" / "hg19.fa"
+        out = PLATFORM_DIR / "input_lifted_GRCh37.vcf.gz"
+        t0 = time.time()
+        stats = liftover_vcf(vcf, out, chain, fasta if fasta.exists() else None,
+                             progress=lambda n: info(f"    … {n:,} records"))
+        stats["elapsed_s"] = round(time.time() - t0, 1)
+        record.update({"lifted": True, "lifted_vcf": str(out), "liftover": stats})
+        ok(f"Liftover: {stats['n_out']:,}/{stats['n_in']:,} records mapped to GRCh37 "
+           f"({stats['dropped_total']:,} dropped; REF checked against hg19 FASTA: "
+           f"{'yes' if stats['fasta_checked'] else 'NO — reference/hg19/hg19.fa missing'}) "
+           f"in {stats['elapsed_s']:.0f}s")
+        if not stats["fasta_checked"]:
+            warn("  Without the hg19 FASTA, REF/ALT orientation after liftover is unverified")
+        vcf = str(out)
+    else:
+        write_build_record(PLATFORM_DIR / "reproducibility" / "input_build.json", record)
+        err("Cannot determine the genome build of the input VCF")
+        err(f"  Evidence: {json.dumps(evidence)}")
+        err("  Re-run with --build GRCh37 or --build GRCh38")
+        sys.exit(1)
+
+    write_build_record(PLATFORM_DIR / "reproducibility" / "input_build.json", record)
+    return vcf, record
+
+
 def require_output(path, label, stage=""):
     """Validate that a pipeline output file exists.
     Returns True if present; halts the process (sys.exit(1)) if missing."""
@@ -356,6 +423,12 @@ def cmd_run(args):
 
     big(f"PRS PIPELINE {'(dry-run)' if DRY_RUN else ''}")
     info(f"Sample: {sample} | VCF: {vcf} | Language: {lang}")
+
+    # Genome build gate: everything below is GRCh37 (RELEASE_PLAN 3.0.2)
+    if not DRY_RUN:
+        vcf, _build_record = resolve_input_build(vcf, getattr(args, "build", "auto"))
+    else:
+        info(f"[dry-run] genome build: {getattr(args, 'build', 'auto')} (detection skipped)")
     info(f"Mode: {'FULL' if full else 'PIPELINE ONLY'}{' — Stage: '+args.stage if args.stage else ''}")
 
     # Validate config
@@ -1017,6 +1090,10 @@ def main():
     parser.add_argument("command", nargs="?", default="status",
                        choices=list(COMMANDS.keys()), help="Command")
     parser.add_argument("--vcf", help="Input VCF path (.vcf.gz)")
+    parser.add_argument("--build", default="auto", choices=["auto", "GRCh37", "GRCh38"],
+                        help="Genome build of the input VCF. auto (default) reads contig lengths / "
+                             "##reference from the header; GRCh38 inputs are lifted to GRCh37 "
+                             "(UCSC chain, hg19 REF check) before Stage A")
     parser.add_argument("--sample", help="Sample identifier")
     parser.add_argument("--lang", default="both", choices=["en", "es", "both"])
     parser.add_argument("--full", action="store_true",

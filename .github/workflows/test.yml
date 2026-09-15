@@ -76,7 +76,7 @@ jobs:
         # fails with ModuleNotFoundError (happened for jinja2 in 1.6, then
         # pydantic in 2.2).
         run: |
-          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest jinja2 pydantic streamlit plotly
+          pip install pandas numpy scipy scikit-learn matplotlib pyyaml requests cyvcf2 pytest jinja2 pydantic streamlit plotly pyliftover
 
       - name: Syntax check
         run: |

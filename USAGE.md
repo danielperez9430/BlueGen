@@ -88,7 +88,7 @@ Without this, the platform uses chr22-only PCA (insufficient for proper ancestry
 | Format | Requirement |
 |--------|------------|
 | File type | VCF (.vcf.gz, bgzip-compressed) |
-| Genome build | GRCh37/hg19 |
+| Genome build | GRCh37/hg19 **or GRCh38/hg38**. Detected automatically from the header (contig lengths, `##reference`); a GRCh38 file is lifted to GRCh37 before Stage A with the UCSC `hg38ToHg19` chain (downloaded on first use to `reference/liftover/`) and REF verified against `reference/hg19/hg19.fa`. Force with `--build GRCh37|GRCh38` when the header carries no signal. Drop counts land in `reproducibility/input_build.json` and as a banner in the report. |
 | Variant caller | DeepVariant, GATK, or bcftools |
 | Index | .vcf.gz.tbi required |
 | Autosomes | chr1–22 |

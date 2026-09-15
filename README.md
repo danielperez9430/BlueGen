@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-2.1.0-orange)]()
 [![PRSKit](https://img.shields.io/badge/engine-PRSKit-purple)]()
 
-Turn a WGS VCF into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
+Turn a WGS VCF (GRCh37 or GRCh38, detected automatically) into a comprehensive personal genomics report: polygenic risk scores, pathogenic variants, pharmacogenomics, ancestry, and wellness traits — all offline, all free.
 
 ## 🚀 Quick Start
 

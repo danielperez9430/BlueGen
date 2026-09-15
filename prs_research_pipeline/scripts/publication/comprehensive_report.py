@@ -174,7 +174,7 @@ from report.interpretations import (
     load_json, safe_float, trait_anchor_id, risk_color, risk_badge, risk_bar,
     compute_per_trait_confidence, confidence_stars, calibration_flag, trust_tier,
     trust_badge, mini_decomp_bar, snp_coverage_bar, portability_banner,
-    reference_coverage_banner, trait_limitations_badges, trust_tier_legend,
+    reference_coverage_banner, input_build_banner, trait_limitations_badges, trust_tier_legend,
     evidence_letter, evidence_badge,
 )
 from report.data_loader import load_report_data
@@ -1809,7 +1809,8 @@ def build_html_report(lang: str, data: Dict, sample_id: str) -> str:
 
     return render_document(
         lang, data, sample_id, sections_html,
-        reference_coverage_banner(data["prs_result"], lang), ui,
+        reference_coverage_banner(data["prs_result"], lang)
+        + input_build_banner(data.get("input_build", {}), lang), ui,
     )
 
 

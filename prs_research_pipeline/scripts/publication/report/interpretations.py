@@ -345,6 +345,72 @@ def reference_coverage_banner(prs_result, lang="en"):
     )
 
 
+def input_build_banner(input_build, lang="en"):
+    """Banner when the input VCF was not native GRCh37 (RELEASE_PLAN 3.0.2):
+    lifted from GRCh38 (with the drop counts, so the reader knows what was
+    lost) or when the build was forced by hand. Silent for a detected
+    GRCh37 input — the normal case."""
+    if not input_build or input_build.get("build") not in ("GRCh37", "GRCh38"):
+        return ""
+    lifted = bool(input_build.get("lifted"))
+    forced = (input_build.get("evidence") or {}).get("method") == "user_flag"
+    if not lifted and not forced:
+        return ""
+    st = input_build.get("liftover") or {}
+    if lifted:
+        drops = {
+            "unmapped": st.get("unmapped", 0) + st.get("ambiguous", 0),
+            "indel_minus": st.get("indel_minus_strand", 0),
+            "ref_mismatch": st.get("ref_mismatch", 0),
+            "contigs": st.get("contigs_skipped", 0),
+        }
+        if lang == "es":
+            title = "Aviso: VCF de entrada en GRCh38, convertido a GRCh37"
+            body = (
+                f"El archivo se detectó como GRCh38 y se convirtió a GRCh37 con la cadena UCSC hg38→hg19 "
+                f"antes del análisis. Se mapearon <strong>{st.get('n_out', 0):,} de {st.get('n_in', 0):,}</strong> "
+                f"variantes; se descartaron {drops['unmapped']:,} sin correspondencia, "
+                f"{drops['indel_minus']:,} indels en bloques de hebra inversa, "
+                f"{drops['ref_mismatch']:,} con alelo de referencia distinto en hg19 y "
+                f"{drops['contigs']:,} en contigs no estándar; {st.get('ref_alt_swapped', 0):,} sitios con REF/ALT "
+                f"intercambiados entre builds se reorientaron. "
+                + ("La verificación de REF se hizo contra el FASTA hg19." if st.get("fasta_checked")
+                   else "<strong>Sin FASTA hg19 la orientación REF/ALT no se verificó.</strong>")
+            )
+        else:
+            title = "Notice: GRCh38 input VCF, lifted to GRCh37"
+            body = (
+                f"The file was detected as GRCh38 and converted to GRCh37 with the UCSC hg38→hg19 chain "
+                f"before analysis. <strong>{st.get('n_out', 0):,} of {st.get('n_in', 0):,}</strong> variants "
+                f"were mapped; dropped: {drops['unmapped']:,} without a mapping, "
+                f"{drops['indel_minus']:,} indels on reverse-strand blocks, "
+                f"{drops['ref_mismatch']:,} whose reference allele differs in hg19, and "
+                f"{drops['contigs']:,} on non-standard contigs; {st.get('ref_alt_swapped', 0):,} sites with "
+                f"REF/ALT swapped between builds were re-oriented. "
+                + ("REF was verified against the hg19 FASTA." if st.get("fasta_checked")
+                   else "<strong>Without the hg19 FASTA, REF/ALT orientation was not verified.</strong>")
+            )
+        icon = "⚠️"
+    else:
+        build = input_build.get("build")
+        if lang == "es":
+            title = f"Build genómico fijado manualmente: {build}"
+            body = "El build del VCF se indicó con <code>--build</code> y no se detectó automáticamente."
+        else:
+            title = f"Genome build set manually: {build}"
+            body = "The VCF build was given with <code>--build</code>, not detected automatically."
+        icon = "ℹ️"
+    return (
+        f'<div class="portability-banner" style="padding:0.8rem 1.2rem;margin-bottom:1rem">'
+        f'<div style="display:flex;align-items:flex-start;gap:8px">'
+        f'<span style="font-size:1.2rem">{icon}</span>'
+        f'<div>'
+        f'<strong style="color:#b7950b">{title}</strong>'
+        f'<p style="font-size:0.8rem;margin:4px 0 0;color:#7d6608">{body}</p>'
+        f'</div></div></div>'
+    )
+
+
 def trait_limitations_badges(trait_entry, cal_entry):
     """Generate per-trait limitation badges for the PRS table."""
     issues = []

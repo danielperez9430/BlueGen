@@ -49,6 +49,7 @@ pydantic_core==2.46.4
 pydyf==0.12.1
 Pygments==2.20.0
 pyparsing==3.3.2
+pyliftover==0.4.1
 pyphen==0.17.2
 pytest==9.0.3
 python-dateutil==2.9.0.post0

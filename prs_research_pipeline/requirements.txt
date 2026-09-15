@@ -15,6 +15,7 @@ scikit-learn>=1.2.0
 
 # ── GWAS & Genomics ──
 cyvcf2>=0.30.0             # VCF parsing (fallback for non-PLINK operations)
+pyliftover>=0.4            # GRCh38 → GRCh37 liftover of input VCFs (pure Python, UCSC chains)
 
 # ── Visualization ──
 matplotlib>=3.7.0

@@ -4,7 +4,8 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- **GRCh38 input support.** `prs.py run` now detects the genome build of the input VCF before Stage A — contig lengths in the header (24 of 24 votes on a DeepVariant file), the `##reference`/`##assembly` line as fallback, and a marker probe against the curated panel positions for headerless files — and lifts a GRCh38 file to GRCh37 with the UCSC `hg38ToHg19` chain (`pyliftover`, pure Python; chain downloaded on first use to `reference/liftover/`). Minus-strand blocks complement SNV alleles (indels there are dropped), REF is verified against `reference/hg19/hg19.fa`, sites whose hg38 REF is the hg19 ALT are re-oriented with GT/AD/PL adjusted, and everything unmappable is counted. Output is sorted, bgzipped and indexed; the result and every drop count go to `reproducibility/input_build.json` and to a banner at the top of the report. `--build GRCh37|GRCh38` forces the build; an undecidable header halts with instructions instead of scoring nothing silently. `scripts/setup/download_liftover_chains.py` fetches the chains for offline setups. On the chr22 3-sample test VCF a GRCh37→GRCh38→GRCh37 round trip returns >97 % of records identical; lifting 1.1 M records takes 9 s.
 
 ## [2.1.0] — 2026-09-15
 

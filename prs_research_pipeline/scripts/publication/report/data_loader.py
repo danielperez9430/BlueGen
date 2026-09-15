@@ -70,6 +70,8 @@ def load_report_data(args) -> dict:
     data["gwas_consortium"] = load_json("benchmark/gwas_consortium_validation.json")
     data["portability"] = load_json("benchmark/portability_report.json")
     data["reproducibility"] = load_json("reproducibility/run_fingerprint.json")
+    # Genome build of the input VCF + liftover stats (RELEASE_PLAN 3.0.2)
+    data["input_build"] = load_json("reproducibility/input_build.json")
     data["consistency"] = load_json("prs/consistency_check_report.json")
     data["leakage_audit"] = load_json("science/leakage_audit.json")
     data["snp_universe"] = load_json("science/snp_universe.json")
