@@ -4,7 +4,12 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [3.0.1] — 2026-09-15
+
 ### Changed
+- Documentation synced with 3.0: `USAGE.md` command reference (`--build`, `--raw`, `--compare`), stage table (input gate, single-sample QC, joint scoring, per-run calibration), output contract (`prs_reference_raw.csv`, `reference_distributions/`, `input_build.json`, `logs/`, comparison report), PRS interpretation no longer says "vs EUR"; root README architecture diagram and requirements (liftOver chains); pipeline README stages, methods, outputs, measured v3.0 timings and dependencies (PLINK is not bundled; `pip install -e .`).
 - The A–D evidence letters are now explained where they first appear: a bilingual legend (Top Findings and Variant-Level Detail) with the panel's own definitions — A genome-wide significant GWAS (p < 5×10⁻⁸), B replicated candidate-gene association, C single study, D mechanistic plausibility — and a note that a trait's letter is the average of its SNPs' levels. The old legend sat only in Variant-Level Detail, in English, and described B/C/D differently from `data/snp_database.csv`. The dashboard's Recommendations page gets the same explanation, including what the level on a recommendation itself means.
 
 ## [3.0.0] — 2026-09-15
