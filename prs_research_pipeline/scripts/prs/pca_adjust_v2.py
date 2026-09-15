@@ -55,20 +55,30 @@ def main():
 
     adjuster = PCAAdjustmentV2(n_pcs=args.n_pcs)
 
+    ref_beta_path = args.ref_betas
     if args.compute_ref and args.ref_prs and args.ref_pcs and args.population_panel:
-        adjuster.compute_ref_betas(
-            ref_prs_data=args.ref_prs,
-            ref_pcs_path=args.ref_pcs,
-            population_panel=args.population_panel,
-            output_dir=args.output_dir,
-        )
+        # Per-run betas from this run's reference PRS (RELEASE_PLAN 3.0.3).
+        # A failure here must not lose the adjustment step: fall back to the
+        # precomputed betas (or the shrinkage prior) and say so.
+        try:
+            betas = adjuster.compute_ref_betas(
+                ref_prs_data=args.ref_prs,
+                ref_pcs_path=args.ref_pcs,
+                population_panel=args.population_panel,
+                output_dir=args.output_dir,
+            )
+            if betas:
+                ref_beta_path = str(Path(args.output_dir) / "reference_pc_betas.json")
+        except Exception as e:  # noqa: BLE001 - degrade, never abort Stage G
+            logger.warning(f"  Reference PC betas could not be computed ({e}); "
+                           f"using {'precomputed betas' if ref_beta_path else 'the shrinkage prior'}")
 
     report = adjuster.adjust(
         prs_data=args.prs_data,
         sample_pcs=args.sample_pcs,
         output_dir=args.output_dir,
         sample_id=args.sample_id,
-        ref_beta_path=args.ref_betas,
+        ref_beta_path=ref_beta_path,
     )
 
     print(f"\n═══ PCA Adjustment Results ═══")

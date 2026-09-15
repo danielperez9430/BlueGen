@@ -211,8 +211,14 @@ class PCAAdjustmentV2:
         """
         logger.info("═══ Computing Reference PC Betas from 1000G ═══")
 
-        # Load reference PCs
-        ref_pcs = pd.read_csv(ref_pcs_path, sep=r"\s+", header=None)
+        # Load reference PCs. Stage D writes the eigenvec WITH a header row
+        # (FID IID PC1 ...); older/plain PLINK eigenvecs have none. This used
+        # to assume no header and died on 'PC1' the first time prs.py wired
+        # --compute-ref (RELEASE_PLAN 3.0.3), so the header is detected.
+        with open(ref_pcs_path) as fh:
+            first = fh.readline().split()
+        has_header = bool(first) and (first[0].upper() in ("FID", "IID") or any(c.upper().startswith("PC") for c in first))
+        ref_pcs = pd.read_csv(ref_pcs_path, sep=r"\s+", header=0 if has_header else None)
         pc_cols = list(range(2, min(2 + self.n_pcs, ref_pcs.shape[1])))
         X = ref_pcs.iloc[:, pc_cols].values.astype(np.float64)
         sample_ids = ref_pcs.iloc[:, 1].astype(str).values
@@ -221,17 +227,15 @@ class PCAAdjustmentV2:
 
         if ref_prs_data and Path(ref_prs_data).exists():
             prs_df = pd.read_csv(ref_prs_data)
+            prs_df["individual_id"] = prs_df["individual_id"].astype(str)
             traits = prs_df["trait"].unique()
 
             for trait in traits:
                 trait_data = prs_df[prs_df["trait"] == trait]
 
-                # Align samples
-                y = np.zeros(len(sample_ids))
-                for i, sid in enumerate(sample_ids):
-                    match = trait_data[trait_data["individual_id"] == sid]
-                    if len(match) > 0:
-                        y[i] = float(match["prs_raw"].iloc[0])
+                # Align samples (dict lookup: 2,504 samples × 55 traits)
+                lookup = dict(zip(trait_data["individual_id"], trait_data["prs_raw"].astype(float)))
+                y = np.array([lookup.get(sid, 0.0) for sid in sample_ids], dtype=np.float64)
 
                 # Regress: PRS ~ PC1 + PC2 + ... + PC10
                 if np.std(y) > 0:

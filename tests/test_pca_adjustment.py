@@ -150,3 +150,32 @@ class TestComputeRefBetasRecoversKnownSlope:
         assert math.isclose(ref_betas["Test trait"]["PC1"], true_beta, abs_tol=1e-6)
         assert math.isclose(ref_betas["Test trait"]["PC2"], 0.0, abs_tol=1e-6)
         assert ref_betas["Test trait"]["r_squared"] >= 0.999  # noiseless -> perfect fit
+
+
+class TestReferenceEigenvecWithHeader:
+    def test_header_row_is_detected_and_slope_recovered(self):
+        """Stage D writes 'FID IID PC1 ... PC20' as the first line; the
+        header-less assumption raised 'could not convert string to float:
+        PC1' the first time prs.py passed --compute-ref (RELEASE_PLAN 3.0.3)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            n = 40
+            rng = np.random.RandomState(0)
+            pcs = rng.normal(size=(n, 3))
+            eigenvec = Path(tmpdir) / "1000G_pcs.eigenvec"
+            with open(eigenvec, "w") as fh:
+                fh.write("FID\tIID\tPC1\tPC2\tPC3\n")
+                for i in range(n):
+                    fh.write(f"S{i}\tS{i}\t" + "\t".join(f"{v:.6f}" for v in pcs[i]) + "\n")
+            prs_path = Path(tmpdir) / "ref_prs.csv"
+            with open(prs_path, "w", newline="") as fh:
+                w = csv.writer(fh)
+                w.writerow(["individual_id", "trait", "prs_raw"])
+                for i in range(n):
+                    w.writerow([f"S{i}", "Trait", 0.5 + 2.0 * pcs[i, 0] - 1.0 * pcs[i, 2]])
+            adjuster = PCAAdjustmentV2(n_pcs=3)
+            betas = adjuster.compute_ref_betas(ref_prs_data=str(prs_path), ref_pcs_path=str(eigenvec),
+                                               population_panel="unused", output_dir=tmpdir)
+            assert abs(betas["Trait"]["PC1"] - 2.0) < 1e-6
+            assert abs(betas["Trait"]["PC2"]) < 1e-6
+            assert abs(betas["Trait"]["PC3"] + 1.0) < 1e-6
+            assert (Path(tmpdir) / "reference_pc_betas.json").exists()

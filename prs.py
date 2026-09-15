@@ -665,6 +665,10 @@ def cmd_run(args):
 
     # PCA adjustment — skip if no PCA output
     if exists("prs/prs_raw.csv") and exists("pca/target_pcs.eigenvec"):
+        # A stale file from an earlier run would satisfy require_output() and
+        # feed Stage H old numbers if this stage failed: remove it first.
+        if not DRY_RUN:
+            (PLATFORM_DIR / "prs" / "pca_adjusted_scores.csv").unlink(missing_ok=True)
         g_args = ["--prs-data", "prs/prs_raw.csv", "--sample-pcs", "pca/target_pcs.eigenvec",
                   "--output-dir", "prs/", "--sample-id", sample]
         if have_ref_prs and exists("pca/1000G_pcs.eigenvec"):
