@@ -55,6 +55,8 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 SUPER_POPS = ["EUR", "AFR", "EAS", "SAS", "AMR"]
 MAX_RELIABLE_SNPS = 500_000   # platform's documented reliability cutoff
 MIN_COVERAGE = 0.80           # fraction of a score's variants that must be in the joint set
@@ -89,17 +91,8 @@ def read_score_metadata(pgs_dir: Path, pgs_id: str) -> dict:
     return {"trait": trait, "n_snps": n_snps}
 
 
-def run_plink(plink: str, args: list, timeout: int = 3600) -> subprocess.CompletedProcess:
-    cmd = [str(plink)] + [str(a) for a in args]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-
-
-def plink_or_die(plink: str, args: list, what: str, timeout: int = 3600) -> subprocess.CompletedProcess:
-    r = run_plink(plink, args, timeout)
-    if r.returncode != 0:
-        tail = (r.stderr or r.stdout or "")[-600:]
-        sys.exit(f"❌ PLINK failed while {what}:\n{tail}")
-    return r
+from bluegen.joint import (JointDatasetError, build_joint_dataset, read_fam_ids,  # noqa: E402
+                           remove_joint_dataset, run_plink, user_covered_chromosomes)
 
 
 def load_assigned_population(ancestry_json) -> tuple:
@@ -120,110 +113,6 @@ def load_assigned_population(ancestry_json) -> tuple:
     else:
         print("⚠️  No --ancestry-json given; falling back to EUR")
     return "EUR", "fallback"
-
-
-def user_covered_chromosomes(user_bim: Path, min_variants: int) -> list:
-    """Autosomes on which the user's dataset has at least `min_variants`
-    variants. Hom-ref filling is only valid where the sample was actually
-    sequenced/called, so variants on other chromosomes are dropped from BOTH
-    the user and the reference (chr22-only inputs keep working, with
-    coverage reported accordingly)."""
-    counts = {}
-    with open(user_bim) as fh:
-        for line in fh:
-            chrom = line.split("\t", 1)[0].split(" ", 1)[0]
-            counts[chrom] = counts.get(chrom, 0) + 1
-    return [c for c in AUTOSOMES if counts.get(c, 0) >= min_variants]
-
-
-def read_fam_ids(fam: Path) -> list:
-    ids = []
-    with open(fam) as fh:
-        for line in fh:
-            parts = line.split()
-            if len(parts) >= 2:
-                ids.append((parts[0], parts[1]))
-    return ids
-
-
-def rename_user_samples(fam: Path) -> dict:
-    """Prefix user FID/IID with USER_ so they can never collide with a 1000G
-    sample ID (PLINK --bmerge would silently merge same-ID samples into one).
-    Returns {new_iid: original_iid}."""
-    rows = []
-    mapping = {}
-    with open(fam) as fh:
-        for line in fh:
-            parts = line.split()
-            if len(parts) < 6:
-                continue
-            new_iid = f"USER_{parts[1]}"
-            mapping[new_iid] = parts[1]
-            rows.append("\t".join(["USER", new_iid] + parts[2:]))
-    fam.write_text("\n".join(rows) + "\n")
-    return mapping
-
-
-def build_joint_dataset(plink, ref_bfile, user_bfile, needed_ids, chroms, work_dir, threads, memory):
-    """Reference subset + user subset → merged, hom-ref-filled joint dataset.
-    Returns (joint_prefix, user_id_map)."""
-    work_dir.mkdir(parents=True, exist_ok=True)
-    extract_list = work_dir / "_needed_variants.txt"
-    extract_list.write_text("\n".join(sorted(needed_ids)) + "\n")
-    chr_arg = ",".join(chroms)
-    common = ["--allow-extra-chr", "--threads", threads, "--memory", memory]
-
-    ref_subset = work_dir / "_reference_subset"
-    user_subset = work_dir / "_user_subset"
-
-    def extract(src, out, exclude=None):
-        args = ["--bfile", src, "--extract", extract_list, "--chr", chr_arg,
-                "--keep-allele-order", "--make-bed", "--out", out] + common
-        if exclude is not None:
-            args += ["--exclude", exclude]
-        return run_plink(plink, args)
-
-    r = extract(ref_bfile, ref_subset)
-    if r.returncode != 0 or not Path(str(ref_subset) + ".bed").exists():
-        sys.exit(f"❌ Could not extract score variants from the reference:\n{(r.stderr or r.stdout)[-400:]}")
-    r = extract(user_bfile, user_subset)
-    if r.returncode != 0 or not Path(str(user_subset) + ".bed").exists():
-        sys.exit("❌ The user dataset shares no score variants with the reference on the covered "
-                 f"chromosomes ({chr_arg}):\n{(r.stderr or r.stdout)[-400:]}")
-    user_id_map = rename_user_samples(Path(str(user_subset) + ".fam"))
-
-    # Step 1: merge (reference first + --keep-allele-order → A2 stays REF).
-    merged = work_dir / "_joint_merged"
-    merge_args = ["--bfile", ref_subset, "--bmerge", user_subset,
-                  "--keep-allele-order", "--make-bed", "--out", merged] + common
-    r = run_plink(plink, merge_args)
-    missnp = Path(str(merged) + "-merge.missnp")
-    if r.returncode != 0 and missnp.exists():
-        # Multi-allelic / strand-inconsistent sites: drop them from both sides
-        # (they would be excluded from the score anyway) and merge again.
-        n_bad = sum(1 for _ in open(missnp))
-        print(f"  ⚠️  {n_bad} variants inconsistent between user and reference — excluded from both")
-        for src, out in ((ref_bfile, ref_subset), (user_bfile, user_subset)):
-            r2 = extract(src, out, exclude=missnp)
-            if r2.returncode != 0:
-                sys.exit(f"❌ PLINK failed re-extracting without .missnp variants:\n{(r2.stderr or r2.stdout)[-400:]}")
-        user_id_map = rename_user_samples(Path(str(user_subset) + ".fam"))
-        r = run_plink(plink, merge_args)
-    if r.returncode != 0 or not Path(str(merged) + ".bed").exists():
-        sys.exit(f"❌ PLINK failed merging user into the reference:\n{(r.stderr or r.stdout)[-600:]}")
-
-    # Step 2: hom-ref fill. PLINK refuses --fill-missing-a2 in the same run
-    # as --bmerge ("must be used with --make-bed and no other commands").
-    joint = work_dir / "_joint"
-    r = run_plink(plink, ["--bfile", merged, "--fill-missing-a2", "--keep-allele-order",
-                          "--make-bed", "--out", joint] + common)
-    if r.returncode != 0 or not Path(str(joint) + ".bed").exists():
-        sys.exit(f"❌ PLINK failed filling missing calls as homozygous reference:\n{(r.stderr or r.stdout)[-600:]}")
-
-    for prefix in (user_subset, merged):
-        for ext in (".bed", ".bim", ".fam", ".log", ".nosex", "-merge.missnp"):
-            Path(str(prefix) + ext).unlink(missing_ok=True)
-    return joint, user_id_map
 
 
 def dedup_score_file(score_file: Path, out_path: Path) -> tuple:
@@ -312,6 +201,9 @@ def main(argv=None):
     p.add_argument("--min-variants-per-chrom", type=int, default=100,
                    help="A chromosome counts as covered by the user's data when it has at least this many variants")
     p.add_argument("--keep-work", action="store_true", help="Keep the joint PLINK dataset after scoring")
+    p.add_argument("--site-policy", default="wgs", choices=["wgs", "array"],
+                   help="wgs: sites absent from the user's data are homozygous reference (filled); "
+                        "array: only sites the user was genotyped on are scored, for everyone")
     p.add_argument("--sample-prs", default=None, help=argparse.SUPPRESS)  # legacy, ignored
     args = p.parse_args(argv)
 
@@ -345,16 +237,25 @@ def main(argv=None):
                     needed_ids.add(vid)
     print(f"{len(needed_ids):,} unique variant IDs needed across {len(pgs_files)} scores")
 
-    # Chromosomes the user's data covers
-    chroms = user_covered_chromosomes(Path(str(args.user_bfile) + ".bim"), args.min_variants_per_chrom)
-    if not chroms:
-        sys.exit("❌ The user dataset covers no autosome with enough variants; cannot calibrate PGS")
-    print(f"User data covers {len(chroms)} autosome(s): {', '.join(chroms)}")
+    # Chromosomes the user's data covers (hom-ref filling only where sequenced)
+    chroms = None
+    if args.site_policy == "wgs":
+        chroms = user_covered_chromosomes(Path(str(args.user_bfile) + ".bim"), args.min_variants_per_chrom)
+        if not chroms:
+            sys.exit("❌ The user dataset covers no autosome with enough variants; cannot calibrate PGS")
+        print(f"User data covers {len(chroms)} autosome(s): {', '.join(chroms)}")
 
     # Joint dataset
-    print("\nBuilding joint user + reference dataset (same variants, hom-ref filled)…")
-    joint, user_id_map = build_joint_dataset(
-        plink, args.bfile, args.user_bfile, needed_ids, chroms, out_dir, args.threads, args.memory)
+    print(f"\nBuilding joint user + reference dataset (same variants, site policy: {args.site_policy})…")
+    try:
+        joint, user_id_map, joint_info = build_joint_dataset(
+            plink, args.bfile, args.user_bfile, needed_ids, out_dir, threads=args.threads, memory=args.memory,
+            site_policy=args.site_policy, chroms=chroms, prefix="_joint")
+    except JointDatasetError as e:
+        sys.exit(f"❌ {e}")
+    if joint_info["n_merge_conflicts_excluded"]:
+        print(f"  ⚠️  {joint_info['n_merge_conflicts_excluded']} variants inconsistent between user and "
+              "reference — excluded from both")
     joint_fam = read_fam_ids(Path(str(joint) + ".fam"))
     n_joint_variants = sum(1 for _ in open(str(joint) + ".bim"))
     user_iids = [iid for _, iid in joint_fam if iid in user_id_map]
@@ -431,9 +332,8 @@ def main(argv=None):
             Path(str(out_prefix) + ext).unlink(missing_ok=True)
 
     if not args.keep_work:
-        for prefix in (joint, out_dir / "_reference_subset"):
-            for ext in (".bed", ".bim", ".fam", ".log", ".nosex", "-merge.missnp"):
-                Path(str(prefix) + ext).unlink(missing_ok=True)
+        remove_joint_dataset(joint, extra_prefixes=(out_dir / "_joint_ref",))
+        (out_dir / "_joint_needed.txt").unlink(missing_ok=True)
 
     if not results:
         sys.exit("❌ No PGS score could be calibrated")
@@ -465,7 +365,8 @@ def main(argv=None):
             "calibration_method": "Joint user+reference PLINK --score sum on one variant set; "
                                   "user sites absent from the VCF filled as homozygous reference; "
                                   "z-score vs the inferred super-population",
-            "chromosomes_used": chroms,
+            "chromosomes_used": chroms if chroms else "all genotyped sites (array policy)",
+            "site_policy": args.site_policy,
             "coverage_threshold": MIN_COVERAGE,
             "max_reliable_snps": MAX_RELIABLE_SNPS,
             "note": f"Scores with >{MAX_RELIABLE_SNPS:,} SNPs or <{MIN_COVERAGE:.0%} of their variants "

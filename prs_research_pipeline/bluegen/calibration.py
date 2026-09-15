@@ -132,9 +132,15 @@ class PopulationCalibrationV2:
         panel = pd.read_csv(population_panel, sep=r"\s+", dtype=str)
 
         # Build sample → population mapping
+        # super_pop is the 3rd column of 1000G's panel (sample pop super_pop);
+        # `row.columns` here used to raise AttributeError on every call - the
+        # tracked reference distributions were built by the standalone
+        # scripts/utils/build_reference_distributions.py, so this method had
+        # never actually run before Stage H started using it (RELEASE_PLAN 3.0.3).
+        pop_col = 2 if len(panel.columns) >= 3 else 1
         sample_to_pop = {}
         for _, row in panel.iterrows():
-            sample_to_pop[str(row.iloc[0])] = str(row.iloc[2]) if len(row.columns) >= 3 else str(row.iloc[1])
+            sample_to_pop[str(row.iloc[0])] = str(row.iloc[pop_col])
 
         # Map PRS samples to populations
         prs_df["population"] = prs_df["individual_id"].astype(str).map(sample_to_pop)
@@ -295,6 +301,21 @@ class PopulationCalibrationV2:
                 # can add an uncertainty caveat without discarding the signal.
                 percentile_pop = scipy_stats.norm.cdf(z_pop) * 100
 
+                # Few-SNP traits give discrete, strongly skewed reference
+                # distributions (e.g. a 3-SNP "hair colour" score is ~0 for
+                # 80% of EUR: mean 0.007, sd 0.019, skew 2.7). The normal
+                # model is invalid there and a carrier of all effect alleles
+                # gets z = +15. In that regime use the stored empirical
+                # quantiles for the percentile, clip the reported z to ±6 and
+                # flag low confidence (RELEASE_PLAN 3.0.3).
+                # iqr == 0 means more than half of the reference sits on one
+                # value (3-SNP "Skin pigmentation" in EUR: median 0.1, IQR 0,
+                # skew −0.2 — symmetric but discrete; a 0.26 scorer got z = +5.8).
+                if abs(pop_dist.skewness) > 2.0 or pop_dist.iqr <= 0 or pop_dist.std <= 1e-9:
+                    percentile_pop = self._empirical_percentile(prs_raw, pop_dist)
+                    z_pop = max(-6.0, min(6.0, z_pop))
+                    low_confidence = True
+
             # Global z-score (using all-population pooled stats)
             global_stats = self._compute_global_stats(trait, ancestry_probs)
             z_global = (prs_raw - global_stats["mu"]) / max(global_stats["sigma"], 0.001)
@@ -329,6 +350,24 @@ class PopulationCalibrationV2:
         return calibrated
 
     # ── Private: Distribution Management ──────────────────────────────────
+
+    @staticmethod
+    def _empirical_percentile(value: float, d: PopulationDistribution) -> float:
+        """Piecewise-linear percentile from the stored quantiles (p5, p25,
+        median, p75, p95); capped at 2.5 / 97.5 beyond the tails, where the
+        stored summary cannot resolve the rank any further."""
+        knots = [(5.0, d.percentile_5), (25.0, d.percentile_25), (50.0, d.median),
+                 (75.0, d.percentile_75), (95.0, d.percentile_95)]
+        if value <= knots[0][1]:
+            return 2.5
+        if value >= knots[-1][1]:
+            return 97.5
+        for (p_lo, v_lo), (p_hi, v_hi) in zip(knots, knots[1:]):
+            if v_lo <= value <= v_hi:
+                if v_hi == v_lo:
+                    return (p_lo + p_hi) / 2
+                return p_lo + (p_hi - p_lo) * (value - v_lo) / (v_hi - v_lo)
+        return 50.0
 
     def _get_distribution(
         self, trait: str, population: str

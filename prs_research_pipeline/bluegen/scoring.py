@@ -219,3 +219,133 @@ def compute_prs_plink_score(
         Path(str(out / "qc_dedup") + ext).unlink(missing_ok=True)
 
     return df
+
+
+def compute_prs_joint(
+    snp_db: str,
+    user_bfile: str,
+    ref_bfile: str,
+    pop_panel: str,
+    output_dir: str = "prs/",
+    plink: str = "plink",
+    site_policy: str = "wgs",
+    threads: int = 4,
+    memory: int = 8000,
+    min_variants_per_chrom: int = 100,
+) -> pd.DataFrame:
+    """
+    Stage F v3 (RELEASE_PLAN 3.0.3): score the user JOINTLY with the 1000 Genomes
+    reference on one identical panel-variant set.
+
+    compute_prs_plink_score() scored the user alone on the variants present in
+    their own PLINK file. A WGS-derived file only holds sites where the sample
+    carries an ALT allele, so a trait with 5 panel SNPs where the user is
+    hom-ref at 3 was averaged over the 2 ALT-carrying sites while the
+    reference distribution (Stage H) averaged all 5 → e.g. lactose intolerance
+    z = +5.4, percentile 100. Here the user is merged into the reference
+    (bluegen.joint) with hom-ref filling (site_policy="wgs") or restricted to
+    genotyped sites (site_policy="array"), and every trait is scored with one
+    PLINK --score for user and reference together (default per-allele average,
+    the same units the reference distributions and PC betas always used).
+
+    Writes:
+      prs/prs_raw.csv            user rows: individual_id, trait, prs_raw, n_snps,
+                                 n_snps_used, n_snps_panel, site_policy
+      prs/prs_reference_raw.csv  reference rows: individual_id, trait, prs_raw —
+                                 input for Stage H's per-run distributions and
+                                 Stage G's per-run PC betas
+    Returns the user DataFrame.
+    """
+    from .joint import (JointDatasetError, build_joint_dataset, remove_joint_dataset, read_bim_ids,
+                        user_covered_chromosomes)
+
+    db = pd.read_csv(snp_db, dtype=str)
+    trait_col = "trait_category"
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    work = out / "_joint_work"
+
+    panel_ids = set()
+    for _, row in db.iterrows():
+        chrom = str(row.get("chrom", "")).replace("chr", "").strip()
+        pos = str(row.get("pos", "")).strip()
+        if chrom and pos and chrom != "nan" and pos != "nan":
+            panel_ids.add(f"{chrom}:{pos}")
+
+    chroms = None
+    if site_policy == "wgs":
+        chroms = user_covered_chromosomes(str(user_bfile) + ".bim", min_variants_per_chrom)
+        if not chroms:
+            print("  PRS: user data covers no autosome with enough variants — scoring nothing")
+            pd.DataFrame().to_csv(out / "prs_raw.csv", index=False)
+            return pd.DataFrame()
+
+    try:
+        joint, user_map, info = build_joint_dataset(
+            plink, ref_bfile, user_bfile, panel_ids, work, threads=str(threads), memory=str(memory),
+            site_policy=site_policy, chroms=chroms, prefix="_panel_joint")
+    except JointDatasetError as e:
+        # e.g. an array with no probe on any panel SNP: no scores, but the
+        # rest of the pipeline (ClinVar, PharmGKB, ancestry) still runs.
+        print(f"  PRS: 0 scores — {e}")
+        pd.DataFrame().to_csv(out / "prs_raw.csv", index=False)
+        pd.DataFrame().to_csv(out / "prs_reference_raw.csv", index=False)
+        return pd.DataFrame()
+    joint_ids = read_bim_ids(str(joint) + ".bim")
+    user_genotyped = info["user_bim_ids"]
+    print(f"  PRS (joint, {site_policy}): {info['n_joint_variants']}/{len(panel_ids)} panel variants in the "
+          f"joint set, {info['n_samples']} samples ({len(user_map)} user)"
+          + (f", {info['n_merge_conflicts_excluded']} merge conflicts excluded"
+             if info["n_merge_conflicts_excluded"] else ""))
+
+    user_rows, ref_rows = [], []
+    for trait in db[trait_col].dropna().unique():
+        trait_snps = db[db[trait_col] == trait]
+        rows = build_score_rows(trait_snps, joint_ids)
+        if not rows:
+            continue
+        safe = "".join(c if c.isalnum() else "_" for c in str(trait).lower())
+        score_file = work / f"tmp_{safe}.score"
+        write_score_file(score_file, rows)
+        out_prefix = work / f"tmp_{safe}"
+        run_plink_score(plink, str(joint), score_file, out_prefix, threads=threads, memory=memory)
+        profile_path = Path(str(out_prefix) + ".profile")
+        if not profile_path.exists():
+            continue
+        prof = pd.read_csv(profile_path, sep=r"[\t ]+", dtype={"FID": str, "IID": str}, engine="python")
+        n_genotyped = sum(1 for vid, _, _ in rows if vid in user_genotyped)
+        for _, prow in prof.iterrows():
+            iid = str(prow["IID"])
+            score = float(prow.get("SCORE", prow.get("SCORESUM", 0)))
+            n_loci = int(prow.get("CNT", 0)) // 2
+            if iid in user_map:
+                user_rows.append({
+                    "individual_id": user_map[iid], "trait": trait, "prs_raw": score,
+                    "n_snps": n_loci,
+                    "n_snps_used": n_loci if site_policy == "wgs" else min(n_genotyped, n_loci),
+                    "n_snps_panel": int(len(trait_snps)),
+                    "site_policy": site_policy,
+                })
+            else:
+                ref_rows.append({"individual_id": iid, "trait": trait, "prs_raw": score})
+        profile_path.unlink(missing_ok=True)
+        score_file.unlink(missing_ok=True)
+        for ext in (".log", ".nosex", ".nopred"):
+            Path(str(out_prefix) + ext).unlink(missing_ok=True)
+
+    remove_joint_dataset(joint, extra_prefixes=(work / "_panel_joint_ref",))
+    try:
+        work.rmdir()
+    except OSError:
+        pass
+
+    df = pd.DataFrame(user_rows)
+    df.to_csv(out / "prs_raw.csv", index=False)
+    pd.DataFrame(ref_rows).to_csv(out / "prs_reference_raw.csv", index=False)
+    if user_rows:
+        print(f"  PRS: {df['trait'].nunique()} traits, {df['individual_id'].nunique()} sample(s), "
+              f"{int(df['n_snps_used'].sum())}/{int(df['n_snps'].sum())} SNPs genotyped "
+              f"({int(df['n_snps_panel'].sum())} in panel); reference rows: {len(ref_rows)}")
+    else:
+        print("  PRS: 0 scores — no panel variant matched the joint set")
+    return df

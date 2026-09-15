@@ -107,3 +107,47 @@ def test_risk_category_boundaries_still_respected():
     medium = _calibrate("Medium trait", prs_raw=0.0, dist=_dist("Medium trait", n_samples=200))
     assert 25 < medium.percentile_population < 75
     assert medium.risk_category == "medium"
+
+
+def test_skewed_reference_uses_empirical_percentile_and_clips_z():
+    """Few-SNP traits give discrete, strongly skewed reference distributions
+    (real case: 3-SNP 'Hair color (black)' in EUR — mean 0.007, sd 0.019,
+    skew 2.7 — where a carrier of every effect allele got z = +15.5). With
+    |skewness| > 2 the percentile must come from the stored quantiles, z is
+    clipped to ±6 and low_confidence is set (RELEASE_PLAN 3.0.3)."""
+    dist = PopulationDistribution(
+        trait="Hair color (black)", population="EUR", n_samples=503,
+        mean=0.007, std=0.0189, median=0.0, iqr=0.0,
+        percentile_5=0.0, percentile_25=0.0, percentile_75=0.0, percentile_95=0.05,
+        skewness=2.681, kurtosis=8.0, shapiro_p=0.0,
+    )
+    r = _calibrate("Hair color (black)", 0.30, dist)
+    assert r.z_score_population == 6.0
+    assert r.percentile_population == 97.5
+    assert r.low_confidence is True
+    assert r.risk_category == "high"
+    # inside the quantile range: linear between p75 (0.0 → 75) and p95 (0.05 → 95)
+    r2 = _calibrate("Hair color (black)", 0.025, dist)
+    assert abs(r2.percentile_population - 85.0) < 0.6
+    assert r2.low_confidence is True
+    # a symmetric reference is untouched by the rule
+    r3 = _calibrate("Normal trait", 1.0, _dist("Normal trait", 200, mean=0.0, std=1.0))
+    assert r3.low_confidence is False and abs(r3.z_score_population - 1.0) < 1e-6
+
+
+def test_discrete_symmetric_reference_is_also_low_confidence():
+    """Real case: 3-SNP 'Skin pigmentation' in EUR has median 0.1 and IQR 0
+    (most Europeans carry the same alleles) with skewness only −0.24; the
+    normal z for a 0.26 scorer was +5.8. IQR == 0 triggers the same handling."""
+    dist = PopulationDistribution(
+        trait="Skin pigmentation", population="EUR", n_samples=503,
+        mean=0.1039, std=0.0265, median=0.1, iqr=0.0,
+        percentile_5=0.05, percentile_25=0.1, percentile_75=0.1, percentile_95=0.1417,
+        skewness=-0.2388, kurtosis=2.26, shapiro_p=0.0,
+    )
+    r = _calibrate("Skin pigmentation", 0.2583, dist)
+    assert r.low_confidence is True
+    assert r.percentile_population == 97.5
+    assert abs(r.z_score_population - 5.83) < 0.05   # under the ±6 clip, reported as is
+    r2 = _calibrate("Skin pigmentation", 0.1, dist)  # the modal value
+    assert r2.low_confidence is True and 25.0 <= r2.percentile_population <= 75.0
