@@ -4,6 +4,10 @@ All notable changes to BlueGen.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [2.1.0] — 2026-09-15
+
 ### Added
 - `Dockerfile` + `.dockerignore`: multi-arch image (amd64 and arm64, native on Apple Silicon) with Python 3.12, PLINK 1.9 `1.90b7.7`, bcftools/tabix `1.24` (all from bioconda, same pins on both architectures), PLINK 2.0 alpha 7.6 on amd64 only (no ARM64 Linux build exists; the pipeline never calls it), and the WeasyPrint system libs. Reference data and outputs are bind-mounted, never baked in. CI builds the image and runs the unit tests inside it.
 - The project is now pip-installable: `pip install -e .` installs the dependencies and a `bluegen` command equivalent to `python prs.py`, usable from any directory. Version and dependencies stay dynamic (read from `utils.constants.PIPELINE_VERSION` and `requirements.txt`). A non-editable install is refused at startup because `prs.py` needs the clone next to it.

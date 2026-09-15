@@ -349,7 +349,7 @@ from each other.
 
 | Version | Key Features | Min Python |
 |---------|-------------|------------|
-| 2.0.2 | ClinVar, PharmGKB, MedGen, Deep Ancestry, PGS Catalog, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
+| 2.1.0 | Joint PGS calibration vs inferred ancestry, multi-arch Docker, `bluegen` CLI, per-stage logs, 9-page dashboard, ClinVar, PharmGKB, MedGen, Deep Ancestry, DeepVariant, PCA ensemble, bilingual reports | 3.10+ |
 
 ### Upgrading
 ```bash
