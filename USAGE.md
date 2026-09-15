@@ -147,6 +147,15 @@ python prs.py run --full --lang en
 
 ---
 
+### Multi-sample runs and the comparison report
+
+```bash
+python prs.py run --full --vcf mother.vcf.gz,father.vcf.gz,child.vcf.gz   # merged with bcftools
+python prs.py run --full --vcf cohort.vcf.gz --compare                    # cohort VCF, force the comparison
+```
+
+Every sample is scored (Stage F/H and the PGS calibration write one row per sample). The comprehensive report is single-sample; with more than one sample the pipeline also writes `reports/comparison_report_{en,es}.html` — curated PRS and PGS Catalog z-scores/percentiles side by side, ordered by how much the samples differ, plus the assigned ancestry. It compares scores only; it does not infer relatedness or inheritance.
+
 ### `python prs.py test` — Test Suite
 
 ```bash

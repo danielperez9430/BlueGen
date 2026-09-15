@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ui.title }}</title>
+    <style>{{ css|safe }}
+    .cmp table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+    .cmp th, .cmp td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap; }
+    .cmp th:first-child, .cmp td:first-child { text-align: left; }
+    .cmp thead th { position: sticky; top: 0; background: var(--color-surface, #fff); }
+    .cmp td.hi { color: #c0392b; font-weight: 600; }
+    .cmp td.lo { color: #1e8449; font-weight: 600; }
+    .cmp td.mid { color: #555; }
+    .cmp td.na { color: #aaa; }
+    .cmp .legend { font-size: 0.78rem; color: #666; margin: 0.5rem 0 1rem; }
+    </style>
+</head>
+<body>
+    <header class="report-header">
+        <h1>{{ ui.title }}</h1>
+        <div class="subtitle">{{ ui.subtitle }}</div>
+        <div class="meta">{{ n_samples }} {{ ui.samples }}: {{ samples|join(", ") }}<br>
+            Generated: {{ now }} | BlueGen v{{ pipeline_version }} | GRCh37/hg19</div>
+    </header>
+    <div class="container cmp">
+        <h2>{{ ui.ancestry }}</h2>
+        <div style="overflow-x:auto"><table>
+            <thead><tr><th></th>{% for s in samples %}<th>{{ s }}</th>{% endfor %}</tr></thead>
+            <tbody><tr><td>{{ ui.ancestry }}{% if anc_note %} <small>({{ anc_note }})</small>{% endif %}</td>
+                {% for c in anc_cells %}<td>{{ c }}</td>{% endfor %}</tr></tbody>
+        </table></div>
+
+        <h2>{{ ui.prs }}</h2>
+        <p class="legend">{{ ui.legend }}</p>
+        {% if prs_rows %}
+        <div style="overflow-x:auto"><table>
+            <thead><tr><th>{{ ui.trait }}</th>{% for s in samples %}<th>{{ s }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for r in prs_rows %}
+            <tr><td>{{ r.name }}</td>{% for c in r.cells %}<td class="{{ c.cls }}">{{ c.text }}</td>{% endfor %}</tr>
+            {% endfor %}</tbody>
+        </table></div>
+        {% else %}<p>{{ ui.no_prs }}</p>{% endif %}
+
+        <h2>{{ ui.pgs }}</h2>
+        {% if pgs_rows %}
+        <div style="overflow-x:auto"><table>
+            <thead><tr><th>{{ ui.score }}</th>{% for s in samples %}<th>{{ s }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for r in pgs_rows %}
+            <tr><td>{{ r.name }}</td>{% for c in r.cells %}<td class="{{ c.cls }}">{{ c.text }}</td>{% endfor %}</tr>
+            {% endfor %}</tbody>
+        </table></div>
+        {% else %}<p>{{ ui.no_pgs }}</p>{% endif %}
+
+        <p class="legend">{{ ui.note }}</p>
+    </div>
+    <footer class="report-footer">
+        <p>BlueGen v{{ pipeline_version }} — {{ ui.title }} — Research Use Only</p>
+    </footer>
+</body>
+</html>

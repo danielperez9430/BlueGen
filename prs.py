@@ -139,6 +139,7 @@ ROUTES = {
     "publication_lock": "publication/47_publication_lock.py",
     # ── Reports & Utilities ──
     "comprehensive_report": "publication/comprehensive_report.py",
+    "comparison_report": "publication/comparison_report.py",
     "test_suite": "utils/test_suite.py",
     "build_ref_dists": "utils/build_reference_distributions.py",
     "ancestry_normalize": "prs/33_ancestry_aware_normalization.py",
@@ -831,6 +832,14 @@ def cmd_run(args):
                        "--output-dir", "reports/")
         run_script("comprehensive_report", "--sample-id", sample, "--lang", lang,
                    "--output-dir", "reports/")
+        # Multi-sample runs (merged VCFs or a cohort VCF): samples side by side
+        # (RELEASE_PLAN 3.0.4). Also on demand with --compare.
+        n_user_samples = 0
+        if exists("qc/qc_filtered.fam"):
+            n_user_samples = sum(1 for _ in open(PLATFORM_DIR / "qc" / "qc_filtered.fam"))
+        if getattr(args, "compare", False) or n_user_samples > 1:
+            run_script("comparison_report", "--pipeline-dir", ".", "--lang", lang,
+                       "--output-dir", "reports/")
 
         # Audit bundle + readiness declaration, not report content - still
         # fully available via --research-mode (IMPROVEMENT_PLAN.md 2.3).
@@ -1186,6 +1195,9 @@ def main():
                              "(UCSC chain, hg19 REF check) before Stage A")
     parser.add_argument("--sample", help="Sample identifier")
     parser.add_argument("--lang", default="both", choices=["en", "es", "both"])
+    parser.add_argument("--compare", action="store_true",
+                        help="With --full: also write reports/comparison_report_{en,es}.html "
+                             "(samples side by side; automatic when the run has more than one sample)")
     parser.add_argument("--full", action="store_true",
                        help="Run pipeline + validation + benchmarks + reports + lock")
     parser.add_argument("--research-mode", action="store_true",

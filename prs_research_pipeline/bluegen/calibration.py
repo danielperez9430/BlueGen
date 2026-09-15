@@ -68,6 +68,7 @@ class CalibratedPRS:
     risk_category: str   # low/medium/high based on population percentiles
     low_confidence: bool = False   # True if the reference distribution is missing/too small (<10 samples)
     n_reference_samples: int = 0   # 1000G reference samples backing population_mu/population_sigma
+    individual_id: str = ""        # sample the row belongs to (multi-sample runs, RELEASE_PLAN 3.0.4)
 
 
 class PopulationCalibrationV2:
@@ -342,6 +343,7 @@ class PopulationCalibrationV2:
                 risk_category=risk,
                 low_confidence=low_confidence,
                 n_reference_samples=n_ref,
+                individual_id=str(row.get("individual_id", "") or ""),
             ))
 
         # Save
@@ -468,7 +470,9 @@ class PopulationCalibrationV2:
         rows = []
         for c in calibrated:
             rows.append({
-                "individual_id": sample_id,
+                # keep the real sample id of multi-sample runs; the CLI's
+                # --sample-id only labels rows that carried none
+                "individual_id": c.individual_id or sample_id,
                 "trait": c.trait,
                 "prs_raw": c.prs_raw,
                 "assigned_population": c.assigned_population,
