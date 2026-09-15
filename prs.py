@@ -688,7 +688,14 @@ def cmd_run(args):
     # benchmarking scripts and for the chr22-only fallback.
     h_ref = (["--ref-prs", "prs/prs_reference_raw.csv", "--population-panel", pop_ref,
               "--dist-output-dir", "prs/reference_distributions"] if have_ref_prs else ["--calibrate-only"])
-    if anc_json and exists("prs/pca_adjusted_scores.csv"):
+    # In joint mode Stage H calibrates the RAW score: its per-run reference
+    # distributions are built from raw reference PRS, and the population
+    # stratification is the ancestry adjustment. Feeding it the PCA-adjusted
+    # user score (betas fitted on 2,504 samples, R² up to 0.78 for pigmentation)
+    # against raw distributions gave z = +13.9 for hair colour on the real
+    # genome; the raw score gives +0.7. The PCA-adjusted value is still
+    # reported as pca_adjusted_score.
+    if anc_json and exists("prs/pca_adjusted_scores.csv") and not have_ref_prs:
         run_script("stage_h", "--sample-prs", "prs/pca_adjusted_scores.csv",
                    "--ancestry-json", anc_json, "--output-dir", "prs/", *h_ref)
         cal_done = True
