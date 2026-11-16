@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="assets/blugen-logo.png" alt="BlueGen Logo" width="300">
-</p>
-
-# 🧬 BlueGen
+<p align="center"><img src="docs/banner.png" alt="BlueGen" width="720"></p>
 
 **Personal Genomics Platform** — Powered by the PRSKit polygenic risk score engine.
 

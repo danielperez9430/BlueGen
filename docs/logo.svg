@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="BlueGen">
+  <style>.ink{stroke:#1c1b1b}@media (prefers-color-scheme:dark){.ink{stroke:#fcf9f8}}</style>
+  <path class="ink" d="M92 28 C92 96 164 88 164 128 S92 160 92 228 M164 28 C164 96 92 88 92 128 S164 160 164 228" fill="none" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M110 62 H146 M110 194 H146" fill="none" stroke="#ff3e3e" stroke-width="20" stroke-linecap="round"/>
+</svg>
